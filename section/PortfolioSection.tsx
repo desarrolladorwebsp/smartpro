@@ -105,14 +105,7 @@ export default function PortfolioSection() {
   return (
     <section
       id="proyectos"
-      className="
-        relative
-        overflow-hidden
-        bg-background
-        py-20
-        sm:py-24
-        lg:py-28
-      "
+      className="section-shell bg-background"
     >
       {/* ======================================================
           DECORACIÓN
@@ -150,20 +143,13 @@ export default function PortfolioSection() {
       />
 
       <div
-        className="
-          relative
-          mx-auto
-          max-w-[1500px]
-          px-5
-          sm:px-6
-          lg:px-8
-        "
+        className="section-container"
       >
         {/* ====================================================
             HEADER
         ==================================================== */}
 
-        <div className="mx-auto mb-10 max-w-4xl text-center">
+        <div className="section-header">
           <motion.p
             initial={{
               opacity: 0,
@@ -180,15 +166,7 @@ export default function PortfolioSection() {
             transition={{
               duration: 0.5,
             }}
-            className="
-              mb-4
-              text-xs
-              font-semibold
-              uppercase
-              tracking-[0.34em]
-              text-primary
-              sm:text-sm
-            "
+            className="eyebrow"
           >
             Portafolio
           </motion.p>
@@ -210,30 +188,12 @@ export default function PortfolioSection() {
               duration: 0.6,
               delay: 0.05,
             }}
-            className="
-              text-balance
-              text-4xl
-              font-bold
-              leading-[1.05]
-              tracking-[-0.04em]
-              text-foreground
-              sm:text-5xl
-              lg:text-[58px]
-            "
+            className="section-title"
           >
             Proyectos que hablan
             <span className="block">
               por{" "}
-              <span
-                className="
-                  bg-gradient-to-r
-                  from-primary
-                  via-violet-500
-                  to-magenta
-                  bg-clip-text
-                  text-transparent
-                "
-              >
+              <span className="text-gradient-brand">
                 nuestro trabajo.
               </span>
             </span>
@@ -255,17 +215,7 @@ export default function PortfolioSection() {
               duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           <motion.p
@@ -284,15 +234,7 @@ export default function PortfolioSection() {
               duration: 0.6,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              max-w-3xl
-              text-pretty
-              text-base
-              leading-7
-              text-muted
-              sm:text-lg
-            "
+            className="section-copy"
           >
             Diseñamos y desarrollamos soluciones digitales reales para empresas
             y marcas de distintas industrias.
@@ -335,34 +277,24 @@ export default function PortfolioSection() {
               <button
                 key={filter}
                 type="button"
+                aria-pressed={isActive}
                 onClick={() => setActiveFilter(filter)}
                 className={`
                   relative
-                  min-h-10
+                  min-h-11
                   overflow-hidden
                   rounded-full
                   border
                   px-5
                   text-sm
                   font-medium
-                  transition-all
+                  transition-colors
                   duration-300
 
                   ${
                     isActive
-                      ? `
-                        border-primary
-                        bg-primary
-                        text-white
-                        shadow-[0_8px_22px_rgba(109,40,217,0.20)]
-                      `
-                      : `
-                        border-primary/25
-                        bg-white
-                        text-foreground/70
-                        hover:border-primary/50
-                        hover:text-primary
-                      `
+                      ? "border-primary bg-primary text-white"
+                      : "border-primary/25 bg-surface text-muted hover:border-primary/50 hover:text-primary"
                   }
                 `}
               >
@@ -441,19 +373,7 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
         duration: 0.4,
         ease: "easeOut",
       }}
-      className="
-        group
-        overflow-hidden
-        rounded-[22px]
-        border
-        border-border
-        bg-white
-        shadow-[0_12px_35px_rgba(16,16,36,0.08)]
-        transition-all
-        duration-500
-        hover:-translate-y-1
-        hover:shadow-[0_20px_55px_rgba(109,40,217,0.14)]
-      "
+        className="card-frame transition-shadow duration-500 hover:-translate-y-px hover:shadow-[0_14px_40px_rgb(109_40_217_/_0.1)]"
     >
       {/* ======================================================
           BROWSER CHROME
@@ -553,17 +473,16 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
               rel={isExternal ? "noopener noreferrer" : undefined}
               className="
                 flex
-                h-12
-                w-12
+                h-11
+                w-11
                 items-center
                 justify-center
                 rounded-full
-                bg-white
+                bg-surface
                 text-primary
-                shadow-lg
+                shadow-[0_8px_20px_rgb(16_16_36_/_0.12)]
                 transition-transform
                 duration-300
-                hover:scale-110
               "
               aria-label={`Visitar ${project.title}`}
             >
@@ -611,8 +530,8 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
               aria-label={`Abrir ${project.title}`}
               className="
                 flex
-                h-9
-                w-9
+                h-11
+                w-11
                 shrink-0
                 items-center
                 justify-center
@@ -620,7 +539,7 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
                 border
                 border-primary/15
                 text-primary
-                transition-all
+                transition-colors
                 duration-300
                 hover:border-primary
                 hover:bg-primary
@@ -652,7 +571,7 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
                 py-1.5
                 text-xs
                 font-medium
-                text-foreground/65
+                text-muted
               "
             >
               {tag}

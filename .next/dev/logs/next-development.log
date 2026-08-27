@@ -220,3 +220,72 @@
 {"timestamp":"04:54:13.105","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
 {"timestamp":"04:54:13.107","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
 {"timestamp":"04:54:13.127","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"05:10:34.756","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"05:10:34.791","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"05:10:34.794","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"05:10:35.112","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"05:10:35.124","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"05:10:35.145","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"05:10:37.791","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/sistema-comercial.png\" \"received\" null"}
+{"timestamp":"05:10:37.797","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/smartpro.png\" \"received\" null"}
+{"timestamp":"05:10:38.220","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/isapres-premium.png\" \"received\" null"}
+{"timestamp":"05:10:38.221","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/tu-promesa.png\" \"received\" null"}
+{"timestamp":"05:10:38.224","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/realstock.png\" \"received\" null"}
+{"timestamp":"05:19:44.798","source":"Server","level":"LOG","message":"✓ Compiled in 167ms"}
+{"timestamp":"05:19:49.835","source":"Server","level":"LOG","message":"✓ Compiled in 60ms"}
+{"timestamp":"05:19:52.069","source":"Server","level":"LOG","message":"✓ Compiled in 222ms"}
+{"timestamp":"05:20:22.446","source":"Server","level":"LOG","message":"✓ Compiled in 47ms"}
+{"timestamp":"05:20:22.886","source":"Server","level":"LOG","message":"✓ Compiled in 33ms"}
+{"timestamp":"05:20:25.301","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:20:30.218","source":"Server","level":"LOG","message":"✓ Compiled in 40ms"}
+{"timestamp":"05:20:30.921","source":"Server","level":"LOG","message":"✓ Compiled in 27ms"}
+{"timestamp":"05:20:32.669","source":"Server","level":"LOG","message":"✓ Compiled in 17ms"}
+{"timestamp":"05:20:33.058","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:20:33.410","source":"Server","level":"LOG","message":"✓ Compiled in 20ms"}
+{"timestamp":"05:20:38.841","source":"Server","level":"LOG","message":"✓ Compiled in 65ms"}
+{"timestamp":"05:20:39.197","source":"Server","level":"LOG","message":"✓ Compiled in 20ms"}
+{"timestamp":"05:20:40.495","source":"Server","level":"LOG","message":"✓ Compiled in 38ms"}
+{"timestamp":"05:20:43.145","source":"Server","level":"LOG","message":"✓ Compiled in 70ms"}
+{"timestamp":"05:20:46.398","source":"Server","level":"LOG","message":"✓ Compiled in 33ms"}
+{"timestamp":"05:20:47.356","source":"Server","level":"LOG","message":"✓ Compiled in 17ms"}
+{"timestamp":"05:20:48.432","source":"Server","level":"LOG","message":"✓ Compiled in 40ms"}
+{"timestamp":"05:20:51.613","source":"Server","level":"LOG","message":"✓ Compiled in 34ms"}
+{"timestamp":"05:20:52.015","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:20:53.739","source":"Server","level":"LOG","message":"✓ Compiled in 22ms"}
+{"timestamp":"05:20:54.286","source":"Server","level":"LOG","message":"✓ Compiled in 24ms"}
+{"timestamp":"05:20:56.962","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:20:57.329","source":"Server","level":"LOG","message":"✓ Compiled in 20ms"}
+{"timestamp":"05:21:00.119","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:21:00.996","source":"Server","level":"LOG","message":"✓ Compiled in 33ms"}
+{"timestamp":"05:21:11.508","source":"Server","level":"LOG","message":"✓ Compiled in 22ms"}
+{"timestamp":"05:21:12.584","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:21:13.468","source":"Server","level":"LOG","message":"✓ Compiled in 30ms"}
+{"timestamp":"05:21:16.710","source":"Server","level":"LOG","message":"✓ Compiled in 24ms"}
+{"timestamp":"05:21:17.301","source":"Server","level":"LOG","message":"✓ Compiled in 79ms"}
+{"timestamp":"05:21:18.202","source":"Server","level":"LOG","message":"✓ Compiled in 29ms"}
+{"timestamp":"05:21:19.198","source":"Server","level":"LOG","message":"✓ Compiled in 19ms"}
+{"timestamp":"05:21:20.047","source":"Server","level":"LOG","message":"✓ Compiled in 18ms"}
+{"timestamp":"05:21:20.398","source":"Server","level":"LOG","message":"✓ Compiled in 22ms"}
+{"timestamp":"05:21:24.930","source":"Server","level":"LOG","message":"✓ Compiled in 38ms"}
+{"timestamp":"05:21:25.619","source":"Server","level":"LOG","message":"✓ Compiled in 33ms"}
+{"timestamp":"05:21:26.998","source":"Server","level":"LOG","message":"✓ Compiled in 44ms"}
+{"timestamp":"05:21:28.354","source":"Server","level":"LOG","message":"✓ Compiled in 21ms"}
+{"timestamp":"05:21:28.884","source":"Server","level":"LOG","message":"✓ Compiled in 36ms"}
+{"timestamp":"05:21:30.819","source":"Server","level":"LOG","message":"✓ Compiled in 79ms"}
+{"timestamp":"05:21:31.214","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:21:40.621","source":"Server","level":"LOG","message":"✓ Compiled in 36ms"}
+{"timestamp":"05:21:44.814","source":"Server","level":"LOG","message":"✓ Compiled in 31ms"}
+{"timestamp":"05:21:45.439","source":"Server","level":"LOG","message":"✓ Compiled in 18ms"}
+{"timestamp":"05:21:46.576","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:21:48.098","source":"Server","level":"LOG","message":"✓ Compiled in 29ms"}
+{"timestamp":"05:21:48.800","source":"Server","level":"LOG","message":"✓ Compiled in 19ms"}
+{"timestamp":"05:21:49.917","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:21:50.759","source":"Server","level":"LOG","message":"✓ Compiled in 26ms"}
+{"timestamp":"05:21:53.701","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:21:54.294","source":"Server","level":"LOG","message":"✓ Compiled in 16ms"}
+{"timestamp":"05:21:56.350","source":"Server","level":"LOG","message":"✓ Compiled in 25ms"}
+{"timestamp":"05:21:58.780","source":"Server","level":"LOG","message":"✓ Compiled in 70ms"}
+{"timestamp":"05:22:00.261","source":"Server","level":"LOG","message":"✓ Compiled in 35ms"}
+{"timestamp":"05:22:01.026","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"05:22:01.480","source":"Server","level":"LOG","message":"✓ Compiled in 50ms"}
+{"timestamp":"05:22:05.922","source":"Server","level":"LOG","message":"✓ Compiled in 22ms"}

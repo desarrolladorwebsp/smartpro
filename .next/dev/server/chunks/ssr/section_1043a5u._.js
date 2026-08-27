@@ -1687,7 +1687,9 @@ function HeroSection() {
         setCurrentSlide(index);
     };
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
-        if (isPaused) return;
+        if (isPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return;
+        }
         const timer = window.setInterval(()=>{
             nextSlide();
         }, AUTOPLAY_INTERVAL);
@@ -1697,10 +1699,11 @@ function HeroSection() {
         nextSlide
     ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+        id: "inicio",
         className: "relative overflow-hidden bg-background",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "\n          relative h-[330px] w-full overflow-hidden\n          sm:h-[400px]\n          md:h-[460px]\n          lg:h-[500px]\n          xl:h-[560px]\n        ",
+                className: "\n          relative h-[260px] w-full overflow-hidden\n          sm:h-[340px]\n          md:h-[400px]\n          lg:h-[460px]\n          xl:h-[500px]\n        ",
                 onMouseEnter: ()=>setIsPaused(true),
                 onMouseLeave: ()=>setIsPaused(false),
                 children: [
@@ -1742,25 +1745,25 @@ function HeroSection() {
                                     sizes: "100vw"
                                 }, void 0, false, {
                                     fileName: "[project]/section/HeroSection.tsx",
-                                    lineNumber: 108,
+                                    lineNumber: 113,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "\n                absolute inset-0\n                bg-gradient-to-t\n                from-black/15\n                via-transparent\n                to-black/[0.03]\n              "
+                                    className: "\n                absolute inset-0\n                bg-gradient-to-t\n                from-ink/20\n                via-transparent\n                to-ink/[0.04]\n              "
                                 }, void 0, false, {
                                     fileName: "[project]/section/HeroSection.tsx",
-                                    lineNumber: 118,
+                                    lineNumber: 123,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, currentSlide, true, {
                             fileName: "[project]/section/HeroSection.tsx",
-                            lineNumber: 81,
+                            lineNumber: 86,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 80,
+                        lineNumber: 85,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].button, {
@@ -1770,19 +1773,19 @@ function HeroSection() {
                         whileTap: {
                             scale: 0.92
                         },
-                        className: "\n            group absolute left-4 top-1/2 z-20\n            flex h-11 w-11 -translate-y-1/2\n            items-center justify-center\n            rounded-full\n            border border-white/40\n            bg-white/90\n            text-foreground\n            shadow-lg\n            backdrop-blur-md\n            transition-all duration-300\n            hover:scale-105\n            hover:bg-white\n            hover:text-primary\n            sm:left-6\n            lg:left-8\n            lg:h-12\n            lg:w-12\n          ",
+                        className: "\n            group absolute left-4 top-1/2 z-20\n            flex h-11 w-11 -translate-y-1/2\n            items-center justify-center\n            rounded-full\n            border border-white/40\n            bg-surface/90\n            text-foreground\n            shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]\n            backdrop-blur-md\n            transition-colors duration-300\n            hover:bg-surface\n            hover:text-primary\n            sm:left-6\n            lg:left-8\n          ",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$left$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronLeft$3e$__["ChevronLeft"], {
                             size: 22,
                             strokeWidth: 1.8,
                             className: "\n              transition-transform duration-300\n              group-hover:-translate-x-0.5\n            "
                         }, void 0, false, {
                             fileName: "[project]/section/HeroSection.tsx",
-                            lineNumber: 159,
+                            lineNumber: 161,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 134,
+                        lineNumber: 139,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].button, {
@@ -1792,29 +1795,29 @@ function HeroSection() {
                         whileTap: {
                             scale: 0.92
                         },
-                        className: "\n            group absolute right-4 top-1/2 z-20\n            flex h-11 w-11 -translate-y-1/2\n            items-center justify-center\n            rounded-full\n            border border-white/40\n            bg-white/90\n            text-foreground\n            shadow-lg\n            backdrop-blur-md\n            transition-all duration-300\n            hover:scale-105\n            hover:bg-white\n            hover:text-primary\n            sm:right-6\n            lg:right-8\n            lg:h-12\n            lg:w-12\n          ",
+                        className: "\n            group absolute right-4 top-1/2 z-20\n            flex h-11 w-11 -translate-y-1/2\n            items-center justify-center\n            rounded-full\n            border border-white/40\n            bg-surface/90\n            text-foreground\n            shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]\n            backdrop-blur-md\n            transition-colors duration-300\n            hover:bg-surface\n            hover:text-primary\n            sm:right-6\n            lg:right-8\n          ",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
                             size: 22,
                             strokeWidth: 1.8,
                             className: "\n              transition-transform duration-300\n              group-hover:translate-x-0.5\n            "
                         }, void 0, false, {
                             fileName: "[project]/section/HeroSection.tsx",
-                            lineNumber: 198,
+                            lineNumber: 197,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 173,
+                        lineNumber: 175,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "\n            absolute bottom-5 left-1/2 z-20\n            flex -translate-x-1/2 items-center\n            gap-2 rounded-full\n            bg-black/20 px-3 py-2\n            backdrop-blur-md\n          ",
+                        className: "\n            absolute bottom-5 left-1/2 z-20\n            flex -translate-x-1/2 items-center\n            gap-2 rounded-full\n            bg-ink/25 px-3 py-2\n            backdrop-blur-md\n          ",
                         children: HERO_IMAGES.map((image, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                 type: "button",
                                 "aria-label": `Ir a imagen ${index + 1}`,
                                 "aria-current": currentSlide === index ? "true" : undefined,
                                 onClick: ()=>goToSlide(index),
-                                className: "\n                flex h-5 items-center\n                justify-center\n              ",
+                                className: "flex min-h-11 min-w-11 items-center justify-center",
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                     className: `
                   block h-1.5 rounded-full
@@ -1823,23 +1826,23 @@ function HeroSection() {
                 `
                                 }, void 0, false, {
                                     fileName: "[project]/section/HeroSection.tsx",
-                                    lineNumber: 233,
+                                    lineNumber: 229,
                                     columnNumber: 15
                                 }, this)
                             }, image.src, false, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 222,
+                                lineNumber: 221,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 212,
+                        lineNumber: 211,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/HeroSection.tsx",
-                lineNumber: 69,
+                lineNumber: 74,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1850,7 +1853,7 @@ function HeroSection() {
                         className: "\n            pointer-events-none\n            absolute left-1/2 top-8\n            h-56 w-[500px]\n            -translate-x-1/2\n            rounded-full\n            bg-primary/10\n            blur-[90px]\n          "
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 256,
+                        lineNumber: 252,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1858,7 +1861,7 @@ function HeroSection() {
                         className: "\n            pointer-events-none\n            absolute bottom-0 left-0\n            h-56 w-56 opacity-20\n            [background-image:radial-gradient(circle,var(--color-primary)_1px,transparent_1px)]\n            [background-size:10px_10px]\n            [mask-image:linear-gradient(to_right,black,transparent)]\n          "
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 271,
+                        lineNumber: 267,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1866,11 +1869,11 @@ function HeroSection() {
                         className: "\n            pointer-events-none\n            absolute bottom-0 right-0\n            h-56 w-56 opacity-20\n            [background-image:radial-gradient(circle,var(--color-magenta)_1px,transparent_1px)]\n            [background-size:10px_10px]\n            [mask-image:linear-gradient(to_left,black,transparent)]\n          "
                     }, void 0, false, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 285,
+                        lineNumber: 281,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "\n            relative mx-auto\n            flex max-w-5xl\n            flex-col items-center\n            px-6\n            py-12\n            text-center\n            sm:py-14\n            lg:py-16\n          ",
+                        className: "\n            relative mx-auto\n            flex max-w-4xl\n            flex-col items-center\n            px-5\n            py-10\n            text-center\n            sm:px-6\n            sm:py-12\n            lg:py-14\n          ",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].p, {
                                 initial: {
@@ -1885,11 +1888,11 @@ function HeroSection() {
                                     duration: 0.5,
                                     ease: "easeOut"
                                 },
-                                className: "\n              mb-4\n              text-xs font-semibold\n              uppercase\n              tracking-[0.24em]\n              text-magenta\n              sm:text-sm\n            ",
+                                className: "eyebrow text-magenta",
                                 children: "Agencia de marketing digital"
                             }, void 0, false, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 311,
+                                lineNumber: 308,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].h1, {
@@ -1906,21 +1909,21 @@ function HeroSection() {
                                     delay: 0.08,
                                     ease: "easeOut"
                                 },
-                                className: "\n              max-w-4xl\n              text-balance\n              text-[2.6rem]\n              font-bold\n              leading-[0.98]\n              tracking-[-0.045em]\n              text-foreground\n              sm:text-5xl\n              md:text-6xl\n              lg:text-[64px]\n            ",
+                                className: "\n              max-w-4xl\n              text-balance\n              text-[2rem]\n              font-bold\n              leading-[1.08]\n              tracking-[-0.045em]\n              text-foreground\n              sm:text-5xl\n              lg:text-6xl\n            ",
                                 children: [
                                     "Llevamos tu marca",
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "\n                mt-1 block\n                bg-gradient-to-r\n                from-primary\n                via-violet-500\n                to-magenta\n                bg-clip-text\n                text-transparent\n              ",
+                                        className: "mt-1 block text-gradient-brand",
                                         children: "al siguiente nivel"
                                     }, void 0, false, {
                                         fileName: "[project]/section/HeroSection.tsx",
-                                        lineNumber: 354,
+                                        lineNumber: 343,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 332,
+                                lineNumber: 322,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -1936,10 +1939,10 @@ function HeroSection() {
                                     duration: 0.5,
                                     delay: 0.2
                                 },
-                                className: "\n              my-6\n              h-[3px]\n              w-14\n              origin-center\n              rounded-full\n              bg-gradient-to-r\n              from-primary\n              to-magenta\n            "
+                                className: "accent-line"
                             }, void 0, false, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 371,
+                                lineNumber: 352,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].p, {
@@ -1955,11 +1958,11 @@ function HeroSection() {
                                     duration: 0.6,
                                     delay: 0.18
                                 },
-                                className: "\n              max-w-2xl\n              text-pretty\n              text-base\n              leading-7\n              text-muted\n              sm:text-lg\n            ",
+                                className: "section-copy max-w-2xl",
                                 children: "Estrategia, creatividad y tecnología para generar resultados reales y hacer crecer tu negocio."
                             }, void 0, false, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 398,
+                                lineNumber: 370,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -1978,7 +1981,7 @@ function HeroSection() {
                                 className: "mt-8",
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
                                     href: "#contacto",
-                                    className: "\n                group\n                inline-flex min-h-12\n                items-center justify-center\n                gap-3\n                rounded-full\n                bg-gradient-to-r\n                from-primary\n                to-magenta\n                px-7 py-3.5\n                text-sm\n                font-semibold\n                text-white\n                shadow-[0_12px_35px_rgba(109,40,217,0.22)]\n                transition-all\n                duration-300\n                hover:-translate-y-0.5\n                hover:shadow-[0_16px_40px_rgba(109,40,217,0.3)]\n                sm:text-base\n              ",
+                                    className: "btn-gradient group shadow-[0_10px_28px_rgb(109_40_217_/_0.2)]",
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$calendar$2d$days$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__CalendarDays$3e$__["CalendarDays"], {
                                             size: 18,
@@ -1986,44 +1989,44 @@ function HeroSection() {
                                             className: "\n                  transition-transform\n                  duration-300\n                  group-hover:scale-110\n                "
                                         }, void 0, false, {
                                             fileName: "[project]/section/HeroSection.tsx",
-                                            lineNumber: 452,
+                                            lineNumber: 395,
                                             columnNumber: 15
                                         }, this),
                                         "Agendar reunión"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/section/HeroSection.tsx",
-                                    lineNumber: 429,
+                                    lineNumber: 394,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/section/HeroSection.tsx",
-                                lineNumber: 420,
+                                lineNumber: 385,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/section/HeroSection.tsx",
-                        lineNumber: 297,
+                        lineNumber: 293,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/HeroSection.tsx",
-                lineNumber: 253,
+                lineNumber: 249,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "\n          h-px w-full\n          bg-gradient-to-r\n          from-transparent\n          via-primary/40\n          to-magenta/40\n        "
             }, void 0, false, {
                 fileName: "[project]/section/HeroSection.tsx",
-                lineNumber: 469,
+                lineNumber: 412,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/section/HeroSection.tsx",
-        lineNumber: 64,
+        lineNumber: 69,
         columnNumber: 5
     }, this);
 }
@@ -2619,6 +2622,20 @@ function Navbar() {
     }, [
         mobileMenuOpen
     ]);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        if (!mobileMenuOpen) return;
+        const handleKeyDown = (event)=>{
+            if (event.key === "Escape") {
+                setMobileMenuOpen(false);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return ()=>{
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [
+        mobileMenuOpen
+    ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].header, {
@@ -2637,23 +2654,16 @@ function Navbar() {
                 className: `
           fixed inset-x-0 top-0 z-50
           transition-all duration-500
-          ${scrolled ? `
-                bg-white/92
-                shadow-[0_10px_40px_rgba(16,16,36,0.08)]
-                backdrop-blur-xl
-              ` : `
-                bg-white/80
-                backdrop-blur-lg
-              `}
+          ${scrolled ? "bg-surface/92 shadow-[0_8px_28px_rgb(16_16_36_/_0.06)] backdrop-blur-xl" : "bg-surface/80 backdrop-blur-lg"}
         `,
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8",
+                        className: "section-container py-0",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: `
               flex items-center justify-between
-              transition-all duration-500
-              ${scrolled ? "h-[72px]" : "h-[84px]"}
+              transition-[height] duration-500
+              ${scrolled ? "h-16" : "h-[72px]"}
             `,
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -2663,8 +2673,7 @@ function Navbar() {
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
                                             whileHover: {
-                                                y: -2,
-                                                scale: 1.03
+                                                y: -1
                                             },
                                             whileTap: {
                                                 scale: 0.98
@@ -2674,14 +2683,14 @@ function Navbar() {
                                                 stiffness: 350,
                                                 damping: 22
                                             },
-                                            className: "\n                  relative\n                  flex\n                  h-[52px]\n                  w-[58px]\n                  items-center\n                  justify-center\n                  overflow-hidden\n                  rounded-2xl\n                  border\n                  border-primary/15\n                  bg-white\n                  shadow-[0_8px_30px_rgba(109,40,217,0.12)]\n                  transition-shadow\n                  duration-300\n\n                  group-hover:\n                  shadow-[0_12px_35px_rgba(109,40,217,0.20)]\n\n                  sm:h-[56px]\n                  sm:w-[62px]\n                ",
+                                            className: "\n                  relative flex h-12 w-[54px] items-center justify-center\n                  overflow-hidden rounded-2xl border border-primary/15 bg-surface\n                  shadow-[0_8px_24px_rgb(109_40_217_/_0.1)]\n                  transition-shadow duration-300\n                  group-hover:shadow-[0_10px_28px_rgb(109_40_217_/_0.16)]\n                  sm:h-14 sm:w-[58px]\n                ",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     "aria-hidden": "true",
                                                     className: "\n                    pointer-events-none\n                    absolute\n                    -bottom-7\n                    -right-7\n                    h-20\n                    w-20\n                    rounded-full\n                    bg-primary/20\n                    blur-2xl\n                  "
                                                 }, void 0, false, {
                                                     fileName: "[project]/section/Navbar.tsx",
-                                                    lineNumber: 178,
+                                                    lineNumber: 172,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -2693,13 +2702,13 @@ function Navbar() {
                                                     className: "\n                    relative\n                    z-10\n                    h-auto\n                    w-[38px]\n                    object-contain\n                    transition-transform\n                    duration-500\n                    group-hover:scale-105\n                    sm:w-[42px]\n                  "
                                                 }, void 0, false, {
                                                     fileName: "[project]/section/Navbar.tsx",
-                                                    lineNumber: 193,
+                                                    lineNumber: 187,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 140,
+                                            lineNumber: 149,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2713,18 +2722,18 @@ function Navbar() {
                                                 className: "\n                    h-auto\n                    w-[135px]\n                    object-contain\n                    transition-all\n                    duration-300\n                    lg:w-[150px]\n                  "
                                             }, void 0, false, {
                                                 fileName: "[project]/section/Navbar.tsx",
-                                                lineNumber: 216,
+                                                lineNumber: 210,
                                                 columnNumber: 17
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 215,
+                                            lineNumber: 209,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 133,
+                                    lineNumber: 142,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
@@ -2735,12 +2744,12 @@ function Navbar() {
                                             label: item.label
                                         }, item.label, false, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 248,
+                                            lineNumber: 242,
                                             columnNumber: 17
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 238,
+                                    lineNumber: 232,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2753,14 +2762,14 @@ function Navbar() {
                                         whileTap: {
                                             scale: 0.97
                                         },
-                                        className: "\n                  group\n                  relative\n                  inline-flex\n                  min-h-11\n                  items-center\n                  justify-center\n                  overflow-hidden\n                  rounded-full\n                  bg-primary\n                  px-6\n                  text-sm\n                  font-semibold\n                  text-white\n                  shadow-[0_10px_28px_rgba(109,40,217,0.20)]\n                  transition-all\n                  duration-300\n\n                  hover:\n                  bg-primary-hover\n                  hover:\n                  shadow-[0_14px_35px_rgba(109,40,217,0.28)]\n                ",
+                                        className: "\n                  group\n                  relative\n                  inline-flex\n                  min-h-11\n                  items-center\n                  justify-center\n                  overflow-hidden\n                  rounded-full\n                  bg-primary\n                  px-6\n                  text-sm\n                  font-semibold\n                  text-white\n                  shadow-[0_8px_22px_rgb(109_40_217_/_0.18)]\n                  transition-colors duration-300\n                  hover:bg-primary-hover\n                ",
                                         children: [
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                 "aria-hidden": "true",
                                                 className: "\n                    absolute\n                    -left-10\n                    top-0\n                    h-full\n                    w-8\n                    rotate-12\n                    bg-white/20\n                    blur-md\n                    transition-all\n                    duration-700\n                    group-hover:left-[120%]\n                  "
                                             }, void 0, false, {
                                                 fileName: "[project]/section/Navbar.tsx",
-                                                lineNumber: 291,
+                                                lineNumber: 280,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2768,18 +2777,18 @@ function Navbar() {
                                                 children: "Hablemos"
                                             }, void 0, false, {
                                                 fileName: "[project]/section/Navbar.tsx",
-                                                lineNumber: 308,
+                                                lineNumber: 297,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/section/Navbar.tsx",
-                                        lineNumber: 257,
+                                        lineNumber: 251,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 256,
+                                    lineNumber: 250,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2787,7 +2796,7 @@ function Navbar() {
                                     "aria-label": mobileMenuOpen ? "Cerrar menú" : "Abrir menú",
                                     "aria-expanded": mobileMenuOpen,
                                     onClick: ()=>setMobileMenuOpen((current)=>!current),
-                                    className: "\n                flex\n                h-11\n                w-11\n                items-center\n                justify-center\n                rounded-xl\n                border\n                border-border\n                bg-white\n                text-foreground\n                shadow-sm\n                transition-all\n                duration-300\n\n                hover:\n                border-primary/30\n\n                hover:\n                text-primary\n\n                lg:hidden\n              ",
+                                    className: "icon-button lg:hidden",
                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["AnimatePresence"], {
                                         mode: "wait",
                                         initial: false,
@@ -2814,12 +2823,12 @@ function Navbar() {
                                                 size: 21
                                             }, void 0, false, {
                                                 fileName: "[project]/section/Navbar.tsx",
-                                                lineNumber: 368,
+                                                lineNumber: 335,
                                                 columnNumber: 21
                                             }, this)
                                         }, "close", false, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 347,
+                                            lineNumber: 314,
                                             columnNumber: 19
                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
                                             initial: {
@@ -2844,33 +2853,33 @@ function Navbar() {
                                                 size: 22
                                             }, void 0, false, {
                                                 fileName: "[project]/section/Navbar.tsx",
-                                                lineNumber: 392,
+                                                lineNumber: 359,
                                                 columnNumber: 21
                                             }, this)
                                         }, "menu", false, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 371,
+                                            lineNumber: 338,
                                             columnNumber: 19
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/section/Navbar.tsx",
-                                        lineNumber: 345,
+                                        lineNumber: 312,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 316,
+                                    lineNumber: 305,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/section/Navbar.tsx",
-                            lineNumber: 122,
+                            lineNumber: 131,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/Navbar.tsx",
-                        lineNumber: 121,
+                        lineNumber: 130,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -2883,13 +2892,13 @@ function Navbar() {
                         className: "\n            h-px\n            w-full\n            bg-gradient-to-r\n            from-transparent\n            via-primary/20\n            to-transparent\n          "
                     }, void 0, false, {
                         fileName: "[project]/section/Navbar.tsx",
-                        lineNumber: 404,
+                        lineNumber: 371,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/Navbar.tsx",
-                lineNumber: 91,
+                lineNumber: 107,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["AnimatePresence"], {
@@ -2914,7 +2923,7 @@ function Navbar() {
                             className: "\n                fixed\n                inset-0\n                z-40\n                cursor-default\n                bg-navy/30\n                backdrop-blur-sm\n                lg:hidden\n              "
                         }, void 0, false, {
                             fileName: "[project]/section/Navbar.tsx",
-                            lineNumber: 431,
+                            lineNumber: 398,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -2937,7 +2946,7 @@ function Navbar() {
                                 duration: 0.3,
                                 ease: "easeOut"
                             },
-                            className: "\n                fixed\n                left-4\n                right-4\n                top-[92px]\n                z-50\n                overflow-hidden\n                rounded-[24px]\n                border\n                border-primary/10\n                bg-white/95\n                p-3\n                shadow-[0_20px_70px_rgba(16,16,36,0.16)]\n                backdrop-blur-xl\n                lg:hidden\n              ",
+                            className: "\n                fixed\n                left-4\n                right-4\n                top-[4.75rem]\n                z-50\n                overflow-hidden\n                rounded-[1.25rem]\n                border\n                border-primary/10\n                bg-surface/96\n                p-3\n                shadow-[0_16px_48px_rgb(16_16_36_/_0.12)]\n                backdrop-blur-xl\n                lg:hidden\n              ",
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
                                     "aria-label": "Navegación móvil",
@@ -2963,7 +2972,7 @@ function Navbar() {
                                                     children: item.label
                                                 }, void 0, false, {
                                                     fileName: "[project]/section/Navbar.tsx",
-                                                    lineNumber: 538,
+                                                    lineNumber: 505,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2971,18 +2980,18 @@ function Navbar() {
                                                     className: "\n                        h-1.5\n                        w-1.5\n                        rounded-full\n                        bg-primary\n                        opacity-0\n                        transition-all\n                        duration-300\n\n                        group-hover:\n                        opacity-100\n                      "
                                                 }, void 0, false, {
                                                     fileName: "[project]/section/Navbar.tsx",
-                                                    lineNumber: 540,
+                                                    lineNumber: 507,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, item.label, true, {
                                             fileName: "[project]/section/Navbar.tsx",
-                                            lineNumber: 501,
+                                            lineNumber: 468,
                                             columnNumber: 19
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 499,
+                                    lineNumber: 466,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2997,35 +3006,35 @@ function Navbar() {
                                         children: "Cuéntanos tu proyecto"
                                     }, void 0, false, {
                                         fileName: "[project]/section/Navbar.tsx",
-                                        lineNumber: 569,
+                                        lineNumber: 536,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/section/Navbar.tsx",
-                                    lineNumber: 561,
+                                    lineNumber: 528,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/section/Navbar.tsx",
-                            lineNumber: 460,
+                            lineNumber: 427,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/section/Navbar.tsx",
-                    lineNumber: 428,
+                    lineNumber: 395,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/section/Navbar.tsx",
-                lineNumber: 426,
+                lineNumber: 393,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/section/Navbar.tsx",
-        lineNumber: 86,
+        lineNumber: 102,
         columnNumber: 5
     }, this);
 }
@@ -3034,7 +3043,7 @@ function Navbar() {
 ============================================================ */ function NavItem({ label, href }) {
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
         href: href,
-        className: "\n        group\n        relative\n        flex\n        h-11\n        items-center\n        px-4\n        text-sm\n        font-medium\n        text-foreground/75\n        transition-colors\n        duration-300\n        hover:text-primary\n      ",
+        className: "\n        group\n        relative\n        flex\n        h-11\n        items-center\n        px-4\n        text-sm\n        font-medium\n        text-muted\n        transition-colors\n        duration-300\n        hover:text-primary\n      ",
         children: [
             label,
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3042,13 +3051,13 @@ function Navbar() {
                 className: "\n          absolute\n          bottom-1.5\n          left-1/2\n          h-[2px]\n          w-0\n          -translate-x-1/2\n          rounded-full\n          bg-gradient-to-r\n          from-primary\n          to-magenta\n          transition-all\n          duration-300\n\n          group-hover:\n          w-5\n        "
             }, void 0, false, {
                 fileName: "[project]/section/Navbar.tsx",
-                lineNumber: 629,
+                lineNumber: 596,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/section/Navbar.tsx",
-        lineNumber: 608,
+        lineNumber: 575,
         columnNumber: 5
     }, this);
 }
@@ -3158,14 +3167,14 @@ function PortfolioSection() {
     ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
         id: "proyectos",
-        className: "\n        relative\n        overflow-hidden\n        bg-background\n        py-20\n        sm:py-24\n        lg:py-28\n      ",
+        className: "section-shell bg-background",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 "aria-hidden": "true",
                 className: "\n          pointer-events-none\n          absolute\n          left-1/2\n          top-0\n          h-[420px]\n          w-[900px]\n          -translate-x-1/2\n          rounded-full\n          bg-primary/5\n          blur-[120px]\n        "
             }, void 0, false, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 121,
+                lineNumber: 114,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3173,14 +3182,14 @@ function PortfolioSection() {
                 className: "\n          pointer-events-none\n          absolute\n          right-0\n          top-1/3\n          h-[300px]\n          w-[300px]\n          rounded-full\n          bg-magenta/5\n          blur-[110px]\n        "
             }, void 0, false, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 137,
+                lineNumber: 130,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "\n          relative\n          mx-auto\n          max-w-[1500px]\n          px-5\n          sm:px-6\n          lg:px-8\n        ",
+                className: "section-container",
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "mx-auto mb-10 max-w-4xl text-center",
+                        className: "section-header",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].p, {
                                 initial: {
@@ -3198,11 +3207,11 @@ function PortfolioSection() {
                                 transition: {
                                     duration: 0.5
                                 },
-                                className: "\n              mb-4\n              text-xs\n              font-semibold\n              uppercase\n              tracking-[0.34em]\n              text-primary\n              sm:text-sm\n            ",
+                                className: "eyebrow",
                                 children: "Portafolio"
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 167,
+                                lineNumber: 153,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].h2, {
@@ -3222,7 +3231,7 @@ function PortfolioSection() {
                                     duration: 0.6,
                                     delay: 0.05
                                 },
-                                className: "\n              text-balance\n              text-4xl\n              font-bold\n              leading-[1.05]\n              tracking-[-0.04em]\n              text-foreground\n              sm:text-5xl\n              lg:text-[58px]\n            ",
+                                className: "section-title",
                                 children: [
                                     "Proyectos que hablan",
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3231,23 +3240,23 @@ function PortfolioSection() {
                                             "por",
                                             " ",
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "\n                  bg-gradient-to-r\n                  from-primary\n                  via-violet-500\n                  to-magenta\n                  bg-clip-text\n                  text-transparent\n                ",
+                                                className: "text-gradient-brand",
                                                 children: "nuestro trabajo."
                                             }, void 0, false, {
                                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                                lineNumber: 227,
+                                                lineNumber: 196,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/section/PortfolioSection.tsx",
-                                        lineNumber: 225,
+                                        lineNumber: 194,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 196,
+                                lineNumber: 174,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -3266,10 +3275,10 @@ function PortfolioSection() {
                                     duration: 0.5,
                                     delay: 0.15
                                 },
-                                className: "\n              mx-auto\n              my-6\n              h-[3px]\n              w-14\n              origin-center\n              rounded-full\n              bg-gradient-to-r\n              from-primary\n              to-magenta\n            "
+                                className: "accent-line"
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 242,
+                                lineNumber: 202,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].p, {
@@ -3288,17 +3297,17 @@ function PortfolioSection() {
                                     duration: 0.6,
                                     delay: 0.15
                                 },
-                                className: "\n              mx-auto\n              max-w-3xl\n              text-pretty\n              text-base\n              leading-7\n              text-muted\n              sm:text-lg\n            ",
+                                className: "section-copy",
                                 children: "Diseñamos y desarrollamos soluciones digitales reales para empresas y marcas de distintas industrias."
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 271,
+                                lineNumber: 221,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 166,
+                        lineNumber: 152,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -3322,42 +3331,32 @@ function PortfolioSection() {
                             const isActive = activeFilter === filter;
                             return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                 type: "button",
+                                "aria-pressed": isActive,
                                 onClick: ()=>setActiveFilter(filter),
                                 className: `
                   relative
-                  min-h-10
+                  min-h-11
                   overflow-hidden
                   rounded-full
                   border
                   px-5
                   text-sm
                   font-medium
-                  transition-all
+                  transition-colors
                   duration-300
 
-                  ${isActive ? `
-                        border-primary
-                        bg-primary
-                        text-white
-                        shadow-[0_8px_22px_rgba(109,40,217,0.20)]
-                      ` : `
-                        border-primary/25
-                        bg-white
-                        text-foreground/70
-                        hover:border-primary/50
-                        hover:text-primary
-                      `}
+                  ${isActive ? "border-primary bg-primary text-white" : "border-primary/25 bg-surface text-muted hover:border-primary/50 hover:text-primary"}
                 `,
                                 children: filter
                             }, filter, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 335,
+                                lineNumber: 277,
                                 columnNumber: 15
                             }, this);
                         })
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 306,
+                        lineNumber: 248,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -3369,17 +3368,17 @@ function PortfolioSection() {
                                     project: project
                                 }, project.id, false, {
                                     fileName: "[project]/section/PortfolioSection.tsx",
-                                    lineNumber: 390,
+                                    lineNumber: 322,
                                     columnNumber: 15
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/section/PortfolioSection.tsx",
-                            lineNumber: 388,
+                            lineNumber: 320,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 379,
+                        lineNumber: 311,
                         columnNumber: 9
                     }, this),
                     filteredProjects.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3387,13 +3386,13 @@ function PortfolioSection() {
                         children: "No hay proyectos en esta categoría todavía."
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 400,
+                        lineNumber: 332,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 152,
+                lineNumber: 145,
                 columnNumber: 7
             }, this)
         ]
@@ -3428,7 +3427,7 @@ function PortfolioSection() {
             duration: 0.4,
             ease: "easeOut"
         },
-        className: "\n        group\n        overflow-hidden\n        rounded-[22px]\n        border\n        border-border\n        bg-white\n        shadow-[0_12px_35px_rgba(16,16,36,0.08)]\n        transition-all\n        duration-500\n        hover:-translate-y-1\n        hover:shadow-[0_20px_55px_rgba(109,40,217,0.14)]\n      ",
+        className: "card-frame transition-shadow duration-500 hover:-translate-y-px hover:shadow-[0_14px_40px_rgb(109_40_217_/_0.1)]",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "\n          flex\n          h-11\n          items-center\n          gap-3\n          border-b\n          border-border\n          bg-soft-background\n          px-4\n        ",
@@ -3440,27 +3439,27 @@ function PortfolioSection() {
                                 className: "h-2.5 w-2.5 rounded-full bg-red-400"
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 477,
+                                lineNumber: 397,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                 className: "h-2.5 w-2.5 rounded-full bg-amber-400"
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 478,
+                                lineNumber: 398,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                 className: "h-2.5 w-2.5 rounded-full bg-emerald-400"
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 479,
+                                lineNumber: 399,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 476,
+                        lineNumber: 396,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3468,13 +3467,13 @@ function PortfolioSection() {
                         children: project.url !== "#" ? project.url : "smartpro.cl/proyecto"
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 484,
+                        lineNumber: 404,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 462,
+                lineNumber: 382,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3488,7 +3487,7 @@ function PortfolioSection() {
                         sizes: "\n            (max-width: 767px) 100vw,\n            (max-width: 1023px) 50vw,\n            33vw\n          "
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 513,
+                        lineNumber: 433,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3497,30 +3496,30 @@ function PortfolioSection() {
                             href: project.url,
                             target: isExternal ? "_blank" : undefined,
                             rel: isExternal ? "noopener noreferrer" : undefined,
-                            className: "\n                flex\n                h-12\n                w-12\n                items-center\n                justify-center\n                rounded-full\n                bg-white\n                text-primary\n                shadow-lg\n                transition-transform\n                duration-300\n                hover:scale-110\n              ",
+                            className: "\n                flex\n                h-11\n                w-11\n                items-center\n                justify-center\n                rounded-full\n                bg-surface\n                text-primary\n                shadow-[0_8px_20px_rgb(16_16_36_/_0.12)]\n                transition-transform\n                duration-300\n              ",
                             "aria-label": `Visitar ${project.title}`,
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$external$2d$link$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ExternalLink$3e$__["ExternalLink"], {
                                 size: 20,
                                 strokeWidth: 1.8
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 570,
+                                lineNumber: 489,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/section/PortfolioSection.tsx",
-                            lineNumber: 550,
+                            lineNumber: 470,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 534,
+                        lineNumber: 454,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 505,
+                lineNumber: 425,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3536,7 +3535,7 @@ function PortfolioSection() {
                                         children: project.title
                                     }, void 0, false, {
                                         fileName: "[project]/section/PortfolioSection.tsx",
-                                        lineNumber: 583,
+                                        lineNumber: 502,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3544,13 +3543,13 @@ function PortfolioSection() {
                                         children: project.category
                                     }, void 0, false, {
                                         fileName: "[project]/section/PortfolioSection.tsx",
-                                        lineNumber: 594,
+                                        lineNumber: 513,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 582,
+                                lineNumber: 501,
                                 columnNumber: 11
                             }, this),
                             project.url !== "#" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
@@ -3558,51 +3557,51 @@ function PortfolioSection() {
                                 target: isExternal ? "_blank" : undefined,
                                 rel: isExternal ? "noopener noreferrer" : undefined,
                                 "aria-label": `Abrir ${project.title}`,
-                                className: "\n                flex\n                h-9\n                w-9\n                shrink-0\n                items-center\n                justify-center\n                rounded-full\n                border\n                border-primary/15\n                text-primary\n                transition-all\n                duration-300\n                hover:border-primary\n                hover:bg-primary\n                hover:text-white\n              ",
+                                className: "\n                flex\n                h-11\n                w-11\n                shrink-0\n                items-center\n                justify-center\n                rounded-full\n                border\n                border-primary/15\n                text-primary\n                transition-colors\n                duration-300\n                hover:border-primary\n                hover:bg-primary\n                hover:text-white\n              ",
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$up$2d$right$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowUpRight$3e$__["ArrowUpRight"], {
                                     size: 17,
                                     strokeWidth: 1.8
                                 }, void 0, false, {
                                     fileName: "[project]/section/PortfolioSection.tsx",
-                                    lineNumber: 630,
+                                    lineNumber: 549,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 607,
+                                lineNumber: 526,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 581,
+                        lineNumber: 500,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "\n            mt-4\n            flex\n            flex-wrap\n            gap-2\n          ",
                         children: project.tags.map((tag)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                className: "\n                rounded-full\n                bg-soft-background\n                px-3\n                py-1.5\n                text-xs\n                font-medium\n                text-foreground/65\n              ",
+                                className: "\n                rounded-full\n                bg-soft-background\n                px-3\n                py-1.5\n                text-xs\n                font-medium\n                text-muted\n              ",
                                 children: tag
                             }, tag, false, {
                                 fileName: "[project]/section/PortfolioSection.tsx",
-                                lineNumber: 646,
+                                lineNumber: 565,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/section/PortfolioSection.tsx",
-                        lineNumber: 637,
+                        lineNumber: 556,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/section/PortfolioSection.tsx",
-                lineNumber: 580,
+                lineNumber: 499,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/section/PortfolioSection.tsx",
-        lineNumber: 423,
+        lineNumber: 355,
         columnNumber: 5
     }, this);
 }
@@ -4371,7 +4370,7 @@ const services = [
 function ServicesSection() {
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
         id: "servicios",
-        className: "relative overflow-hidden bg-background py-20 sm:py-24 lg:py-28",
+        className: "section-shell bg-background",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 "aria-hidden": "true",
@@ -4382,10 +4381,10 @@ function ServicesSection() {
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "relative mx-auto max-w-[1500px] px-5 sm:px-6 lg:px-8",
+                className: "section-container",
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "mx-auto mb-12 max-w-4xl text-center lg:mb-14",
+                        className: "section-header",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].p, {
                                 initial: {
@@ -4403,7 +4402,7 @@ function ServicesSection() {
                                 transition: {
                                     duration: 0.5
                                 },
-                                className: "\n              mb-4\n              text-xs font-semibold\n              uppercase\n              tracking-[0.35em]\n              text-primary\n              sm:text-sm\n            ",
+                                className: "eyebrow",
                                 children: "Capacidades"
                             }, void 0, false, {
                                 fileName: "[project]/section/ServicesSection.tsx",
@@ -4427,7 +4426,7 @@ function ServicesSection() {
                                     duration: 0.6,
                                     delay: 0.05
                                 },
-                                className: "\n              text-balance\n              text-4xl\n              font-bold\n              leading-[1.05]\n              tracking-[-0.04em]\n              text-foreground\n              sm:text-5xl\n              lg:text-[58px]\n            ",
+                                className: "section-title",
                                 children: [
                                     "Todo lo que tu empresa necesita",
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4436,23 +4435,23 @@ function ServicesSection() {
                                             "para",
                                             " ",
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "\n                  bg-gradient-to-r\n                  from-primary\n                  via-violet-500\n                  to-magenta\n                  bg-clip-text\n                  text-transparent\n                ",
+                                                className: "text-gradient-brand",
                                                 children: "crecer en digital."
                                             }, void 0, false, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 109,
+                                                lineNumber: 93,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 107,
+                                        lineNumber: 91,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/section/ServicesSection.tsx",
-                                lineNumber: 90,
+                                lineNumber: 83,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -4471,10 +4470,10 @@ function ServicesSection() {
                                     duration: 0.5,
                                     delay: 0.15
                                 },
-                                className: "\n              mx-auto my-6\n              h-[3px]\n              w-14\n              origin-center\n              rounded-full\n              bg-gradient-to-r\n              from-primary\n              to-magenta\n            "
+                                className: "accent-line"
                             }, void 0, false, {
                                 fileName: "[project]/section/ServicesSection.tsx",
-                                lineNumber: 124,
+                                lineNumber: 99,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].div, {
@@ -4507,7 +4506,7 @@ function ServicesSection() {
                                                 children: item
                                             }, void 0, false, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 164,
+                                                lineNumber: 130,
                                                 columnNumber: 17
                                             }, this),
                                             index < items.length - 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4515,18 +4514,18 @@ function ServicesSection() {
                                                 children: "•"
                                             }, void 0, false, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 167,
+                                                lineNumber: 133,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, item, true, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 163,
+                                        lineNumber: 129,
                                         columnNumber: 15
                                     }, this))
                             }, void 0, false, {
                                 fileName: "[project]/section/ServicesSection.tsx",
-                                lineNumber: 141,
+                                lineNumber: 107,
                                 columnNumber: 11
                             }, this)
                         ]
@@ -4536,7 +4535,7 @@ function ServicesSection() {
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "grid gap-4 md:grid-cols-2 lg:grid-cols-3",
+                        className: "grid gap-5 md:grid-cols-2 lg:grid-cols-3",
                         children: services.map((service, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$motion$2f$dist$2f$es$2f$react$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["motion"].article, {
                                 initial: {
                                     opacity: 0,
@@ -4555,7 +4554,7 @@ function ServicesSection() {
                                     delay: index * 0.06,
                                     ease: "easeOut"
                                 },
-                                className: "\n                group\n                relative\n                min-h-[360px]\n                overflow-hidden\n                rounded-[22px]\n                bg-navy\n                sm:min-h-[390px]\n                lg:min-h-[420px]\n              ",
+                                className: "\n                group\n                relative\n                min-h-[320px]\n                overflow-hidden\n                rounded-[1.25rem]\n                bg-navy\n                sm:min-h-[360px]\n                lg:min-h-[390px]\n              ",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
                                         src: service.image,
@@ -4565,21 +4564,21 @@ function ServicesSection() {
                                         sizes: "\n                  (max-width: 767px) 100vw,\n                  (max-width: 1023px) 50vw,\n                  33vw\n                "
                                     }, void 0, false, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 202,
+                                        lineNumber: 168,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "\n                  absolute inset-0\n                  bg-gradient-to-tr\n                  from-black/90\n                  via-black/45\n                  to-black/5\n                "
+                                        className: "\n                  absolute inset-0\n                  bg-gradient-to-tr\n                  from-ink/90\n                  via-ink/45\n                  to-ink/5\n                "
                                     }, void 0, false, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 221,
+                                        lineNumber: 187,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "\n                  absolute inset-x-0 bottom-0\n                  h-2/3\n                  bg-gradient-to-t\n                  from-black/80\n                  via-black/20\n                  to-transparent\n                "
+                                        className: "\n                  absolute inset-x-0 bottom-0\n                  h-2/3\n                  bg-gradient-to-t\n                  from-ink/80\n                  via-ink/20\n                  to-transparent\n                "
                                     }, void 0, false, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 232,
+                                        lineNumber: 198,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4587,85 +4586,93 @@ function ServicesSection() {
                                         className: "\n                  pointer-events-none\n                  absolute -left-16 bottom-[-80px]\n                  h-52 w-52\n                  rounded-full\n                  bg-primary/20\n                  blur-[80px]\n                  opacity-0\n                  transition-opacity\n                  duration-500\n                  group-hover:opacity-100\n                "
                                     }, void 0, false, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 244,
+                                        lineNumber: 210,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "relative z-10 flex h-full min-h-[360px] flex-col p-6 sm:min-h-[390px] lg:min-h-[420px] lg:p-7",
+                                        className: "relative z-10 flex h-full min-h-[320px] flex-col p-6 sm:min-h-[360px] lg:min-h-[390px] lg:p-7",
                                         children: [
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 children: [
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                        className: "\n                      block\n                      text-2xl\n                      font-semibold\n                      tracking-[-0.03em]\n                      text-violet-300\n                    ",
+                                                        className: "\n                      block\n                      text-2xl\n                      font-semibold\n                      tracking-[-0.03em]\n                      text-on-dark-secondary\n                    ",
                                                         children: service.number
                                                     }, void 0, false, {
                                                         fileName: "[project]/section/ServicesSection.tsx",
-                                                        lineNumber: 264,
+                                                        lineNumber: 230,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "\n                      mt-2\n                      h-[2px]\n                      w-7\n                      rounded-full\n                      bg-gradient-to-r\n                      from-primary\n                      to-magenta\n                    "
                                                     }, void 0, false, {
                                                         fileName: "[project]/section/ServicesSection.tsx",
-                                                        lineNumber: 276,
+                                                        lineNumber: 242,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 263,
+                                                lineNumber: 229,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                                className: "\n                    mt-6\n                    max-w-[280px]\n                    text-[26px]\n                    font-semibold\n                    leading-[1.08]\n                    tracking-[-0.035em]\n                    text-white\n                    sm:text-[28px]\n                  ",
+                                                className: "\n                    mt-6\n                    max-w-[280px]\n                    text-[1.5rem]\n                    font-semibold\n                    leading-[1.12]\n                    tracking-[-0.035em]\n                    text-on-dark\n                    sm:text-[1.75rem]\n                  ",
                                                 children: service.title
                                             }, void 0, false, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 290,
+                                                lineNumber: 256,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 className: "mt-auto pt-10",
-                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
-                                                    href: service.href,
-                                                    className: "\n                      group/button\n                      inline-flex\n                      min-h-11\n                      items-center\n                      gap-8\n                      rounded-full\n                      border\n                      border-primary/80\n                      bg-black/10\n                      px-5\n                      text-sm\n                      font-semibold\n                      text-white\n                      backdrop-blur-sm\n                      transition-all\n                      duration-300\n                      hover:border-magenta\n                      hover:bg-primary/15\n                    ",
+                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                    className: "\n                      group/button\n                      inline-flex\n                      min-h-12\n                      items-center\n                      gap-6\n                      rounded-full\n                      border\n                      border-primary/80\n                      bg-ink/20\n                      px-5\n                      text-sm\n                      font-semibold\n                      text-on-dark\n                      backdrop-blur-sm\n                      transition-all\n                      duration-300\n                      group-hover:border-magenta\n                      group-hover:bg-primary/15\n                    ",
                                                     children: [
                                                         "Ver servicio",
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$right$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowRight$3e$__["ArrowRight"], {
                                                             size: 16,
                                                             strokeWidth: 1.8,
-                                                            className: "\n                        transition-transform\n                        duration-300\n                        group-hover/button:translate-x-1\n                      "
+                                                            className: "\n                        transition-transform\n                        duration-300\n                        group-hover:translate-x-1\n                      "
                                                         }, void 0, false, {
                                                             fileName: "[project]/section/ServicesSection.tsx",
-                                                            lineNumber: 331,
+                                                            lineNumber: 296,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/section/ServicesSection.tsx",
-                                                    lineNumber: 307,
+                                                    lineNumber: 273,
                                                     columnNumber: 19
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/section/ServicesSection.tsx",
-                                                lineNumber: 306,
+                                                lineNumber: 272,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
+                                                href: service.href,
+                                                className: "absolute inset-0 z-20",
+                                                "aria-label": `Ver servicio ${service.title}`
+                                            }, void 0, false, {
+                                                fileName: "[project]/section/ServicesSection.tsx",
+                                                lineNumber: 308,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/section/ServicesSection.tsx",
-                                        lineNumber: 261,
+                                        lineNumber: 227,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, service.number, true, {
                                 fileName: "[project]/section/ServicesSection.tsx",
-                                lineNumber: 180,
+                                lineNumber: 146,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/section/ServicesSection.tsx",
-                        lineNumber: 178,
+                        lineNumber: 144,
                         columnNumber: 9
                     }, this)
                 ]

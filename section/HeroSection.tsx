@@ -51,7 +51,12 @@ export default function HeroSection() {
   };
 
   useEffect(() => {
-    if (isPaused) return;
+    if (
+      isPaused ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       nextSlide();
@@ -61,18 +66,18 @@ export default function HeroSection() {
   }, [isPaused, nextSlide]);
 
   return (
-    <section className="relative overflow-hidden bg-background">
+    <section id="inicio" className="relative overflow-hidden bg-background">
       {/* ======================================================
           SLIDER DE IMÁGENES
       ====================================================== */}
 
       <div
         className="
-          relative h-[330px] w-full overflow-hidden
-          sm:h-[400px]
-          md:h-[460px]
-          lg:h-[500px]
-          xl:h-[560px]
+          relative h-[260px] w-full overflow-hidden
+          sm:h-[340px]
+          md:h-[400px]
+          lg:h-[460px]
+          xl:h-[500px]
         "
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
@@ -119,9 +124,9 @@ export default function HeroSection() {
               className="
                 absolute inset-0
                 bg-gradient-to-t
-                from-black/15
+                from-ink/20
                 via-transparent
-                to-black/[0.03]
+                to-ink/[0.04]
               "
             />
           </motion.div>
@@ -142,18 +147,15 @@ export default function HeroSection() {
             items-center justify-center
             rounded-full
             border border-white/40
-            bg-white/90
+            bg-surface/90
             text-foreground
-            shadow-lg
+            shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]
             backdrop-blur-md
-            transition-all duration-300
-            hover:scale-105
-            hover:bg-white
+            transition-colors duration-300
+            hover:bg-surface
             hover:text-primary
             sm:left-6
             lg:left-8
-            lg:h-12
-            lg:w-12
           "
         >
           <ChevronLeft
@@ -181,18 +183,15 @@ export default function HeroSection() {
             items-center justify-center
             rounded-full
             border border-white/40
-            bg-white/90
+            bg-surface/90
             text-foreground
-            shadow-lg
+            shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]
             backdrop-blur-md
-            transition-all duration-300
-            hover:scale-105
-            hover:bg-white
+            transition-colors duration-300
+            hover:bg-surface
             hover:text-primary
             sm:right-6
             lg:right-8
-            lg:h-12
-            lg:w-12
           "
         >
           <ChevronRight
@@ -214,7 +213,7 @@ export default function HeroSection() {
             absolute bottom-5 left-1/2 z-20
             flex -translate-x-1/2 items-center
             gap-2 rounded-full
-            bg-black/20 px-3 py-2
+            bg-ink/25 px-3 py-2
             backdrop-blur-md
           "
         >
@@ -225,10 +224,7 @@ export default function HeroSection() {
               aria-label={`Ir a imagen ${index + 1}`}
               aria-current={currentSlide === index ? "true" : undefined}
               onClick={() => goToSlide(index)}
-              className="
-                flex h-5 items-center
-                justify-center
-              "
+              className="flex min-h-11 min-w-11 items-center justify-center"
             >
               <span
                 className={`
@@ -297,13 +293,14 @@ export default function HeroSection() {
         <div
           className="
             relative mx-auto
-            flex max-w-5xl
+            flex max-w-4xl
             flex-col items-center
-            px-6
-            py-12
+            px-5
+            py-10
             text-center
-            sm:py-14
-            lg:py-16
+            sm:px-6
+            sm:py-12
+            lg:py-14
           "
         >
           {/* Etiqueta */}
@@ -315,14 +312,7 @@ export default function HeroSection() {
               duration: 0.5,
               ease: "easeOut",
             }}
-            className="
-              mb-4
-              text-xs font-semibold
-              uppercase
-              tracking-[0.24em]
-              text-magenta
-              sm:text-sm
-            "
+            className="eyebrow text-magenta"
           >
             Agencia de marketing digital
           </motion.p>
@@ -340,27 +330,18 @@ export default function HeroSection() {
             className="
               max-w-4xl
               text-balance
-              text-[2.6rem]
+              text-[2rem]
               font-bold
-              leading-[0.98]
+              leading-[1.08]
               tracking-[-0.045em]
               text-foreground
               sm:text-5xl
-              md:text-6xl
-              lg:text-[64px]
+              lg:text-6xl
             "
           >
             Llevamos tu marca
             <span
-              className="
-                mt-1 block
-                bg-gradient-to-r
-                from-primary
-                via-violet-500
-                to-magenta
-                bg-clip-text
-                text-transparent
-              "
+              className="mt-1 block text-gradient-brand"
             >
               al siguiente nivel
             </span>
@@ -381,16 +362,7 @@ export default function HeroSection() {
               duration: 0.5,
               delay: 0.2,
             }}
-            className="
-              my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           {/* Descripción */}
@@ -402,14 +374,7 @@ export default function HeroSection() {
               duration: 0.6,
               delay: 0.18,
             }}
-            className="
-              max-w-2xl
-              text-pretty
-              text-base
-              leading-7
-              text-muted
-              sm:text-lg
-            "
+            className="section-copy max-w-2xl"
           >
             Estrategia, creatividad y tecnología para generar resultados reales
             y hacer crecer tu negocio.
@@ -426,29 +391,7 @@ export default function HeroSection() {
             }}
             className="mt-8"
           >
-            <a
-              href="#contacto"
-              className="
-                group
-                inline-flex min-h-12
-                items-center justify-center
-                gap-3
-                rounded-full
-                bg-gradient-to-r
-                from-primary
-                to-magenta
-                px-7 py-3.5
-                text-sm
-                font-semibold
-                text-white
-                shadow-[0_12px_35px_rgba(109,40,217,0.22)]
-                transition-all
-                duration-300
-                hover:-translate-y-0.5
-                hover:shadow-[0_16px_40px_rgba(109,40,217,0.3)]
-                sm:text-base
-              "
-            >
+            <a href="#contacto" className="btn-gradient group shadow-[0_10px_28px_rgb(109_40_217_/_0.2)]">
               <CalendarDays
                 size={18}
                 strokeWidth={1.8}

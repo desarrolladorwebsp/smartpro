@@ -73,8 +73,11 @@
   --color-primary-hover: var(--primary-hover);
   --color-magenta: var(--magenta);
   --color-pink: var(--pink);
+  --color-gradient-mid: var(--smartpro-gradient-mid);
   --color-ink: var(--ink);
   --color-navy: var(--navy);
+
+  --max-width-page: 93.75rem;
 
   --color-on-dark: var(--on-dark);
   --color-on-dark-secondary: var(--on-dark-secondary);

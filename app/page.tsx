@@ -10,15 +10,17 @@ import Footer from "@/section/Footer";
 
 export default function Home() {
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <Navbar />
-      <HeroSection />
-      <ServicesSection />
-      <PortfolioSection />
-      <PresentersSection />
-      <TeamSection />
-      <ContactSection />
-      <LocationSection />
+      <main className="flex-1">
+        <HeroSection />
+        <ServicesSection />
+        <PortfolioSection />
+        <PresentersSection />
+        <TeamSection />
+        <ContactSection />
+        <LocationSection />
+      </main>
       <Footer />
     </div>
   );

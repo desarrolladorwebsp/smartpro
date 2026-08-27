@@ -48,7 +48,7 @@ export default function ServicesSection() {
   return (
     <section
       id="servicios"
-      className="relative overflow-hidden bg-background py-20 sm:py-24 lg:py-28"
+      className="section-shell bg-background"
     >
       {/* Decoración superior */}
       <div
@@ -64,25 +64,18 @@ export default function ServicesSection() {
         "
       />
 
-      <div className="relative mx-auto max-w-[1500px] px-5 sm:px-6 lg:px-8">
+      <div className="section-container">
         {/* =====================================================
             HEADER
         ====================================================== */}
 
-        <div className="mx-auto mb-12 max-w-4xl text-center lg:mb-14">
+        <div className="section-header">
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.5 }}
-            className="
-              mb-4
-              text-xs font-semibold
-              uppercase
-              tracking-[0.35em]
-              text-primary
-              sm:text-sm
-            "
+            className="eyebrow"
           >
             Capacidades
           </motion.p>
@@ -92,30 +85,12 @@ export default function ServicesSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.35 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="
-              text-balance
-              text-4xl
-              font-bold
-              leading-[1.05]
-              tracking-[-0.04em]
-              text-foreground
-              sm:text-5xl
-              lg:text-[58px]
-            "
+            className="section-title"
           >
             Todo lo que tu empresa necesita
             <span className="block">
               para{" "}
-              <span
-                className="
-                  bg-gradient-to-r
-                  from-primary
-                  via-violet-500
-                  to-magenta
-                  bg-clip-text
-                  text-transparent
-                "
-              >
+              <span className="text-gradient-brand">
                 crecer en digital.
               </span>
             </span>
@@ -126,16 +101,7 @@ export default function ServicesSection() {
             whileInView={{ opacity: 1, scaleX: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="
-              mx-auto my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           <motion.div
@@ -175,7 +141,7 @@ export default function ServicesSection() {
             GRID DE SERVICIOS
         ====================================================== */}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {services.map((service, index) => (
             <motion.article
               key={service.number}
@@ -190,12 +156,12 @@ export default function ServicesSection() {
               className="
                 group
                 relative
-                min-h-[360px]
+                min-h-[320px]
                 overflow-hidden
-                rounded-[22px]
+                rounded-[1.25rem]
                 bg-navy
-                sm:min-h-[390px]
-                lg:min-h-[420px]
+                sm:min-h-[360px]
+                lg:min-h-[390px]
               "
             >
               {/* Imagen */}
@@ -222,9 +188,9 @@ export default function ServicesSection() {
                 className="
                   absolute inset-0
                   bg-gradient-to-tr
-                  from-black/90
-                  via-black/45
-                  to-black/5
+                  from-ink/90
+                  via-ink/45
+                  to-ink/5
                 "
               />
 
@@ -234,8 +200,8 @@ export default function ServicesSection() {
                   absolute inset-x-0 bottom-0
                   h-2/3
                   bg-gradient-to-t
-                  from-black/80
-                  via-black/20
+                  from-ink/80
+                  via-ink/20
                   to-transparent
                 "
               />
@@ -258,7 +224,7 @@ export default function ServicesSection() {
               />
 
               {/* Contenido */}
-              <div className="relative z-10 flex h-full min-h-[360px] flex-col p-6 sm:min-h-[390px] lg:min-h-[420px] lg:p-7">
+              <div className="relative z-10 flex h-full min-h-[320px] flex-col p-6 sm:min-h-[360px] lg:min-h-[390px] lg:p-7">
                 {/* Número */}
                 <div>
                   <span
@@ -267,7 +233,7 @@ export default function ServicesSection() {
                       text-2xl
                       font-semibold
                       tracking-[-0.03em]
-                      text-violet-300
+                      text-on-dark-secondary
                     "
                   >
                     {service.number}
@@ -291,12 +257,12 @@ export default function ServicesSection() {
                   className="
                     mt-6
                     max-w-[280px]
-                    text-[26px]
+                    text-[1.5rem]
                     font-semibold
-                    leading-[1.08]
+                    leading-[1.12]
                     tracking-[-0.035em]
-                    text-white
-                    sm:text-[28px]
+                    text-on-dark
+                    sm:text-[1.75rem]
                   "
                 >
                   {service.title}
@@ -304,27 +270,26 @@ export default function ServicesSection() {
 
                 {/* CTA */}
                 <div className="mt-auto pt-10">
-                  <Link
-                    href={service.href}
+                  <span
                     className="
                       group/button
                       inline-flex
-                      min-h-11
+                      min-h-12
                       items-center
-                      gap-8
+                      gap-6
                       rounded-full
                       border
                       border-primary/80
-                      bg-black/10
+                      bg-ink/20
                       px-5
                       text-sm
                       font-semibold
-                      text-white
+                      text-on-dark
                       backdrop-blur-sm
                       transition-all
                       duration-300
-                      hover:border-magenta
-                      hover:bg-primary/15
+                      group-hover:border-magenta
+                      group-hover:bg-primary/15
                     "
                   >
                     Ver servicio
@@ -334,11 +299,17 @@ export default function ServicesSection() {
                       className="
                         transition-transform
                         duration-300
-                        group-hover/button:translate-x-1
+                        group-hover:translate-x-1
                       "
                     />
-                  </Link>
+                  </span>
                 </div>
+
+                <Link
+                  href={service.href}
+                  className="absolute inset-0 z-20"
+                  aria-label={`Ver servicio ${service.title}`}
+                />
               </div>
             </motion.article>
           ))}

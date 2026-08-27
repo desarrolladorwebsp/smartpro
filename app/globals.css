@@ -1,8 +1,84 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.25rem;
+}
+
 body {
+  overflow-x: clip;
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .section-shell {
+    @apply relative overflow-hidden py-20 sm:py-24 lg:py-28;
+  }
+
+  .section-container {
+    @apply relative mx-auto w-full max-w-page px-5 sm:px-6 lg:px-8;
+  }
+
+  .section-header {
+    @apply mx-auto mb-10 max-w-4xl text-center lg:mb-12;
+  }
+
+  .eyebrow {
+    @apply mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-primary sm:text-sm;
+  }
+
+  .section-title {
+    @apply text-balance text-[1.75rem] font-bold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-4xl lg:text-5xl;
+  }
+
+  .section-copy {
+    @apply mx-auto max-w-3xl text-pretty text-base leading-7 text-muted sm:text-lg;
+  }
+
+  .accent-line {
+    @apply mx-auto my-5 h-0.5 w-14 origin-center rounded-full bg-brand-gradient sm:my-6;
+  }
+
+  .text-gradient-brand {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  .card-frame {
+    @apply overflow-hidden rounded-[1.25rem] border border-border bg-surface shadow-[0_10px_32px_rgb(16_16_36_/_0.06)];
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-7 text-sm font-semibold text-white transition-colors duration-300 hover:bg-primary-hover;
+  }
+
+  .btn-gradient {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-gradient px-7 text-sm font-semibold text-white transition-transform duration-300 hover:-translate-y-px;
+  }
+
+  .icon-button {
+    @apply flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-foreground transition-colors duration-300 hover:border-primary/30 hover:text-primary;
+  }
 }

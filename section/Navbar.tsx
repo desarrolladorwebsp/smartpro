@@ -82,6 +82,22 @@ export default function Navbar() {
     };
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
   return (
     <>
       {/* ======================================================
@@ -106,24 +122,17 @@ export default function Navbar() {
           transition-all duration-500
           ${
             scrolled
-              ? `
-                bg-white/92
-                shadow-[0_10px_40px_rgba(16,16,36,0.08)]
-                backdrop-blur-xl
-              `
-              : `
-                bg-white/80
-                backdrop-blur-lg
-              `
+              ? "bg-surface/92 shadow-[0_8px_28px_rgb(16_16_36_/_0.06)] backdrop-blur-xl"
+              : "bg-surface/80 backdrop-blur-lg"
           }
         `}
       >
-        <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <div className="section-container py-0">
           <div
             className={`
               flex items-center justify-between
-              transition-all duration-500
-              ${scrolled ? "h-[72px]" : "h-[84px]"}
+              transition-[height] duration-500
+              ${scrolled ? "h-16" : "h-[72px]"}
             `}
           >
             {/* ==================================================
@@ -139,8 +148,7 @@ export default function Navbar() {
 
               <motion.div
                 whileHover={{
-                  y: -2,
-                  scale: 1.03,
+                  y: -1,
                 }}
                 whileTap={{
                   scale: 0.98,
@@ -151,26 +159,12 @@ export default function Navbar() {
                   damping: 22,
                 }}
                 className="
-                  relative
-                  flex
-                  h-[52px]
-                  w-[58px]
-                  items-center
-                  justify-center
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-primary/15
-                  bg-white
-                  shadow-[0_8px_30px_rgba(109,40,217,0.12)]
-                  transition-shadow
-                  duration-300
-
-                  group-hover:
-                  shadow-[0_12px_35px_rgba(109,40,217,0.20)]
-
-                  sm:h-[56px]
-                  sm:w-[62px]
+                  relative flex h-12 w-[54px] items-center justify-center
+                  overflow-hidden rounded-2xl border border-primary/15 bg-surface
+                  shadow-[0_8px_24px_rgb(109_40_217_/_0.1)]
+                  transition-shadow duration-300
+                  group-hover:shadow-[0_10px_28px_rgb(109_40_217_/_0.16)]
+                  sm:h-14 sm:w-[58px]
                 "
               >
                 {/* Glow */}
@@ -276,14 +270,9 @@ export default function Navbar() {
                   text-sm
                   font-semibold
                   text-white
-                  shadow-[0_10px_28px_rgba(109,40,217,0.20)]
-                  transition-all
-                  duration-300
-
-                  hover:
-                  bg-primary-hover
-                  hover:
-                  shadow-[0_14px_35px_rgba(109,40,217,0.28)]
+                  shadow-[0_8px_22px_rgb(109_40_217_/_0.18)]
+                  transition-colors duration-300
+                  hover:bg-primary-hover
                 "
               >
                 {/* Brillo horizontal */}
@@ -318,29 +307,7 @@ export default function Navbar() {
               aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
               aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen((current) => !current)}
-              className="
-                flex
-                h-11
-                w-11
-                items-center
-                justify-center
-                rounded-xl
-                border
-                border-border
-                bg-white
-                text-foreground
-                shadow-sm
-                transition-all
-                duration-300
-
-                hover:
-                border-primary/30
-
-                hover:
-                text-primary
-
-                lg:hidden
-              "
+              className="icon-button lg:hidden"
             >
               <AnimatePresence mode="wait" initial={false}>
                 {mobileMenuOpen ? (
@@ -481,15 +448,15 @@ export default function Navbar() {
                 fixed
                 left-4
                 right-4
-                top-[92px]
+                top-[4.75rem]
                 z-50
                 overflow-hidden
-                rounded-[24px]
+                rounded-[1.25rem]
                 border
                 border-primary/10
-                bg-white/95
+                bg-surface/96
                 p-3
-                shadow-[0_20px_70px_rgba(16,16,36,0.16)]
+                shadow-[0_16px_48px_rgb(16_16_36_/_0.12)]
                 backdrop-blur-xl
                 lg:hidden
               "
@@ -616,7 +583,7 @@ function NavItem({ label, href }: { label: string; href: string }) {
         px-4
         text-sm
         font-medium
-        text-foreground/75
+        text-muted
         transition-colors
         duration-300
         hover:text-primary
