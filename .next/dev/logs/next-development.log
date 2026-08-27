@@ -1,0 +1,222 @@
+{"timestamp":"00:00:01.182","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:01.998","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:10:22.533","source":"Server","level":"LOG","message":"✓ Compiled in 70ms"}
+{"timestamp":"00:10:42.017","source":"Server","level":"LOG","message":"✓ Compiled in 342ms"}
+{"timestamp":"00:10:42.121","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/hero/hero-smartpro.webp\" \"received\" null"}
+{"timestamp":"00:10:49.439","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/hero/hero-smartpro.webp\" \"received\" null"}
+{"timestamp":"00:27:02.401","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/hero/hero-smartpro.webp\" \"received\" null"}
+{"timestamp":"00:27:02.536","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/hero/hero-smartpro.webp\" \"received\" null"}
+{"timestamp":"00:27:02.579","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:31.472","source":"Server","level":"LOG","message":"✓ Compiled in 227ms"}
+{"timestamp":"00:41:35.129","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:35.546","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:35.688","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:35.830","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:41:35.978","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:47:24.376","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:53:11.517","source":"Server","level":"LOG","message":"✓ Compiled in 31ms"}
+{"timestamp":"00:53:25.136","source":"Server","level":"LOG","message":"✓ Compiled in 140ms"}
+{"timestamp":"00:53:25.289","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:53:25.290","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:53:25.295","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:53:25.296","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:53:25.298","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:53:25.299","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"00:53:42.219","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"00:53:42.221","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:53:42.224","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:53:42.228","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:53:42.230","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:53:42.233","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:53:55.281","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:53:55.290","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:53:55.296","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:53:55.302","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:53:55.326","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:53:55.328","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"00:54:08.661","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:54:08.671","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:54:08.673","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:54:08.685","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:54:08.691","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:54:08.693","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"00:54:08.857","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:54:08.864","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:54:08.866","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:54:08.866","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:54:08.868","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:54:08.868","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"00:54:09.002","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-01.png\" \"received\" null"}
+{"timestamp":"00:54:09.003","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"00:54:09.005","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"00:54:09.006","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"00:54:09.008","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"00:54:09.009","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"01:00:45.485","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"01:00:45.538","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"01:00:45.540","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"01:00:45.541","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"01:00:45.550","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"01:00:45.553","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"01:00:45.646","source":"Browser","level":"WARN","message":"Image with src \"/images/services/service-01.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"01:00:45.717","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/services/service-01.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"01:10:19.287","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-02.png\" \"received\" null"}
+{"timestamp":"01:10:19.289","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-03.png\" \"received\" null"}
+{"timestamp":"01:10:19.291","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"01:10:19.292","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-05.png\" \"received\" null"}
+{"timestamp":"01:10:19.294","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"01:45:03.868","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-04.png\" \"received\" null"}
+{"timestamp":"01:45:03.917","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/services/service-06.png\" \"received\" null"}
+{"timestamp":"01:45:03.921","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:04:52.894","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:19:52.656","source":"Server","level":"LOG","message":"✓ Compiled in 259ms"}
+{"timestamp":"02:20:14.235","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:14.236","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:14.266","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:14.268","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:14.344","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:20:14.540","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:14.555","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:14.568","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:14.583","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:24.127","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:24.131","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:25.617","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:25.617","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:25.759","source":"Browser","level":"WARN","message":"Image with src \"/images/services/service-01.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"02:20:25.780","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/services/service-01.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"02:20:26.349","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:26.350","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:26.443","source":"Browser","level":"WARN","message":"Image with src \"/images/services/service-01.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"02:20:26.443","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/services/service-01.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"02:20:39.240","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:39.244","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:20:40.706","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-02.png\" \"received\" null"}
+{"timestamp":"02:20:40.706","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/logo/logo-smartpro-01.png\" \"received\" null"}
+{"timestamp":"02:21:30.106","source":"Server","level":"LOG","message":"✓ Compiled in 31ms"}
+{"timestamp":"02:21:30.162","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:29:44.758","source":"Server","level":"LOG","message":"✓ Compiled in 32ms"}
+{"timestamp":"02:29:44.834","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:35:57.038","source":"Server","level":"LOG","message":"✓ Compiled in 47ms"}
+{"timestamp":"02:36:25.006","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:36:42.602","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/presenters/presenter-01.png\" \"received\" null"}
+{"timestamp":"02:36:42.604","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/presenters/presenter-02.png\" \"received\" null"}
+{"timestamp":"02:36:42.605","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/presenters/presenter-03.png\" \"received\" null"}
+{"timestamp":"02:36:42.606","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/presenters/presenter-04.png\" \"received\" null"}
+{"timestamp":"02:36:42.609","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/presenters/presenter-05.png\" \"received\" null"}
+{"timestamp":"02:54:53.597","source":"Server","level":"LOG","message":"✓ Compiled in 124ms"}
+{"timestamp":"02:54:53.760","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:56:29.937","source":"Server","level":"LOG","message":"✓ Compiled in 27ms"}
+{"timestamp":"02:56:30.098","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:56:33.880","source":"Server","level":"LOG","message":"✓ Compiled in 78ms"}
+{"timestamp":"02:56:34.081","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:00:58.316","source":"Server","level":"LOG","message":"✓ Compiled in 207ms"}
+{"timestamp":"03:00:58.494","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:17:08.938","source":"Browser","level":"ERROR","message":"Uncaught Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.\n\nCheck the render method of `Home`.\n    at Home (app/page.tsx:14:7)\n  \u001b[90m12 |\u001b[0m       <\u001b[33mServicesSection\u001b[0m />\n  \u001b[90m13 |\u001b[0m       <\u001b[33mPresentersSection\u001b[0m />\n\u001b[31m\u001b[1m>\u001b[0m \u001b[90m14 |\u001b[0m       <\u001b[33mFooter\u001b[0m />\n  \u001b[90m   |\u001b[0m       \u001b[31m\u001b[1m^\u001b[0m\n  \u001b[90m15 |\u001b[0m     </div>\n  \u001b[90m16 |\u001b[0m   );\n  \u001b[90m17 |\u001b[0m }"}
+{"timestamp":"03:17:08.938","source":"Server","level":"ERROR","message":"[browser] \"\\u001b[31mUncaught Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.\\n\\nCheck the render method of `Home`.\\u001b[39m\\n\\u001b[31m    at Home (app/page.tsx:14:7)\\u001b[39m\\n  \\u001b[90m12 |\\u001b[0m       <\\u001b[33mServicesSection\\u001b[0m />\\n  \\u001b[90m13 |\\u001b[0m       <\\u001b[33mPresentersSection\\u001b[0m />\\n\\u001b[31m\\u001b[1m>\\u001b[0m \\u001b[90m14 |\\u001b[0m       <\\u001b[33mFooter\\u001b[0m />\\n  \\u001b[90m   |\\u001b[0m       \\u001b[31m\\u001b[1m^\\u001b[0m\\n  \\u001b[90m15 |\\u001b[0m     </div>\\n  \\u001b[90m16 |\\u001b[0m   );\\n  \\u001b[90m17 |\\u001b[0m }\""}
+{"timestamp":"03:17:09.196","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:17:13.387","source":"Server","level":"WARN","message":"⚠ Fast Refresh had to perform a full reload due to a runtime error."}
+{"timestamp":"03:17:13.632","source":"Server","level":"LOG","message":"✓ Compiled in 213ms"}
+{"timestamp":"03:17:13.735","source":"Server","level":"WARN","message":"⚠ Fast Refresh had to perform a full reload due to a runtime error."}
+{"timestamp":"03:17:13.775","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:17:15.257","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"03:31:16.573","source":"Server","level":"LOG","message":"✓ Compiled in 165ms"}
+{"timestamp":"03:31:28.318","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:31:42.027","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-01.png\" \"received\" null"}
+{"timestamp":"03:31:42.041","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-02.png\" \"received\" null"}
+{"timestamp":"03:31:42.045","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-03.png\" \"received\" null"}
+{"timestamp":"03:31:42.048","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-04.png\" \"received\" null"}
+{"timestamp":"03:31:42.051","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-05.png\" \"received\" null"}
+{"timestamp":"03:31:42.072","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/team-06.png\" \"received\" null"}
+{"timestamp":"03:31:42.298","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"03:40:40.199","source":"Server","level":"LOG","message":"✓ Compiled in 64ms"}
+{"timestamp":"03:40:40.402","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:43:30.132","source":"Server","level":"LOG","message":"✓ Compiled in 30ms"}
+{"timestamp":"03:43:30.143","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/alfredo-hurtado.png\" \"received\" null"}
+{"timestamp":"03:43:30.249","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:43:32.745","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/team/alfredo-hurtado.png\" \"received\" null"}
+{"timestamp":"03:43:43.481","source":"Server","level":"LOG","message":"✓ Compiled in 23ms"}
+{"timestamp":"03:43:43.487","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:44:03.082","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"03:44:03.148","source":"Browser","level":"WARN","message":"Image with src \"/images/team/andrea-vidal.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"03:44:03.247","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/team/andrea-vidal.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"03:44:03.747","source":"Browser","level":"WARN","message":"Image with src \"/images/team/ariana-de-la-fuente.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"03:44:03.748","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/team/ariana-de-la-fuente.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"03:56:07.405","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"03:56:37.195","source":"Server","level":"LOG","message":"✓ Compiled in 59ms"}
+{"timestamp":"03:57:23.018","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/isapres-premium.png\" \"received\" null"}
+{"timestamp":"03:57:23.020","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/tu-promesa.png\" \"received\" null"}
+{"timestamp":"03:57:23.021","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/realstock.png\" \"received\" null"}
+{"timestamp":"03:57:23.046","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/sistema-comercial.png\" \"received\" null"}
+{"timestamp":"03:57:23.049","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/smartpro.png\" \"received\" null"}
+{"timestamp":"03:57:23.219","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"03:57:27.590","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/isapres-premium.png\" \"received\" null"}
+{"timestamp":"03:57:27.591","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/tu-promesa.png\" \"received\" null"}
+{"timestamp":"03:57:27.657","source":"Browser","level":"WARN","message":"Image with src \"/images/services/service-01.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"03:57:27.657","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/services/service-01.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
+{"timestamp":"03:57:27.661","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/realstock.png\" \"received\" null"}
+{"timestamp":"03:57:27.665","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/sistema-comercial.png\" \"received\" null"}
+{"timestamp":"03:57:27.668","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/smartpro.png\" \"received\" null"}
+{"timestamp":"03:57:32.968","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/isapres-premium.png\" \"received\" null"}
+{"timestamp":"03:57:32.971","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/tu-promesa.png\" \"received\" null"}
+{"timestamp":"03:57:33.657","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/realstock.png\" \"received\" null"}
+{"timestamp":"03:57:34.183","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/sistema-comercial.png\" \"received\" null"}
+{"timestamp":"03:57:35.081","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/isapres-premium.png\" \"received\" null"}
+{"timestamp":"03:57:35.083","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/tu-promesa.png\" \"received\" null"}
+{"timestamp":"03:57:35.085","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/realstock.png\" \"received\" null"}
+{"timestamp":"03:57:35.091","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/portfolio/smartpro.png\" \"received\" null"}
+{"timestamp":"03:57:43.885","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:15:59.132","source":"Server","level":"LOG","message":"✓ Compiled in 124ms"}
+{"timestamp":"04:16:08.278","source":"Server","level":"LOG","message":"✓ Compiled in 230ms"}
+{"timestamp":"04:16:08.533","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:16:18.873","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:16:18.877","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:22:40.405","source":"Server","level":"LOG","message":"✓ Compiled in 83ms"}
+{"timestamp":"04:22:51.440","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:22:51.448","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:23:01.976","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:23:01.977","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:23:02.102","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:23:08.576","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:23:08.580","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:23:08.615","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:23:08.843","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:23:08.873","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:23:08.895","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:23:09.120","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:23:09.125","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:23:09.160","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:28:17.020","source":"Server","level":"LOG","message":"✓ Compiled in 171ms"}
+{"timestamp":"04:28:17.351","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:28:25.195","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:28:25.200","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:28:25.261","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:43:30.729","source":"Server","level":"LOG","message":"  Reload env: .env"}
+{"timestamp":"04:43:31.133","source":"Server","level":"LOG","message":"✓ Compiled in 337ms"}
+{"timestamp":"04:43:31.363","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:43:36.004","source":"Server","level":"LOG","message":"  Reload env: .env"}
+{"timestamp":"04:43:36.119","source":"Server","level":"LOG","message":"✓ Compiled in 0ms"}
+{"timestamp":"04:43:36.165","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:44:22.650","source":"Server","level":"LOG","message":"✓ Compiled in 81ms"}
+{"timestamp":"04:44:22.669","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"04:45:10.413","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:10.414","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:10.416","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:45:12.426","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:12.428","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:12.453","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:45:26.670","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:26.672","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:26.702","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:45:26.973","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:27.012","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:27.018","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:45:27.257","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:27.258","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:27.287","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:45:59.057","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:45:59.059","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:45:59.088","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}
+{"timestamp":"04:54:13.105","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/contact/contact-bg.png\" \"received\" null"}
+{"timestamp":"04:54:13.107","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/location/map-smartpro.png\" \"received\" null"}
+{"timestamp":"04:54:13.127","source":"Server","level":"ERROR","message":"⨯ \"The requested resource isn't a valid image for\" \"/images/payment/webpay.png\" \"received\" null"}

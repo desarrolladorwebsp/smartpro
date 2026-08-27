@@ -1,0 +1,92 @@
+:root {
+  --smartpro-primary: #6d28d9;
+  --smartpro-primary-hover: #7c3aed;
+  --smartpro-magenta: #ec168c;
+  --smartpro-pink: #f43fa6;
+  --smartpro-gradient-mid: #a42be2;
+
+  --smartpro-ink: #0b0b14;
+  --smartpro-navy: #101024;
+  --smartpro-white: #ffffff;
+
+  --smartpro-background: #f8f7fc;
+  --smartpro-surface: #ffffff;
+  --smartpro-soft-background: #f3f0fa;
+  --smartpro-border: #e8e5ef;
+
+  --smartpro-muted: #6e6b7b;
+  --smartpro-muted-light: #9693a1;
+  --smartpro-on-dark-secondary: #b9b6c5;
+
+  --smartpro-purple-glow: rgb(109 40 217 / 0.25);
+  --smartpro-magenta-glow: rgb(236 22 140 / 0.2);
+  --smartpro-purple-border: rgb(109 40 217 / 0.2);
+  --smartpro-dark-glass: rgb(16 16 36 / 0.78);
+  --smartpro-light-glass: rgb(255 255 255 / 0.8);
+
+  --smartpro-brand-gradient: linear-gradient(
+    90deg,
+    var(--smartpro-primary) 0%,
+    var(--smartpro-gradient-mid) 50%,
+    var(--smartpro-magenta) 100%
+  );
+
+  --background: var(--smartpro-background);
+  --foreground: var(--smartpro-ink);
+  --surface: var(--smartpro-surface);
+  --soft-background: var(--smartpro-soft-background);
+  --dark-background: var(--smartpro-ink);
+  --border: var(--smartpro-border);
+  --muted: var(--smartpro-muted);
+  --muted-light: var(--smartpro-muted-light);
+
+  --primary: var(--smartpro-primary);
+  --primary-hover: var(--smartpro-primary-hover);
+  --magenta: var(--smartpro-magenta);
+  --pink: var(--smartpro-pink);
+  --ink: var(--smartpro-ink);
+  --navy: var(--smartpro-navy);
+
+  --on-dark: var(--smartpro-white);
+  --on-dark-secondary: var(--smartpro-on-dark-secondary);
+
+  --purple-glow: var(--smartpro-purple-glow);
+  --magenta-glow: var(--smartpro-magenta-glow);
+  --purple-border: var(--smartpro-purple-border);
+  --dark-glass: var(--smartpro-dark-glass);
+  --light-glass: var(--smartpro-light-glass);
+
+  --brand-gradient: var(--smartpro-brand-gradient);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-soft-background: var(--soft-background);
+  --color-dark-background: var(--dark-background);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-light: var(--muted-light);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-magenta: var(--magenta);
+  --color-pink: var(--pink);
+  --color-ink: var(--ink);
+  --color-navy: var(--navy);
+
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-secondary: var(--on-dark-secondary);
+
+  --color-purple-glow: var(--purple-glow);
+  --color-magenta-glow: var(--magenta-glow);
+  --color-purple-border: var(--purple-border);
+  --color-dark-glass: var(--dark-glass);
+  --color-light-glass: var(--light-glass);
+
+  --background-image-brand-gradient: var(--brand-gradient);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
