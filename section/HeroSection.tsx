@@ -73,11 +73,10 @@ export default function HeroSection() {
 
       <div
         className="
-          relative h-[260px] w-full overflow-hidden
+          relative  w-full h-full overflow-hidden
           sm:h-[340px]
           md:h-[400px]
-          lg:h-[460px]
-          xl:h-[500px]
+          xl:h-[900px]
         "
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
@@ -340,9 +339,7 @@ export default function HeroSection() {
             "
           >
             Llevamos tu marca
-            <span
-              className="mt-1 block text-gradient-brand"
-            >
+            <span className="mt-1 block text-gradient-brand">
               al siguiente nivel
             </span>
           </motion.h1>
@@ -391,7 +388,10 @@ export default function HeroSection() {
             }}
             className="mt-8"
           >
-            <a href="#contacto" className="btn-gradient group shadow-[0_10px_28px_rgb(109_40_217_/_0.2)]">
+            <a
+              href="#contacto"
+              className="btn-gradient group shadow-[0_10px_28px_rgb(109_40_217_/_0.2)]"
+            >
               <CalendarDays
                 size={18}
                 strokeWidth={1.8}

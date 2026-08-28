@@ -1,46 +1,48 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowRight } from "lucide-react";
+
+import ViewServiceButton, {
+  type ServicePlansKey,
+} from "@/components/plans/ViewServiceButton";
 
 const services = [
   {
     number: "01",
     title: "Desarrollo Web",
     image: "/images/services/service-01.png",
-    href: "/servicios/desarrollo-web",
+    planKey: "desarrolloWeb",
   },
   {
     number: "02",
     title: "Campañas Publicitarias",
     image: "/images/services/service-02.png",
-    href: "/servicios/campanas-publicitarias",
+    planKey: "campanaPublicitaria",
   },
   {
     number: "03",
     title: "Redes Sociales & Contenido",
     image: "/images/services/service-03.png",
-    href: "/servicios/redes-sociales",
+    planKey: "redesSociales",
   },
   {
     number: "04",
     title: "Automatización & Conversión",
     image: "/images/services/service-04.png",
-    href: "/servicios/automatizacion",
+    planKey: "automatizacionBots",
   },
   {
     number: "05",
     title: "Producción Audiovisual",
     image: "/images/services/service-05.png",
-    href: "/servicios/produccion-audiovisual",
+    planKey: "produccionVisual",
   },
   {
     number: "06",
     title: "Membresías & Negocios",
     image: "/images/services/service-06.png",
-    href: "/servicios/membresias",
+    planKey: "membresias",
   },
 ];
 
@@ -270,46 +272,10 @@ export default function ServicesSection() {
 
                 {/* CTA */}
                 <div className="mt-auto pt-10">
-                  <span
-                    className="
-                      group/button
-                      inline-flex
-                      min-h-12
-                      items-center
-                      gap-6
-                      rounded-full
-                      border
-                      border-primary/80
-                      bg-ink/20
-                      px-5
-                      text-sm
-                      font-semibold
-                      text-on-dark
-                      backdrop-blur-sm
-                      transition-all
-                      duration-300
-                      group-hover:border-magenta
-                      group-hover:bg-primary/15
-                    "
-                  >
-                    Ver servicio
-                    <ArrowRight
-                      size={16}
-                      strokeWidth={1.8}
-                      className="
-                        transition-transform
-                        duration-300
-                        group-hover:translate-x-1
-                      "
-                    />
-                  </span>
+                  <ViewServiceButton
+                    service={service.planKey as ServicePlansKey}
+                  />
                 </div>
-
-                <Link
-                  href={service.href}
-                  className="absolute inset-0 z-20"
-                  aria-label={`Ver servicio ${service.title}`}
-                />
               </div>
             </motion.article>
           ))}
