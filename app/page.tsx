@@ -7,6 +7,7 @@ import TeamSection from "@/section/TeamSection";
 import ContactSection from "@/section/ContactSection";
 import LocationSection from "@/section/LocationSection";
 import Footer from "@/section/Footer";
+import WhatsAppFloatingButton from "@/components/rrss/WhatsAppFloatingButton";
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
         <LocationSection />
       </main>
       <Footer />
+      <WhatsAppFloatingButton />
     </div>
   );
 }
