@@ -6,6 +6,8 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
 
+import CartButton from "@/components/cart/CartButton";
+
 /* ============================================================
    CONSTANTES
 ============================================================ */
@@ -45,6 +47,7 @@ const NAV_ITEMS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("inicio");
 
   /* ------------------------------------------------------------
      DETECTAR SCROLL
@@ -97,6 +100,36 @@ export default function Navbar() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const sectionIds = ["inicio", "servicios", "proyectos", "nosotros", "contacto"]; 
+    const sectionElements = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
+
+    if (sectionElements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (visibleEntry) {
+          setActiveSection(visibleEntry.target.id);
+        }
+      },
+      {
+        root: null,
+        threshold: [0.2, 0.4, 0.6],
+        rootMargin: "-30% 0px -45% 0px",
+      },
+    );
+
+    sectionElements.forEach((element) => observer.observe(element));
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
@@ -238,16 +271,30 @@ export default function Navbar() {
                 lg:flex
               "
             >
-              {NAV_ITEMS.map((item) => (
-                <NavItem key={item.label} href={item.href} label={item.label} />
-              ))}
+              {NAV_ITEMS.map((item) => {
+                const isActive =
+                  item.href === "/"
+                    ? activeSection === "inicio"
+                    : activeSection === item.href.replace("#", "");
+
+                return (
+                  <NavItem
+                    key={item.label}
+                    href={item.href}
+                    label={item.label}
+                    active={isActive}
+                  />
+                );
+              })}
             </nav>
 
             {/* ==================================================
                 CTA DESKTOP
             ================================================== */}
 
-            <div className="hidden lg:flex">
+            <div className="hidden items-center gap-3 lg:flex">
+              <CartButton />
+
               <motion.a
                 href="#contacto"
                 whileHover={{
@@ -275,8 +322,6 @@ export default function Navbar() {
                   hover:bg-primary-hover
                 "
               >
-                {/* Brillo horizontal */}
-
                 <span
                   aria-hidden="true"
                   className="
@@ -302,65 +347,69 @@ export default function Navbar() {
                 BOTÓN MOBILE
             ================================================== */}
 
-            <button
-              type="button"
-              aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
-              aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((current) => !current)}
-              className="icon-button lg:hidden"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {mobileMenuOpen ? (
-                  <motion.div
-                    key="close"
-                    initial={{
-                      opacity: 0,
-                      rotate: -90,
-                      scale: 0.8,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      rotate: 0,
-                      scale: 1,
-                    }}
-                    exit={{
-                      opacity: 0,
-                      rotate: 90,
-                      scale: 0.8,
-                    }}
-                    transition={{
-                      duration: 0.2,
-                    }}
-                  >
-                    <X size={21} />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="menu"
-                    initial={{
-                      opacity: 0,
-                      rotate: 90,
-                      scale: 0.8,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      rotate: 0,
-                      scale: 1,
-                    }}
-                    exit={{
-                      opacity: 0,
-                      rotate: -90,
-                      scale: 0.8,
-                    }}
-                    transition={{
-                      duration: 0.2,
-                    }}
-                  >
-                    <Menu size={22} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </button>
+            <div className="flex items-center gap-2 lg:hidden">
+              <CartButton />
+
+                <button
+                type="button"
+                aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+                aria-expanded={mobileMenuOpen}
+                onClick={() => setMobileMenuOpen((current) => !current)}
+                className="icon-button"
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {mobileMenuOpen ? (
+                    <motion.div
+                      key="close"
+                      initial={{
+                        opacity: 0,
+                        rotate: -90,
+                        scale: 0.8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        rotate: 0,
+                        scale: 1,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        rotate: 90,
+                        scale: 0.8,
+                      }}
+                      transition={{
+                        duration: 0.2,
+                      }}
+                    >
+                      <X size={21} />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="menu"
+                      initial={{
+                        opacity: 0,
+                        rotate: 90,
+                        scale: 0.8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        rotate: 0,
+                        scale: 1,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        rotate: -90,
+                        scale: 0.8,
+                      }}
+                      transition={{
+                        duration: 0.2,
+                      }}
+                    >
+                      <Menu size={22} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -464,63 +513,65 @@ export default function Navbar() {
               {/* Navegación */}
 
               <nav aria-label="Navegación móvil" className="flex flex-col">
-                {NAV_ITEMS.map((item, index) => (
-                  <motion.a
-                    key={item.label}
-                    href={item.href}
-                    initial={{
-                      opacity: 0,
-                      x: -10,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      x: 0,
-                    }}
-                    transition={{
-                      duration: 0.3,
-                      delay: index * 0.04,
-                    }}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="
-                      group
-                      flex
-                      min-h-12
-                      items-center
-                      justify-between
-                      rounded-xl
-                      px-4
-                      text-[15px]
-                      font-medium
-                      text-foreground
-                      transition-all
-                      duration-300
+                {NAV_ITEMS.map((item, index) => {
+                  const isActive =
+                    item.href === "/"
+                      ? activeSection === "inicio"
+                      : activeSection === item.href.replace("#", "");
 
-                      hover:
-                      bg-primary/5
-
-                      hover:
-                      text-primary
-                    "
-                  >
-                    <span>{item.label}</span>
-
-                    <span
-                      aria-hidden="true"
-                      className="
-                        h-1.5
-                        w-1.5
-                        rounded-full
-                        bg-primary
-                        opacity-0
+                  return (
+                    <motion.a
+                      key={item.label}
+                      href={item.href}
+                      initial={{
+                        opacity: 0,
+                        x: -10,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        x: 0,
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        delay: index * 0.04,
+                      }}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`
+                        group
+                        flex
+                        min-h-12
+                        items-center
+                        justify-between
+                        rounded-xl
+                        px-4
+                        text-[15px]
+                        font-medium
                         transition-all
                         duration-300
+                        ${
+                          isActive
+                            ? "bg-primary/5 text-primary"
+                            : "text-foreground hover:bg-primary/5 hover:text-primary"
+                        }
+                      `}
+                    >
+                      <span>{item.label}</span>
 
-                        group-hover:
-                        opacity-100
-                      "
-                    />
-                  </motion.a>
-                ))}
+                      <span
+                        aria-hidden="true"
+                        className={`
+                          h-1.5
+                          w-1.5
+                          rounded-full
+                          bg-primary
+                          transition-all
+                          duration-300
+                          ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
+                        `}
+                      />
+                    </motion.a>
+                  );
+                })}
               </nav>
 
               {/* CTA mobile */}
@@ -570,11 +621,20 @@ export default function Navbar() {
    NAV ITEM DESKTOP
 ============================================================ */
 
-function NavItem({ label, href }: { label: string; href: string }) {
+function NavItem({
+  label,
+  href,
+  active,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+}) {
   return (
     <Link
       href={href}
-      className="
+      aria-current={active ? "page" : undefined}
+      className={`
         group
         relative
         flex
@@ -583,24 +643,20 @@ function NavItem({ label, href }: { label: string; href: string }) {
         px-4
         text-sm
         font-medium
-        text-muted
         transition-colors
         duration-300
-        hover:text-primary
-      "
+        ${active ? "text-primary" : "text-muted hover:text-primary"}
+      `}
     >
       {label}
 
-      {/* Línea hover */}
-
       <span
         aria-hidden="true"
-        className="
+        className={`
           absolute
           bottom-1.5
           left-1/2
           h-[2px]
-          w-0
           -translate-x-1/2
           rounded-full
           bg-gradient-to-r
@@ -608,10 +664,8 @@ function NavItem({ label, href }: { label: string; href: string }) {
           to-magenta
           transition-all
           duration-300
-
-          group-hover:
-          w-5
-        "
+          ${active ? "w-5" : "w-0 group-hover:w-5"}
+        `}
       />
     </Link>
   );

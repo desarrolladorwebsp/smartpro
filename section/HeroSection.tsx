@@ -73,7 +73,10 @@ export default function HeroSection() {
 
       <div
         className="
-          relative  w-full h-full overflow-hidden
+          relative
+          h-[260px]
+          w-full
+          overflow-hidden
           sm:h-[340px]
           md:h-[400px]
           xl:h-[900px]
@@ -389,7 +392,9 @@ export default function HeroSection() {
             className="mt-8"
           >
             <a
-              href="#contacto"
+              href="https://calendly.com/agencia-smartpro/online?month=2026-08"
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-gradient group shadow-[0_10px_28px_rgb(109_40_217_/_0.2)]"
             >
               <CalendarDays

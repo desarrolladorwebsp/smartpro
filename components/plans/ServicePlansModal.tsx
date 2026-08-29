@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AnimatePresence, motion } from "motion/react";
 
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import PlanCard, { Plan } from "./PlanCard";
 
@@ -34,6 +35,38 @@ export default function ServicePlansModal({
   onClose,
 }: ServicePlansModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
+  const [addedPlanName, setAddedPlanName] = useState<string | null>(null);
+
+  const updateCarouselState = () => {
+    const node = carouselRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const maxScrollLeft = node.scrollWidth - node.clientWidth;
+
+    setCanScrollPrev(node.scrollLeft > 8);
+    setCanScrollNext(node.scrollLeft < maxScrollLeft - 8);
+  };
+
+  const scrollCarousel = (direction: "prev" | "next") => {
+    const node = carouselRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const amount = Math.max(node.clientWidth * 0.82, 260);
+
+    node.scrollBy({
+      left: direction === "next" ? amount : -amount,
+      behavior: "smooth",
+    });
+  };
 
   /* ==========================================================
      ESC
@@ -54,6 +87,26 @@ export default function ServicePlansModal({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, onClose]);
+
+  useEffect(() => {
+    updateCarouselState();
+
+    const node = carouselRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const handleScroll = () => updateCarouselState();
+
+    node.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      node.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [open, plans.length]);
 
   /* ==========================================================
      BODY SCROLL LOCK
@@ -249,12 +302,12 @@ export default function ServicePlansModal({
                   text-muted
                   transition-all
                   duration-300
-
-                  hover:
-                  border-primary/30
-
-                  hover:
-                  text-primary
+                  hover:-translate-y-0.5
+                  hover:scale-[1.04]
+                  hover:border-primary/40
+                  hover:bg-primary/5
+                  hover:text-primary
+                  hover:shadow-[0_8px_20px_rgba(109,40,217,0.12)]
                 "
               >
                 <X size={19} strokeWidth={1.8} />
@@ -270,39 +323,204 @@ export default function ServicePlansModal({
                 overflow-y-auto
                 overscroll-contain
                 p-4
-                sm:p-6
+                sm:p-5
                 lg:p-7
               "
             >
               {plans.length > 0 ? (
-                <div
-                  className={`
-                    grid
-                    items-stretch
-                    gap-4
-                    sm:gap-5
+                <div className="relative">
+                  <AnimatePresence>
+                    {addedPlanName && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="
+                          mb-4
+                          flex
+                          flex-col
+                          gap-3
+                          rounded-2xl
+                          border
+                          border-emerald-200/80
+                          bg-emerald-50
+                          p-3
+                          text-left
+                          shadow-[0_12px_28px_rgba(16,185,129,0.10)]
+                          sm:flex-row
+                          sm:items-center
+                          sm:justify-between
+                        "
+                      >
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                            Plan agregado
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-foreground">
+                            {addedPlanName} se añadió a tu carrito.
+                          </p>
+                        </div>
 
-                    ${plans.length === 1 ? "mx-auto max-w-[440px]" : ""}
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href="/checkout"
+                            onClick={onClose}
+                            className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+                          >
+                            Ir al carrito
+                          </Link>
 
-                    ${plans.length === 2 ? "md:grid-cols-2" : ""}
+                          <button
+                            type="button"
+                            onClick={() => setAddedPlanName(null)}
+                            className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                          >
+                            Seguir viendo
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                    ${
-                      plans.length >= 3
-                        ? `
-                          md:grid-cols-2
-                          xl:grid-cols-3
-                        `
-                        : ""
-                    }
-                  `}
-                >
-                  {plans.map((plan, index) => (
-                    <PlanCard
-                      key={`${plan.name}-${index}`}
-                      plan={plan}
-                      index={index}
-                    />
-                  ))}
+                  <div
+                    ref={carouselRef}
+                    className="
+                      flex
+                      w-full
+                      snap-x
+                      snap-mandatory
+                      gap-4
+                      overflow-x-auto
+                      overflow-y-visible
+                      pb-3
+                      pt-2
+                      scroll-smooth
+                      touch-pan-x
+                      [-ms-overflow-style:none]
+                      [scrollbar-width:none]
+                      [&::-webkit-scrollbar]:hidden
+                    "
+                  >
+                    {plans.map((plan, index) => (
+                      <div
+                        key={`${plan.name}-${index}`}
+                        className="
+                          mx-auto
+                          flex
+                          min-w-0
+                          shrink-0
+                          snap-center
+                          scroll-ml-2
+                          py-2
+                          transition-all
+                          duration-300
+                          sm:scroll-ml-3
+                          md:scroll-ml-1
+                          w-[calc(100%-0.5rem)]
+                          max-w-[360px]
+                          sm:w-[72%]
+                          sm:max-w-[380px]
+                          md:w-[calc(50%-0.5rem)]
+                          md:max-w-[360px]
+                          xl:w-[calc(33.333%-0.75rem)]
+                          xl:max-w-[360px]
+                        "
+                      >
+                        <PlanCard
+                          plan={plan}
+                          index={index}
+                          onAdded={setAddedPlanName}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {plans.length > 1 && (
+                    <>
+                      <motion.button
+                        type="button"
+                        aria-label="Ver planes anteriores"
+                        onClick={() => scrollCarousel("prev")}
+                        disabled={!canScrollPrev}
+                        whileHover={canScrollPrev ? { scale: 1.04 } : undefined}
+                        whileTap={canScrollPrev ? { scale: 0.96 } : undefined}
+                        className="
+                          absolute
+                          left-2
+                          top-1/2
+                          z-10
+                          hidden
+                          h-11
+                          w-11
+                          -translate-y-1/2
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                          border-primary/20
+                          bg-white/95
+                          text-primary
+                          shadow-[0_8px_24px_rgba(16,16,36,0.12)]
+                          backdrop-blur-md
+                          transition-all
+                          duration-300
+                          md:flex
+                        
+                          disabled:cursor-not-allowed
+                          disabled:opacity-40
+                          disabled:shadow-none
+                          
+                          hover:border-primary/40
+                          hover:text-primary
+                        "
+                        style={{ opacity: canScrollPrev ? 1 : 0.4 }}
+                      >
+                        <ChevronLeft size={18} strokeWidth={2.2} />
+                      </motion.button>
+
+                      <motion.button
+                        type="button"
+                        aria-label="Ver planes siguientes"
+                        onClick={() => scrollCarousel("next")}
+                        disabled={!canScrollNext}
+                        whileHover={canScrollNext ? { scale: 1.04 } : undefined}
+                        whileTap={canScrollNext ? { scale: 0.96 } : undefined}
+                        className="
+                          absolute
+                          right-2
+                          top-1/2
+                          z-10
+                          hidden
+                          h-11
+                          w-11
+                          -translate-y-1/2
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                          border-primary/20
+                          bg-white/95
+                          text-primary
+                          shadow-[0_8px_24px_rgba(16,16,36,0.12)]
+                          backdrop-blur-md
+                          transition-all
+                          duration-300
+                          md:flex
+
+                          disabled:cursor-not-allowed
+                          disabled:opacity-40
+                          disabled:shadow-none
+
+                          hover:border-primary/40
+                          hover:text-primary
+                        "
+                        style={{ opacity: canScrollNext ? 1 : 0.4 }}
+                      >
+                        <ChevronRight size={18} strokeWidth={2.2} />
+                      </motion.button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div

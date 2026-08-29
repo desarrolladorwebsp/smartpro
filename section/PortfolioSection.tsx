@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 
@@ -63,26 +62,43 @@ const PORTFOLIO_ITEMS: PortfolioItem[] = [
     id: 3,
     title: "RealStock",
     category: "E-commerce",
-    image: "/images/portfolio/realstock.png",
+    image: "/images/portfolio/real-stock.png",
     url: "https://www.realstock.cl",
     tags: ["E-commerce", "UI/UX", "Catálogo"],
   },
   {
     id: 4,
-    title: "Sistema Comercial",
+    title: "SAAS Appsfly",
     category: "Sistemas",
-    image: "/images/portfolio/sistema-comercial.png",
-    url: "#",
-    tags: ["Sistema", "Dashboard", "Automatización"],
+    image: "/images/portfolio/saas-appsfly.png",
+    url: "https://www.appsfly.app",
+    tags: ["Sistema", "Dashboard", "Automatización", "SAAS"],
   },
   {
     id: 5,
-    title: "SmartPro",
-    category: "Sitios Web",
-    image: "/images/portfolio/smartpro.png",
-    url: "https://smartpro.cl",
+    title: "Turismo Dabar",
+    category: "Landing Page",
+    image: "/images/portfolio/turismo-dabar.png",
+    url: "https://turismodabar.cl",
     tags: ["Website", "Next.js", "Responsive"],
   },
+  {
+    id: 6,
+    title: "Axessia",
+    category: "Sistemas",
+    image: "/images/portfolio/axessia.png",
+    url: "https://axessia.cl",
+    tags: ["Website", "Next.js", "Responsive"],
+  },
+  {
+    id: 8,
+    title: "CRM Isapres Premium",
+    category: "Sistemas",
+    image: "/images/portfolio/crm-isapres-premium.png",
+    url: "https://www.isaprespremium.cl",
+    tags: ["CRM", "Next.js", "Responsive"],
+  },
+
 ];
 
 /* ============================================================

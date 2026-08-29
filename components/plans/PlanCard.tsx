@@ -1,13 +1,20 @@
 "use client";
 
+import { useState } from "react";
+
 import { motion } from "motion/react";
 import { ArrowRight, Check, Star } from "lucide-react";
+
+import { useCart } from "@/components/cart/CartProvider";
+import { parseMoney } from "@/lib/orders/service";
 
 /* ============================================================
    TYPES
 ============================================================ */
 
 export type Plan = {
+  id?: string;
+  category?: string;
   badge?: string | null;
   icon?: string | null;
   accentIcon?: string | null;
@@ -41,14 +48,47 @@ export type Plan = {
 type PlanCardProps = {
   plan: Plan;
   index: number;
+  onAdded?: (planName: string) => void;
 };
 
 /* ============================================================
    COMPONENT
 ============================================================ */
 
-export default function PlanCard({ plan, index }: PlanCardProps) {
-  const href = plan.link ?? plan.link2 ?? "#contacto";
+export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
+  const { addItem } = useCart();
+  const [isAdded, setIsAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    const planId =
+      plan.id ??
+      plan.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    addItem({
+      id: planId || `plan-${Date.now()}`,
+      name: plan.name,
+      category: plan.category ?? "Servicio SmartPro",
+      quantity: 1,
+      unitPrice: parseMoney(plan.price),
+      priceDisplay: plan.price,
+      taxRate: 0.19,
+      source: "plan-card",
+    });
+
+    setIsAdded(true);
+    onAdded?.(plan.name);
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        setIsAdded(false);
+      }, 1200);
+    }
+  };
 
   return (
     <motion.article
@@ -68,9 +108,14 @@ export default function PlanCard({ plan, index }: PlanCardProps) {
       className={`
         group
         relative
+        mx-auto
         flex
         h-full
+        min-h-[440px]
+        w-full
+        max-w-[360px]
         min-w-0
+        origin-top
         flex-col
         rounded-[24px]
         border
@@ -78,6 +123,11 @@ export default function PlanCard({ plan, index }: PlanCardProps) {
         p-5
         transition-all
         duration-300
+        hover:-translate-y-2
+        hover:scale-[1.01]
+        hover:border-primary/40
+        hover:shadow-[0_28px_60px_rgba(16,16,36,0.14)]
+        sm:max-w-[380px]
         sm:p-6
 
         ${
@@ -301,15 +351,15 @@ export default function PlanCard({ plan, index }: PlanCardProps) {
           CTA
       ====================================================== */}
 
-      <motion.a
-        href={href}
-        target={href.startsWith("http") ? "_blank" : undefined}
-        rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+      <motion.button
+        type="button"
+        onClick={handleAddToCart}
         whileTap={{
           scale: 0.985,
         }}
         className={`
           group/button
+          mt-auto
           flex
           min-h-[50px]
           w-full
@@ -324,38 +374,34 @@ export default function PlanCard({ plan, index }: PlanCardProps) {
           duration-300
 
           ${
-            plan.highlighted
-              ? `
-                bg-gradient-to-r
-                from-primary
-                to-magenta
-                text-white
-                shadow-[0_10px_30px_rgba(109,40,217,0.20)]
-
-                hover:
-                shadow-[0_14px_38px_rgba(236,22,140,0.24)]
-              `
-              : `
-                bg-primary
-                text-white
-
-                hover:
-                bg-primary-hover
-              `
+            isAdded
+              ? "scale-[1.01] bg-emerald-500 text-white shadow-[0_12px_28px_rgba(16,185,129,0.28)]"
+              : plan.highlighted
+                ? "bg-gradient-to-r from-primary to-magenta text-white shadow-[0_10px_30px_rgba(109,40,217,0.20)] hover:shadow-[0_14px_38px_rgba(236,22,140,0.24)]"
+                : "bg-primary text-white hover:bg-primary-hover"
           }
         `}
       >
-        Elegir plan
-        <ArrowRight
-          size={16}
-          strokeWidth={2}
-          className="
-            transition-transform
-            duration-300
-            group-hover/button:translate-x-1
-          "
-        />
-      </motion.a>
+        {isAdded ? (
+          <>
+            <Check size={16} className="animate-pulse" />
+            Agregado
+          </>
+        ) : (
+          <>
+            Elegir plan
+            <ArrowRight
+              size={16}
+              strokeWidth={2}
+              className="
+                transition-transform
+                duration-300
+                group-hover/button:translate-x-1
+              "
+            />
+          </>
+        )}
+      </motion.button>
     </motion.article>
   );
 }

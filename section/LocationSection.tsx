@@ -18,13 +18,13 @@ import {
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const LOCATION = {
-  address: "Providencia 1017 Of 41",
-  commune: "Providencia, RM, Chile",
+  address: "Santa Elena 941 B",
+  commune: "Santiago, RM, Chile",
   postalCode: "7500000",
 
-  mapUrl: `https://www.google.com/maps/search/?api=1&query=Providencia+1017+Providencia+Chile&key=${GOOGLE_MAPS_API_KEY}`,
+  mapUrl: `https://www.google.com/maps/search/?api=1&query=Santa+Elena+941+B+Santiago+Chile&key=${GOOGLE_MAPS_API_KEY}`,
 
-  mapImage: "/images/location/map-smartpro.png",
+  mapImage: "/images/location/map.png",
 } as const;
 
 const LOCATION_ITEMS = [
@@ -477,98 +477,6 @@ export default function LocationSection() {
                   group-hover:bg-transparent
                 "
               />
-
-              {/* ==================================================
-                  CUSTOM MARKER
-              ================================================== */}
-
-              <motion.div
-                whileHover={{
-                  y: -4,
-                }}
-                className="
-                  absolute
-                  left-1/2
-                  top-1/2
-                  z-10
-                  -translate-x-1/2
-                  -translate-y-1/2
-                "
-              >
-                <div
-                  className="
-                    relative
-                    flex
-                    min-w-[180px]
-                    flex-col
-                    items-center
-                    rounded-[18px]
-                    bg-gradient-to-br
-                    from-primary
-                    to-violet-700
-                    px-5
-                    py-4
-                    text-center
-                    text-white
-                    shadow-[0_18px_45px_rgba(109,40,217,0.35)]
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      h-10
-                      w-10
-                      items-center
-                      justify-center
-                      rounded-xl
-                      border
-                      border-white/30
-                      bg-white/10
-                      text-lg
-                      font-bold
-                      backdrop-blur-sm
-                    "
-                  >
-                    SP
-                  </div>
-
-                  <p
-                    className="
-                      mt-2
-                      text-base
-                      font-semibold
-                    "
-                  >
-                    SmartPro
-                  </p>
-
-                  <p
-                    className="
-                      mt-0.5
-                      text-xs
-                      text-white/75
-                    "
-                  >
-                    Agencia de Marketing
-                  </p>
-
-                  {/* Marker triangle */}
-
-                  <span
-                    aria-hidden="true"
-                    className="
-                      absolute
-                      -bottom-4
-                      left-1/2
-                      h-8
-                      w-8
-                      -translate-x-1/2
-                      rotate-45
-                      bg-violet-700
-                    "
-                  />
-                </div>
-              </motion.div>
 
               {/* ==================================================
                   OPEN MAP BUTTON

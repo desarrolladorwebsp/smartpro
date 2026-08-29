@@ -1,0 +1,58 @@
+[
+  {
+    "id": "SP-2026-185495",
+    "createdAt": "2026-08-29T20:56:11.604Z",
+    "orderStatus": "cancelled",
+    "status": "cancelled",
+    "customer": {
+      "name": "Alfredo Hurtado",
+      "email": "alfredocl2016@gmail.com",
+      "phone": "+353838316917",
+      "company": "Appsfly Chile"
+    },
+    "items": [
+      {
+        "id": "smartweb-base",
+        "name": "SmartWeb Base®",
+        "category": "Servicio SmartPro",
+        "quantity": 2,
+        "unitPrice": 199990,
+        "priceDisplay": "$199.990",
+        "taxRate": 0.19
+      }
+    ],
+    "subtotal": 399980,
+    "tax": 75996.2,
+    "total": 475976.2,
+    "paymentStatus": "failed",
+    "paymentMethod": "transbank"
+  },
+  {
+    "id": "SP-2026-865054",
+    "createdAt": "2026-08-29T20:56:14.547Z",
+    "orderStatus": "cancelled",
+    "status": "cancelled",
+    "customer": {
+      "name": "Alfredo Hurtado",
+      "email": "alfredocl2016@gmail.com",
+      "phone": "+353838316917",
+      "company": "Appsfly Chile"
+    },
+    "items": [
+      {
+        "id": "smartweb-base",
+        "name": "SmartWeb Base®",
+        "category": "Servicio SmartPro",
+        "quantity": 2,
+        "unitPrice": 199990,
+        "priceDisplay": "$199.990",
+        "taxRate": 0.19
+      }
+    ],
+    "subtotal": 399980,
+    "tax": 75996.2,
+    "total": 475976.2,
+    "paymentStatus": "failed",
+    "paymentMethod": "transbank"
+  }
+]

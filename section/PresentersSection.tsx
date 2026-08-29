@@ -89,6 +89,7 @@ export default function PresentersSection() {
   }, []);
 
   const maxIndex = Math.max(0, PRESENTERS.length - itemsPerView);
+  const safeCurrentIndex = Math.min(currentIndex, maxIndex);
 
   /* ==========================================================
      CAROUSEL
@@ -113,12 +114,6 @@ export default function PresentersSection() {
       window.clearInterval(timer);
     };
   }, [carouselPaused, maxIndex, nextSlide]);
-
-  useEffect(() => {
-    if (currentIndex > maxIndex) {
-      setCurrentIndex(maxIndex);
-    }
-  }, [currentIndex, maxIndex]);
 
   /* ==========================================================
      REPRODUCCIÓN
@@ -453,7 +448,7 @@ export default function PresentersSection() {
           <div className="overflow-hidden">
             <motion.div
               animate={{
-                x: `-${currentIndex * (100 / itemsPerView)}%`,
+                x: `-${safeCurrentIndex * (100 / itemsPerView)}%`,
               }}
               transition={{
                 duration: 0.65,
@@ -618,7 +613,7 @@ export default function PresentersSection() {
                       duration-300
 
                       ${
-                        currentIndex === index
+                        safeCurrentIndex === index
                           ? "w-7 bg-primary"
                           : "w-2 bg-primary/20 hover:bg-primary/40"
                       }

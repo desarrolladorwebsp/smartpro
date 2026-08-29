@@ -5,12 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 
-import {
-  FaFacebookF,
-  FaInstagram,
-  FaThreads,
-  FaXTwitter,
-} from "react-icons/fa6";
+import { FaFacebookF, FaInstagram, FaXTwitter } from "react-icons/fa6";
 
 /* ============================================================
    CONSTANTES
@@ -18,15 +13,15 @@ import {
 
 const FOOTER_ASSETS = {
   logo: "/images/logo/logo-smartpro-01.png",
-  payment: "/images/payment/webpay.png",
+  payment: "/images/logo/webpay-plus.png",
 } as const;
 
 const CONTACT_INFO = [
   {
     id: "address",
     icon: MapPin,
-    label: "Providencia 1017 Of 41 Providencia, RM, Chile",
-    href: "https://www.google.com/maps/search/?api=1&query=Providencia+1017+Providencia+Chile",
+    label: "Santa Elena 941 B, Santiago",
+    href: "https://www.google.com/maps/search/?api=1&query=Santa+Elena+941+B+Santiago+Chile",
     external: true,
   },
   {
@@ -107,11 +102,7 @@ const SOCIAL_LINKS = [
     href: "https://x.com/smartpro2025",
     icon: FaXTwitter,
   },
-  {
-    label: "Threads",
-    href: "https://www.threads.com/@smartpro.chile",
-    icon: FaThreads,
-  },
+ 
 ] as const;
 
 /* ============================================================
@@ -579,33 +570,51 @@ export default function Footer() {
 
             {/* CTA */}
 
-            <Link
-              href="#contacto"
-              className="
-                group
-                mt-8
-                inline-flex
-                items-center
-                gap-2
-                text-sm
-                font-semibold
-                text-violet-300
-                transition-colors
-                duration-300
-                hover:text-white
-              "
-            >
-              Cuéntanos tu proyecto
-              <ArrowUpRight
-                size={16}
+            <div className="mt-8 flex flex-col gap-3">
+              <Link
+                href="#contacto"
                 className="
-                  transition-transform
+                  group
+                  inline-flex
+                  items-center
+                  gap-2
+                  text-sm
+                  font-semibold
+                  text-violet-300
+                  transition-colors
                   duration-300
-                  group-hover:-translate-y-0.5
-                  group-hover:translate-x-0.5
+                  hover:text-white
                 "
-              />
-            </Link>
+              >
+                Cuéntanos tu proyecto
+                <ArrowUpRight
+                  size={16}
+                  className="
+                    transition-transform
+                    duration-300
+                    group-hover:-translate-y-0.5
+                    group-hover:translate-x-0.5
+                  "
+                />
+              </Link>
+
+              <Link
+                href="/login"
+                className="
+                  inline-flex
+                  items-center
+                  gap-2
+                  text-sm
+                  font-semibold
+                  text-white/80
+                  transition-colors
+                  duration-300
+                  hover:text-white
+                "
+              >
+                Ejecutivos
+              </Link>
+            </div>
           </motion.div>
         </div>
       </div>

@@ -252,21 +252,49 @@ export default function TeamSection() {
         </div>
 
         {/* ====================================================
-            TEAM GRID
+            TEAM CAROUSEL
         ==================================================== */}
 
-        <div
-          className="
-            grid
-            gap-4
-            sm:grid-cols-2
-            lg:grid-cols-3
-            xl:grid-cols-6
-          "
-        >
-          {TEAM_MEMBERS.map((member, index) => (
-            <TeamCard key={member.id} member={member} index={index} />
-          ))}
+        <div className="mx-auto max-w-[1320px]">
+          <div
+            className="
+              flex
+              snap-x
+              snap-mandatory
+              gap-4
+              overflow-x-auto
+              pb-3
+              [-ms-overflow-style:none]
+              [scrollbar-width:none]
+              [&::-webkit-scrollbar]:hidden
+              md:overflow-visible
+              md:flex-nowrap
+              md:justify-start
+              lg:gap-5
+              xl:gap-6
+            "
+          >
+            {TEAM_MEMBERS.map((member, index) => (
+              <div
+                key={member.id}
+                className="
+                  shrink-0
+                  snap-start
+                  w-[78%]
+                  max-w-[290px]
+                  sm:w-[46%]
+                  sm:max-w-[300px]
+                  md:w-[calc(20%-0.8rem)]
+                  md:min-w-[220px]
+                  md:max-w-[260px]
+                  lg:w-[calc(20%-0.8rem)]
+                  xl:w-[calc(20%-0.8rem)]
+                "
+              >
+                <TeamCard member={member} index={index} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -313,7 +341,7 @@ function TeamCard({ member, index }: TeamCardProps) {
     <motion.article
       initial={{
         opacity: 0,
-        y: 30,
+        y: 22,
       }}
       whileInView={{
         opacity: 1,
@@ -321,31 +349,33 @@ function TeamCard({ member, index }: TeamCardProps) {
       }}
       viewport={{
         once: true,
-        amount: 0.15,
+        amount: 0.2,
       }}
       transition={{
-        duration: 0.55,
-        delay: index * 0.06,
+        duration: 0.5,
+        delay: index * 0.05,
         ease: "easeOut",
       }}
       whileHover={{
-        y: -6,
+        y: -4,
       }}
       className="
         group
         relative
         flex
-        min-h-[520px]
+        h-full
+        min-h-[500px]
+        w-full
         flex-col
         overflow-hidden
         rounded-[22px]
         border
         border-white/5
         bg-navy
-        shadow-[0_12px_35px_rgba(16,16,36,0.12)]
-        transition-shadow
+        shadow-[0_10px_28px_rgba(16,16,36,0.10)]
+        transition-all
         duration-500
-        hover:shadow-[0_20px_55px_rgba(109,40,217,0.18)]
+        hover:shadow-[0_22px_54px_rgba(109,40,217,0.18)]
       "
     >
       {/* ======================================================
@@ -370,7 +400,7 @@ function TeamCard({ member, index }: TeamCardProps) {
             transition-transform
             duration-700
             ease-out
-            group-hover:scale-[1.04]
+            group-hover:scale-[1.03]
           "
           sizes="
             (max-width: 639px) 100vw,
@@ -429,9 +459,11 @@ function TeamCard({ member, index }: TeamCardProps) {
           flex
           flex-1
           flex-col
-          px-5
-          pb-6
-          pt-1
+          px-4
+          pb-5
+          pt-2
+          sm:px-5
+          sm:pb-6
         "
       >
         {/* Name */}
