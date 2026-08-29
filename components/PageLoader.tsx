@@ -13,6 +13,11 @@ const SHAPES = [
   { id: "s6", x: 0, y: 118, size: 10, delay: 0.2 },
 ] as const;
 
+// Debe coincidir con la primera imagen del Hero (recurso crítico above-the-fold).
+const CRITICAL_IMAGE_SRC = "/images/hero/hero-01.webp";
+const MIN_VISIBLE_MS = 1100;
+const MAX_WAIT_MS = 2200;
+
 export default function PageLoader() {
   const [isVisible, setIsVisible] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -30,27 +35,45 @@ export default function PageLoader() {
 
     mediaQuery.addEventListener("change", updatePreference);
 
-    const handleReady = () => {
-      const elapsed = startedAtRef.current ? window.performance.now() - startedAtRef.current : 0;
-      const minVisibleMs = 950;
-      const remaining = Math.max(0, minVisibleMs - elapsed);
+    let cancelled = false;
+
+    // Recurso real: la imagen crítica del Hero (no espera al resto de la página).
+    const criticalImageReady = new Promise<void>((resolve) => {
+      const img = new window.Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = CRITICAL_IMAGE_SRC;
+      if (img.complete) resolve();
+    });
+
+    const fontsReady = document.fonts?.ready ?? Promise.resolve();
+
+    // Seguridad: nunca dejar el loader bloqueado si un recurso tarda demasiado.
+    const safetyTimeout = new Promise<void>((resolve) => {
+      window.setTimeout(resolve, MAX_WAIT_MS);
+    });
+
+    Promise.race([
+      Promise.all([criticalImageReady, fontsReady]),
+      safetyTimeout,
+    ]).then(() => {
+      if (cancelled) return;
+
+      const elapsed = startedAtRef.current
+        ? window.performance.now() - startedAtRef.current
+        : 0;
+      const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
 
       window.setTimeout(() => {
         requestAnimationFrame(() => {
-          setIsVisible(false);
+          if (!cancelled) setIsVisible(false);
         });
       }, remaining);
-    };
-
-    if (document.readyState === "complete") {
-      handleReady();
-    } else {
-      window.addEventListener("load", handleReady, { once: true });
-    }
+    });
 
     return () => {
+      cancelled = true;
       mediaQuery.removeEventListener("change", updatePreference);
-      window.removeEventListener("load", handleReady);
     };
   }, []);
 

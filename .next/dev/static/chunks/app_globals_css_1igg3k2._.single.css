@@ -134,11 +134,13 @@
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
     --font-weight-extrabold: 800;
+    --tracking-wide: .025em;
     --leading-tight: 1.25;
     --radius-xl: .75rem;
     --radius-2xl: 1rem;
     --drop-shadow-sm: 0 1px 2px #00000026;
     --ease-out: cubic-bezier(0, 0, .2, 1);
+    --animate-spin: spin 1s linear infinite;
     --animate-ping: ping 1s cubic-bezier(0, 0, .2, 1) infinite;
     --animate-pulse: pulse 2s cubic-bezier(.4, 0, .6, 1) infinite;
     --blur-sm: 8px;
@@ -1329,6 +1331,10 @@
     width: calc(var(--spacing) * 5);
   }
 
+  .w-6 {
+    width: calc(var(--spacing) * 6);
+  }
+
   .w-7 {
     width: calc(var(--spacing) * 7);
   }
@@ -1610,6 +1616,10 @@
 
   .animate-pulse {
     animation: var(--animate-pulse);
+  }
+
+  .animate-spin {
+    animation: var(--animate-spin);
   }
 
   .cursor-default {
@@ -2094,6 +2104,16 @@
     }
   }
 
+  .border-white\/25 {
+    border-color: #ffffff40;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .border-white\/25 {
+      border-color: color-mix(in oklab, var(--color-white) 25%, transparent);
+    }
+  }
+
   .border-white\/30 {
     border-color: #ffffff4d;
   }
@@ -2134,6 +2154,10 @@
     }
   }
 
+  .border-t-primary {
+    border-top-color: var(--primary);
+  }
+
   .bg-\[\#0b0b14\] {
     background-color: #0b0b14;
   }
@@ -2169,6 +2193,16 @@
   @supports (color: color-mix(in lab, red, red)) {
     .bg-black\/10 {
       background-color: color-mix(in oklab, var(--color-black) 10%, transparent);
+    }
+  }
+
+  .bg-black\/20 {
+    background-color: #0003;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-black\/20 {
+      background-color: color-mix(in oklab, var(--color-black) 20%, transparent);
     }
   }
 
@@ -2498,6 +2532,16 @@
     }
   }
 
+  .bg-white\/10 {
+    background-color: #ffffff1a;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-white\/10 {
+      background-color: color-mix(in oklab, var(--color-white) 10%, transparent);
+    }
+  }
+
   .bg-white\/20 {
     background-color: #fff3;
   }
@@ -2614,12 +2658,24 @@
     background-image: radial-gradient(circle, #6d28d924, #0000 45%, #0b0b14f5 88%);
   }
 
+  .bg-\[radial-gradient\(circle_at_top\,_rgba\(109\,40\,217\,0\.2\)\,_rgba\(15\,23\,42\,0\.4\)_55\%\,_rgba\(15\,23\,42\,0\.8\)\)\] {
+    background-image: radial-gradient(circle at top, #6d28d933, #0f172a66 55%, #0f172acc);
+  }
+
   .bg-\[radial-gradient\(circle_at_top\,_rgba\(109\,40\,217\,0\.15\)\,_rgba\(15\,23\,42\,0\.08\)\)\] {
     background-image: radial-gradient(circle at top, #6d28d926, #0f172a14);
   }
 
   .bg-\[radial-gradient\(circle_at_top\,_rgba\(109\,40\,217\,0\.18\)\,_rgba\(15\,23\,42\,0\.18\)_45\%\,_rgba\(15\,23\,42\,0\.08\)\)\] {
     background-image: radial-gradient(circle at top, #6d28d92e, #0f172a2e 45%, #0f172a14);
+  }
+
+  .bg-\[radial-gradient\(circle_at_top\,_rgba\(109\,40\,217\,0\.25\)\,_rgba\(15\,23\,42\,0\.55\)_55\%\,_rgba\(15\,23\,42\,0\.9\)\)\] {
+    background-image: radial-gradient(circle at top, #6d28d940, #0f172a8c 55%, #0f172ae6);
+  }
+
+  .bg-\[radial-gradient\(circle_at_top\,_rgba\(109\,40\,217\,0\.35\)\,_rgba\(15\,23\,42\,0\.6\)_55\%\,_rgba\(15\,23\,42\,0\.94\)\)\] {
+    background-image: radial-gradient(circle at top, #6d28d959, #0f172a99 55%, #0f172af0);
   }
 
   .from-black\/35 {
@@ -3439,6 +3495,11 @@
     letter-spacing: .34em;
   }
 
+  .tracking-wide {
+    --tw-tracking: var(--tracking-wide);
+    letter-spacing: var(--tracking-wide);
+  }
+
   .text-balance {
     text-wrap: balance;
   }
@@ -4005,6 +4066,11 @@
     transition-duration: .7s;
   }
 
+  .duration-\[400ms\] {
+    --tw-duration: .4s;
+    transition-duration: .4s;
+  }
+
   .ease-out {
     --tw-ease: var(--ease-out);
     transition-timing-function: var(--ease-out);
@@ -4085,6 +4151,10 @@
       --tw-scale-y: 110%;
       --tw-scale-z: 110%;
       scale: var(--tw-scale-x) var(--tw-scale-y);
+    }
+
+    .group-hover\:scale-\[1\.01\]:is(:where(.group):hover *) {
+      scale: 1.01;
     }
 
     .group-hover\:scale-\[1\.02\]:is(:where(.group):hover *) {
@@ -5477,6 +5547,12 @@ body {
   syntax: "*";
   inherits: false;
   initial-value: 1;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes ping {

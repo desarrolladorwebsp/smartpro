@@ -8,15 +8,15 @@ import { SmartImage } from "@/components/ui/SmartImage";
 
 const HERO_IMAGES = [
   {
-    src: "/images/hero/hero-01.png",
+    src: "/images/hero/hero-01.webp",
     alt: "Equipo creativo de SmartPro trabajando en estrategia y diseño",
   },
   {
-    src: "/images/hero/hero-02.png",
+    src: "/images/hero/hero-02.webp",
     alt: "Equipo de SmartPro desarrollando soluciones digitales",
   },
   {
-    src: "/images/hero/hero-03.png",
+    src: "/images/hero/hero-03.webp",
     alt: "Producción y creatividad digital de SmartPro",
   },
 ];
@@ -65,6 +65,32 @@ export default function HeroSection() {
 
     return () => window.clearInterval(timer);
   }, [isPaused, nextSlide]);
+
+  // Precarga silenciosa del resto de slides una vez el navegador está libre,
+  // para que el cambio de slide sea instantáneo cuando el usuario llegue a él.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const preload = () => {
+      HERO_IMAGES.slice(1).forEach(({ src }) => {
+        const img = new window.Image();
+        img.src = src;
+      });
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(preload);
+      return () => idleWindow.cancelIdleCallback?.(id);
+    }
+
+    const id = window.setTimeout(preload, 1500);
+    return () => window.clearTimeout(id);
+  }, []);
 
   return (
     <section id="inicio" className="relative overflow-hidden bg-background">

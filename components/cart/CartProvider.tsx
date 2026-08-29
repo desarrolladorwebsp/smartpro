@@ -33,26 +33,34 @@ const CART_STORAGE_KEY = "smartpro-cart";
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
+  // El estado inicial debe ser idéntico en servidor y cliente (siempre []).
+  // localStorage solo se lee después del montaje, dentro de un efecto,
+  // para no provocar un mismatch de hidratación.
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-    try {
-      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (!raw) {
-        return [];
+  useEffect(() => {
+    // Se difiere a un microtask para no llamar a setState de forma
+    // síncrona dentro del cuerpo del efecto (regla react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      try {
+        const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<CartItem>[];
+          const sanitized = parsed
+            .map((item) => sanitizeCartItem(item))
+            .filter(Boolean) as CartItem[];
+
+          setItems(sanitized);
+        }
+      } catch {
+        // Almacenamiento corrupto o inaccesible: se ignora y se mantiene el carrito vacío.
+      } finally {
+        setIsHydrated(true);
       }
-
-      const parsed = JSON.parse(raw) as Partial<CartItem>[];
-      return parsed
-        .map((item) => sanitizeCartItem(item))
-        .filter(Boolean) as CartItem[];
-    } catch {
-      return [];
-    }
-  });
-  const [isHydrated] = useState(() => typeof window !== "undefined");
+    });
+  }, []);
 
   useEffect(() => {
     if (!isHydrated) {

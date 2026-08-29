@@ -53,10 +53,10 @@ export default function PresentersSection() {
 
   /*
    * Solo este presentador puede estar reproduciéndose.
-   * Comenzamos con el primero.
+   * No hay autoplay: nadie está activo hasta que el usuario haga clic.
    */
   const [activePresenterId, setActivePresenterId] = useState<number | null>(
-    PRESENTERS[0].id,
+    null,
   );
 
   const [itemsPerView, setItemsPerView] = useState(3);
@@ -647,6 +647,15 @@ type PresenterVideoCardProps = {
    VIDEO CARD
 ============================================================ */
 
+function getPresenterInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 function PresenterVideoCard({
   presenter,
   index,
@@ -656,6 +665,13 @@ function PresenterVideoCard({
 }: PresenterVideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
+
+  /*
+   * El video nunca se monta ni se descarga hasta que el usuario
+   * hace clic. Antes de eso solo se muestra un poster estático.
+   */
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   /* ==========================================================
      CONTROL CENTRALIZADO DEL VIDEO
@@ -672,7 +688,7 @@ function PresenterVideoCard({
           await video.play();
         } catch {
           /*
-           * Algunos navegadores pueden bloquear autoplay.
+           * Algunos navegadores pueden bloquear la reproducción.
            * En ese caso aparecerá el botón Play.
            */
           setIsActuallyPlaying(false);
@@ -683,13 +699,19 @@ function PresenterVideoCard({
     } else {
       video.pause();
     }
-  }, [isActive]);
+  }, [isActive, shouldLoadVideo]);
 
   /* ==========================================================
-     CLICK SOBRE EL VIDEO
+     CLICK SOBRE EL POSTER / VIDEO
   ========================================================== */
 
   const handleVideoClick = () => {
+    if (!shouldLoadVideo) {
+      setShouldLoadVideo(true);
+      onPlay();
+      return;
+    }
+
     if (isActive && isActuallyPlaying) {
       onPause();
       return;
@@ -744,28 +766,88 @@ function PresenterVideoCard({
           shadow-[0_18px_45px_rgba(16,16,36,0.14)]
         "
       >
-        <video
-          ref={videoRef}
-          src={presenter.video}
-          muted
-          loop
-          playsInline
-          preload={presenter.id === PRESENTERS[0].id ? "auto" : "metadata"}
-          onClick={handleVideoClick}
-          onPlay={() => setIsActuallyPlaying(true)}
-          onPause={() => setIsActuallyPlaying(false)}
-          className="
-            h-full
-            w-full
-            cursor-pointer
-            object-cover
-            object-center
-            transition-transform
-            duration-700
-            ease-out
-            group-hover:scale-[1.015]
-          "
-        />
+        {!shouldLoadVideo ? (
+          /* ==================================================
+              POSTER ESTÁTICO (sin video montado ni descargado)
+          ================================================== */
+          <button
+            type="button"
+            onClick={handleVideoClick}
+            aria-label={`Reproducir video de ${presenter.name}`}
+            className="
+              absolute inset-0 z-10 flex flex-col
+              items-center justify-center gap-5
+              bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.35),_rgba(15,23,42,0.6)_55%,_rgba(15,23,42,0.94))]
+              transition-transform duration-500
+              group-hover:scale-[1.01]
+            "
+          >
+            <span
+              aria-hidden="true"
+              className="
+                flex h-20 w-20 items-center justify-center
+                rounded-full border border-white/20 bg-white/10
+                text-2xl font-semibold uppercase tracking-wide
+                text-white backdrop-blur-sm
+              "
+            >
+              {getPresenterInitials(presenter.name)}
+            </span>
+
+            <span
+              className="
+                flex h-14 w-14 items-center justify-center
+                rounded-full bg-white/95 text-primary shadow-lg
+                transition-transform duration-300
+                group-hover:scale-105
+              "
+            >
+              <Play
+                size={22}
+                fill="currentColor"
+                strokeWidth={1.5}
+                className="ml-0.5"
+              />
+            </span>
+          </button>
+        ) : (
+          <>
+            {!isVideoReady && (
+              <div
+                aria-hidden="true"
+                className="
+                  absolute inset-0 z-10 flex flex-col
+                  items-center justify-center gap-3
+                  bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.25),_rgba(15,23,42,0.55)_55%,_rgba(15,23,42,0.9))]
+                "
+              >
+                <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-primary" />
+                <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/80">
+                  Cargando video…
+                </span>
+              </div>
+            )}
+
+            <video
+              ref={videoRef}
+              src={presenter.video}
+              muted
+              loop
+              playsInline
+              preload="none"
+              onClick={handleVideoClick}
+              onLoadedData={() => setIsVideoReady(true)}
+              onPlay={() => setIsActuallyPlaying(true)}
+              onPause={() => setIsActuallyPlaying(false)}
+              className={`
+                h-full w-full cursor-pointer object-cover object-center
+                transition-opacity duration-[400ms] ease-out
+                group-hover:scale-[1.015]
+                ${isVideoReady ? "opacity-100" : "opacity-0"}
+              `}
+            />
+          </>
+        )}
 
         {/* Overlay superior */}
 
@@ -843,57 +925,59 @@ function PresenterVideoCard({
         )}
 
         {/* ====================================================
-            PLAY / PAUSE
+            PLAY / PAUSE (solo una vez el video está listo)
         ==================================================== */}
 
-        <motion.button
-          type="button"
-          aria-label={
-            isActuallyPlaying
-              ? `Pausar video de ${presenter.name}`
-              : `Reproducir video de ${presenter.name}`
-          }
-          onClick={handleVideoClick}
-          whileHover={{
-            scale: 1.08,
-          }}
-          whileTap={{
-            scale: 0.94,
-          }}
-          className="
-            absolute
-            bottom-5
-            left-5
-            z-20
-            flex
-            h-12
-            w-12
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-white/70
-            bg-black/30
-            text-white
-            shadow-lg
-            backdrop-blur-md
-            transition-all
-            duration-300
-            hover:border-primary
-            hover:bg-primary
-          "
-        >
-          {isActuallyPlaying ? (
-            <Pause size={18} fill="currentColor" strokeWidth={1.5} />
-          ) : (
-            <Play
-              size={18}
-              fill="currentColor"
-              strokeWidth={1.5}
-              className="ml-0.5"
-            />
-          )}
-        </motion.button>
+        {shouldLoadVideo && isVideoReady && (
+          <motion.button
+            type="button"
+            aria-label={
+              isActuallyPlaying
+                ? `Pausar video de ${presenter.name}`
+                : `Reproducir video de ${presenter.name}`
+            }
+            onClick={handleVideoClick}
+            whileHover={{
+              scale: 1.08,
+            }}
+            whileTap={{
+              scale: 0.94,
+            }}
+            className="
+              absolute
+              bottom-5
+              left-5
+              z-20
+              flex
+              h-12
+              w-12
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/70
+              bg-black/30
+              text-white
+              shadow-lg
+              backdrop-blur-md
+              transition-all
+              duration-300
+              hover:border-primary
+              hover:bg-primary
+            "
+          >
+            {isActuallyPlaying ? (
+              <Pause size={18} fill="currentColor" strokeWidth={1.5} />
+            ) : (
+              <Play
+                size={18}
+                fill="currentColor"
+                strokeWidth={1.5}
+                className="ml-0.5"
+              />
+            )}
+          </motion.button>
+        )}
 
         {/* ====================================================
             HOVER GRADIENT

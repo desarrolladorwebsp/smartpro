@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Image from "next/image";
 import { motion } from "motion/react";
 import {
   CheckCircle2,
@@ -23,8 +22,6 @@ import {
 /* ============================================================
    CONSTANTES
 ============================================================ */
-
-const CONTACT_BACKGROUND = "/images/contact/contact-bg.png";
 
 const CONTACT = {
   whatsapp: {
@@ -239,22 +236,6 @@ export default function ContactSection() {
         lg:py-28
       "
     >
-      {/* ======================================================
-          BACKGROUND IMAGE
-      ====================================================== */}
-
-      <Image
-        src={CONTACT_BACKGROUND}
-        alt=""
-        fill
-        sizes="100vw"
-        className="
-          -z-30
-          object-cover
-          object-center
-        "
-      />
-
       {/* ======================================================
           OVERLAYS
       ====================================================== */}

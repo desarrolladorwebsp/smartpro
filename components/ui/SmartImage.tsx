@@ -24,9 +24,17 @@ export function SmartImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const wrapperClass = fill
-    ? "relative overflow-hidden"
-    : "relative block overflow-hidden";
+  // Si el contenedor ya trae su propio posicionamiento (p.ej. "absolute inset-0"),
+  // no forzamos "relative": ambas clases fijan `position` y, en Tailwind v4,
+  // "relative" gana en cascada sobre "absolute", dejando el contenedor sin altura.
+  const hasExplicitPosition = /\b(absolute|fixed|sticky|static)\b/.test(
+    containerClassName,
+  );
+  const wrapperClass = hasExplicitPosition
+    ? "overflow-hidden"
+    : fill
+      ? "relative overflow-hidden"
+      : "relative block overflow-hidden";
 
   const imageClassName = `${
     isLoaded ? "opacity-100" : "opacity-0"
@@ -35,10 +43,18 @@ export function SmartImage({
   return (
     <div className={`${wrapperClass} ${containerClassName}`.trim()}>
       {!isLoaded && !hasError && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.18),_rgba(15,23,42,0.18)_45%,_rgba(15,23,42,0.08))]"
-        />
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.18),_rgba(15,23,42,0.18)_45%,_rgba(15,23,42,0.08))]"
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/10 backdrop-blur-sm">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-primary" />
+            </div>
+          </div>
+        </>
       )}
 
       {hasError ? (
@@ -51,6 +67,7 @@ export function SmartImage({
           src={src}
           alt={alt}
           fill={fill}
+          loading={props.priority ? undefined : props.loading ?? "lazy"}
           onLoad={(event) => {
             setIsLoaded(true);
             onLoad?.(event);

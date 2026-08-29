@@ -87,7 +87,7 @@ const PORTFOLIO_ITEMS: PortfolioItem[] = [
     id: 6,
     title: "Axessia",
     category: "Sistemas",
-    image: "/images/portfolio/axessia.png",
+    image: "/images/portfolio/axessia-01.png",
     url: "https://axessia.cl",
     tags: ["Website", "Next.js", "Responsive"],
   },
