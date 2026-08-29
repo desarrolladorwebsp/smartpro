@@ -174,7 +174,7 @@ export default function HeroSection() {
           whileTap={{ scale: 0.92 }}
           className="
             group absolute left-4 top-1/2 z-20
-            flex h-11 w-11 -translate-y-1/2
+            hidden h-11 w-11 -translate-y-1/2
             items-center justify-center
             rounded-full
             border border-white/40
@@ -185,6 +185,7 @@ export default function HeroSection() {
             transition-colors duration-300
             hover:bg-surface
             hover:text-primary
+            sm:flex
             sm:left-6
             lg:left-8
           "
@@ -210,7 +211,7 @@ export default function HeroSection() {
           whileTap={{ scale: 0.92 }}
           className="
             group absolute right-4 top-1/2 z-20
-            flex h-11 w-11 -translate-y-1/2
+            hidden h-11 w-11 -translate-y-1/2
             items-center justify-center
             rounded-full
             border border-white/40
@@ -221,6 +222,7 @@ export default function HeroSection() {
             transition-colors duration-300
             hover:bg-surface
             hover:text-primary
+            sm:flex
             sm:right-6
             lg:right-8
           "
@@ -242,10 +244,11 @@ export default function HeroSection() {
         <div
           className="
             absolute bottom-5 left-1/2 z-20
-            flex -translate-x-1/2 items-center
+            hidden -translate-x-1/2 items-center
             gap-2 rounded-full
             bg-ink/25 px-3 py-2
             backdrop-blur-md
+            sm:flex
           "
         >
           {HERO_IMAGES.map((image, index) => (
