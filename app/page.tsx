@@ -25,7 +25,7 @@ const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
   name: "SmartPro",
-  image: "https://smartpro.cl/images/logo/logo-smartpro-01.png",
+  image: "https://smartpro.cl/images/seo/og-smartpro.jpg",
   description:
     "Agencia de marketing digital, desarrollo web y creatividad para empresas que quieren crecer en internet.",
   url: "https://smartpro.cl",

@@ -49,10 +49,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/images/logo/logo-smartpro-01.png",
+        url: "/images/seo/og-smartpro.jpg",
         width: 1200,
         height: 630,
-        alt: "SmartPro",
+        alt: "SmartPro | Agencia de publicidad y tecnología",
       },
     ],
   },
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     title: "SmartPro | Agencia de publicidad y tecnología",
     description:
       "Estrategia, creatividad y tecnología para generar resultados reales y hacer crecer tu negocio.",
-    images: ["/images/logo/logo-smartpro-01.png"],
+    images: ["/images/seo/og-smartpro.jpg"],
   },
   manifest: "/site.webmanifest",
   icons: {
