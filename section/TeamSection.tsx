@@ -1,7 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "motion/react";
+
+import { SmartImage } from "@/components/ui/SmartImage";
 
 /* ============================================================
    TEAM DATA
@@ -390,24 +391,14 @@ function TeamCard({ member, index }: TeamCardProps) {
           bg-navy
         "
       >
-        <Image
+        <SmartImage
+          key={member.image}
           src={member.image}
           alt={`${member.name} - ${member.role}`}
           fill
-          className="
-            object-cover
-            object-center
-            transition-transform
-            duration-700
-            ease-out
-            group-hover:scale-[1.03]
-          "
-          sizes="
-            (max-width: 639px) 100vw,
-            (max-width: 1023px) 50vw,
-            (max-width: 1279px) 33vw,
-            17vw
-          "
+          className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 17vw"
+          containerClassName="absolute inset-0"
         />
 
         {/* Top overlay */}

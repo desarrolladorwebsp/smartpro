@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const SHAPES = [
   { id: "s1", x: -110, y: -70, size: 14, delay: 0 },
@@ -16,9 +16,12 @@ const SHAPES = [
 export default function PageLoader() {
   const [isVisible, setIsVisible] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const startedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    startedAtRef.current = window.performance.now();
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -28,9 +31,15 @@ export default function PageLoader() {
     mediaQuery.addEventListener("change", updatePreference);
 
     const handleReady = () => {
-      requestAnimationFrame(() => {
-        setIsVisible(false);
-      });
+      const elapsed = startedAtRef.current ? window.performance.now() - startedAtRef.current : 0;
+      const minVisibleMs = 950;
+      const remaining = Math.max(0, minVisibleMs - elapsed);
+
+      window.setTimeout(() => {
+        requestAnimationFrame(() => {
+          setIsVisible(false);
+        });
+      }, remaining);
     };
 
     if (document.readyState === "complete") {

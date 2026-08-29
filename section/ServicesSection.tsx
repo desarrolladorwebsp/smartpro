@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useRef } from "react";
 import { motion } from "motion/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { SmartImage } from "@/components/ui/SmartImage";
 import ViewServiceButton, {
   type ServicePlansKey,
 } from "@/components/plans/ViewServiceButton";
@@ -48,7 +49,16 @@ const services = [
 ];
 
 export default function ServicesSection() {
-  const [loadedServices, setLoadedServices] = useState<Record<number, boolean>>({});
+  const servicesTrackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollServices = (direction: number) => {
+    const node = servicesTrackRef.current;
+
+    if (!node) return;
+
+    const cardWidth = node.clientWidth * 0.82;
+    node.scrollBy({ left: direction * cardWidth, behavior: "smooth" });
+  };
 
   return (
     <section
@@ -143,10 +153,45 @@ export default function ServicesSection() {
         </div>
 
         {/* =====================================================
-            GRID DE SERVICIOS
+            CARRUSEL DE SERVICIOS
         ====================================================== */}
 
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-4 flex items-center justify-end gap-2 md:hidden">
+          <button
+            type="button"
+            aria-label="Ver servicios anteriores"
+            onClick={() => scrollServices(-1)}
+            className="icon-button h-10 w-10"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Ver servicios siguientes"
+            onClick={() => scrollServices(1)}
+            className="icon-button h-10 w-10"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div
+          ref={servicesTrackRef}
+          className="
+            no-scrollbar
+            flex
+            gap-4
+            overflow-x-auto
+            pb-2
+            snap-x
+            snap-mandatory
+            md:grid
+            md:grid-cols-2
+            md:gap-5
+            lg:grid-cols-3
+            lg:gap-5
+          "
+        >
           {services.map((service, index) => (
             <motion.article
               key={service.number}
@@ -162,36 +207,25 @@ export default function ServicesSection() {
                 group
                 relative
                 min-h-[320px]
+                min-w-[78vw]
+                snap-center
                 overflow-hidden
                 rounded-[1.25rem]
                 bg-navy
                 sm:min-h-[360px]
+                md:min-w-0
                 lg:min-h-[390px]
               "
             >
               {/* Imagen */}
-              {!loadedServices[index] && (
-                <div className="absolute inset-0 animate-pulse bg-slate-300/60" aria-hidden="true" />
-              )}
-
-              <Image
+              <SmartImage
+                key={service.image}
                 src={service.image}
                 alt={service.title}
                 fill
-                className={`
-                  object-cover
-                  transition-all
-                  duration-700
-                  ease-out
-                  group-hover:scale-[1.045]
-                  ${loadedServices[index] ? "opacity-100" : "opacity-0"}
-                `}
-                sizes="
-                  (max-width: 767px) 100vw,
-                  (max-width: 1023px) 50vw,
-                  33vw
-                "
-                onLoad={() => setLoadedServices((current) => ({ ...current, [index]: true }))}
+                className="object-cover transition-all duration-700 ease-out group-hover:scale-[1.045]"
+                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
+                containerClassName="absolute inset-0"
               />
 
               {/* Overlay principal */}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Image from "next/image";
+import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+
+import { SmartImage } from "@/components/ui/SmartImage";
 
 /* ============================================================
    TIPOS
@@ -107,6 +108,16 @@ const PORTFOLIO_ITEMS: PortfolioItem[] = [
 
 export default function PortfolioSection() {
   const [activeFilter, setActiveFilter] = useState<PortfolioCategory>("Todos");
+  const portfolioTrackRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollPortfolio = (direction: number) => {
+    const node = portfolioTrackRef.current;
+
+    if (!node) return;
+
+    const cardWidth = node.clientWidth * 0.8;
+    node.scrollBy({ left: direction * cardWidth, behavior: "smooth" });
+  };
 
   const filteredProjects = useMemo(() => {
     if (activeFilter === "Todos") {
@@ -320,17 +331,45 @@ export default function PortfolioSection() {
           })}
         </motion.div>
 
+        <div className="mb-4 flex items-center justify-end gap-2 md:hidden">
+          <button
+            type="button"
+            aria-label="Ver proyectos anteriores"
+            onClick={() => scrollPortfolio(-1)}
+            className="icon-button h-10 w-10"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Ver proyectos siguientes"
+            onClick={() => scrollPortfolio(1)}
+            className="icon-button h-10 w-10"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
         {/* ====================================================
-            GRID
+            CARRUSEL
         ==================================================== */}
 
         <motion.div
           layout
+          ref={portfolioTrackRef}
           className="
-            grid
-            gap-5
+            no-scrollbar
+            flex
+            gap-4
+            overflow-x-auto
+            pb-2
+            snap-x
+            snap-mandatory
+            md:grid
             md:grid-cols-2
+            md:gap-5
             lg:grid-cols-3
+            lg:gap-5
           "
         >
           <AnimatePresence mode="popLayout">
@@ -389,7 +428,14 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
         duration: 0.4,
         ease: "easeOut",
       }}
-        className="card-frame transition-shadow duration-500 hover:-translate-y-px hover:shadow-[0_14px_40px_rgb(109_40_217_/_0.1)]"
+      className="
+        card-frame
+        min-w-[78vw]
+        snap-center
+        transition-shadow duration-500
+        hover:-translate-y-px hover:shadow-[0_14px_40px_rgb(109_40_217_/_0.1)]
+        md:min-w-0
+      "
     >
       {/* ======================================================
           BROWSER CHROME
@@ -446,23 +492,14 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
           bg-soft-background
         "
       >
-        <Image
+        <SmartImage
+          key={project.image}
           src={project.image}
           alt={`Proyecto ${project.title}`}
           fill
-          className="
-            object-cover
-            object-top
-            transition-transform
-            duration-700
-            ease-out
-            group-hover:scale-[1.025]
-          "
-          sizes="
-            (max-width: 767px) 100vw,
-            (max-width: 1023px) 50vw,
-            33vw
-          "
+          className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.025]"
+          sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
+          containerClassName="absolute inset-0"
         />
 
         {/* Overlay hover */}
