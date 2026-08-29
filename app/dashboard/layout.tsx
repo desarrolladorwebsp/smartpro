@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
+
 import { DashboardSidebar } from "@/components/admin/DashboardSidebar";
 import { requireAdminSession } from "@/lib/auth";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   await requireAdminSession();

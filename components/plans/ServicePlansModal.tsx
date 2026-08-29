@@ -332,52 +332,38 @@ export default function ServicePlansModal({
                   <AnimatePresence>
                     {addedPlanName && (
                       <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="
-                          mb-4
-                          flex
-                          flex-col
-                          gap-3
-                          rounded-2xl
-                          border
-                          border-emerald-200/80
-                          bg-emerald-50
-                          p-3
-                          text-left
-                          shadow-[0_12px_28px_rgba(16,185,129,0.10)]
-                          sm:flex-row
-                          sm:items-center
-                          sm:justify-between
-                        "
+                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: -8 }}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                        className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
                       >
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                            Plan agregado
-                          </p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">
-                            {addedPlanName} se añadió a tu carrito.
-                          </p>
-                        </div>
+                        <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-border bg-white shadow-[0_26px_80px_rgba(16,24,40,0.18)]">
+                          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 pb-4 pt-5">
+                            <div className="mb-3 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              Plan agregado
+                            </div>
+                            <h3 className="text-xl font-bold tracking-[-0.04em] text-foreground">{addedPlanName}</h3>
+                            <p className="mt-2 text-sm text-muted">Se añadió correctamente a tu carrito y ya puedes seguir con la contratación.</p>
+                          </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <Link
-                            href="/checkout"
-                            onClick={onClose}
-                            className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
-                          >
-                            Ir al carrito
-                          </Link>
+                          <div className="flex flex-col gap-2 border-t border-border bg-slate-50 p-4 sm:flex-row sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setAddedPlanName(null)}
+                              className="inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:border-slate-300 hover:bg-slate-100"
+                            >
+                              Seguir viendo
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setAddedPlanName(null)}
-                            className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/30 hover:text-primary"
-                          >
-                            Seguir viendo
-                          </button>
+                            <Link
+                              href="/checkout"
+                              onClick={onClose}
+                              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#4f46e5] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#4338ca]"
+                            >
+                              Ir al carrito
+                            </Link>
+                          </div>
                         </div>
                       </motion.div>
                     )}

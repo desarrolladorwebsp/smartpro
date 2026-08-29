@@ -54,5 +54,69 @@
     "total": 475976.2,
     "paymentStatus": "failed",
     "paymentMethod": "transbank"
+  },
+  {
+    "id": "SP-2026-362263",
+    "createdAt": "2026-08-29T21:07:38.420Z",
+    "orderStatus": "pending",
+    "status": "pending",
+    "customer": {
+      "name": "alfredo",
+      "email": "al@gmadsds.cl",
+      "phone": "+56922616878"
+    },
+    "items": [
+      {
+        "id": "smartweb-base",
+        "name": "SmartWeb Base®",
+        "category": "Servicio SmartPro",
+        "quantity": 1,
+        "unitPrice": 199990,
+        "priceDisplay": "$199.990",
+        "taxRate": 0.19
+      },
+      {
+        "id": "smartweb-pro",
+        "name": "SmartWeb Pro®",
+        "category": "Servicio SmartPro",
+        "quantity": 1,
+        "unitPrice": 299990,
+        "priceDisplay": "$299.990",
+        "taxRate": 0.19
+      }
+    ],
+    "subtotal": 499980,
+    "tax": 94996.2,
+    "total": 594976.2,
+    "paymentStatus": "pending",
+    "paymentMethod": "transbank"
+  },
+  {
+    "id": "SP-2026-184926",
+    "createdAt": "2026-08-29T21:08:34.380Z",
+    "orderStatus": "pending",
+    "status": "pending",
+    "customer": {
+      "name": "Alfredo Alejandro Hurtado",
+      "email": "alfredocl2016@gmail.com",
+      "phone": "+353838316917",
+      "company": "Appsfly Chile"
+    },
+    "items": [
+      {
+        "id": "smartweb-base",
+        "name": "SmartWeb Base®",
+        "category": "Servicio SmartPro",
+        "quantity": 3,
+        "unitPrice": 199990,
+        "priceDisplay": "$199.990",
+        "taxRate": 0.19
+      }
+    ],
+    "subtotal": 599970,
+    "tax": 113994.3,
+    "total": 713964.3,
+    "paymentStatus": "pending",
+    "paymentMethod": "transbank"
   }
 ]

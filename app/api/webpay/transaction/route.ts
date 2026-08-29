@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getOrderRecord } from "@/lib/orders/repository";
 import { buildOrderTotals, generateOrderId, parseMoney, sanitizeCartItem, type CartItemDraft } from "@/lib/orders/service";
+import { createOrderRecord } from "@/lib/orders/repository";
 import { getAppBaseUrl, getWebpayTransaction } from "@/lib/webpay";
 
 export async function POST(request: Request) {
@@ -56,20 +56,18 @@ export async function POST(request: Request) {
     const sessionId = `${orderId}-session`;
     const returnUrl = `${getAppBaseUrl()}/api/webpay/return?orderId=${encodeURIComponent(orderId)}`;
 
-    const order = await import("@/lib/orders/repository").then(({ createOrderRecord }) =>
-      createOrderRecord({
-        id: orderId,
-        customer: { name, email, phone, company },
-        items: normalizedItems,
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        total: totals.total,
-        paymentStatus: "pending",
-        orderStatus: "pending",
-        paymentMethod: "transbank",
-        status: "pending",
-      }),
-    );
+    const order = await createOrderRecord({
+      id: orderId,
+      customer: { name, email, phone, company },
+      items: normalizedItems,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total,
+      paymentStatus: "pending",
+      orderStatus: "pending",
+      paymentMethod: "transbank",
+      status: "pending",
+    });
 
     try {
       const webpay = getWebpayTransaction();
@@ -85,13 +83,12 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error("[smartpro:webpay:create] Error en Webpay", error);
-      await import("@/lib/orders/repository").then(({ updateOrderStatus }) =>
-        updateOrderStatus(orderId, {
-          paymentStatus: "failed",
-          orderStatus: "cancelled",
-          status: "cancelled",
-        }),
-      );
+      const { updateOrderStatus } = await import("@/lib/orders/repository");
+      await updateOrderStatus(orderId, {
+        paymentStatus: "failed",
+        orderStatus: "cancelled",
+        status: "cancelled",
+      });
       return NextResponse.json({ error: "No se pudo iniciar el pago con Webpay." }, { status: 500 });
     }
   } catch (error) {

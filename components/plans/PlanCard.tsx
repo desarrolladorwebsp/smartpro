@@ -378,7 +378,7 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
               ? "scale-[1.01] bg-emerald-500 text-white shadow-[0_12px_28px_rgba(16,185,129,0.28)]"
               : plan.highlighted
                 ? "bg-gradient-to-r from-primary to-magenta text-white shadow-[0_10px_30px_rgba(109,40,217,0.20)] hover:shadow-[0_14px_38px_rgba(236,22,140,0.24)]"
-                : "bg-primary text-white hover:bg-primary-hover"
+                : "bg-primary text-white hover:bg-[#4f46e5]"
           }
         `}
       >

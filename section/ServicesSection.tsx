@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
 
@@ -47,6 +48,8 @@ const services = [
 ];
 
 export default function ServicesSection() {
+  const [loadedServices, setLoadedServices] = useState<Record<number, boolean>>({});
+
   return (
     <section
       id="servicios"
@@ -167,22 +170,28 @@ export default function ServicesSection() {
               "
             >
               {/* Imagen */}
+              {!loadedServices[index] && (
+                <div className="absolute inset-0 animate-pulse bg-slate-300/60" aria-hidden="true" />
+              )}
+
               <Image
                 src={service.image}
                 alt={service.title}
                 fill
-                className="
+                className={`
                   object-cover
-                  transition-transform
+                  transition-all
                   duration-700
                   ease-out
                   group-hover:scale-[1.045]
-                "
+                  ${loadedServices[index] ? "opacity-100" : "opacity-0"}
+                `}
                 sizes="
                   (max-width: 767px) 100vw,
                   (max-width: 1023px) 50vw,
                   33vw
                 "
+                onLoad={() => setLoadedServices((current) => ({ ...current, [index]: true }))}
               />
 
               {/* Overlay principal */}

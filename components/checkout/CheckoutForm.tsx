@@ -24,7 +24,7 @@ const initialState: CheckoutState = {
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function CheckoutForm() {
-  const { items, subtotal, tax, total, clearCart } = useCart();
+  const { items, subtotal, tax, total } = useCart();
   const [form, setForm] = useState<CheckoutState>(initialState);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutState, string>>>({});
   const [processing, setProcessing] = useState(false);

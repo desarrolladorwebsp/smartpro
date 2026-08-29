@@ -73,15 +73,11 @@ const SITE_MAP = [
     href: "#testimonios",
   },
   {
-    label: "SmartSell®",
-    href: "/smartsell",
-  },
-  {
     label: "Contacto",
     href: "#contacto",
   },
   {
-    label: "Políticas",
+    label: "Política de privacidad",
     href: "/politica-privacidad",
   },
 ] as const;

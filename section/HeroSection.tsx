@@ -26,6 +26,7 @@ export default function HeroSection() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({});
 
   const nextSlide = useCallback(() => {
     setDirection(1);
@@ -112,13 +113,18 @@ export default function HeroSection() {
             }}
             className="absolute inset-0"
           >
+            {!loadedImages[currentSlide] && (
+              <div className="absolute inset-0 animate-pulse bg-slate-200/70" aria-hidden="true" />
+            )}
+
             <Image
               src={HERO_IMAGES[currentSlide].src}
               alt={HERO_IMAGES[currentSlide].alt}
               fill
               priority={currentSlide === 0}
-              className="object-cover object-center"
+              className={`object-cover object-center transition-opacity duration-500 ${loadedImages[currentSlide] ? "opacity-100" : "opacity-0"}`}
               sizes="100vw"
+              onLoad={() => setLoadedImages((current) => ({ ...current, [currentSlide]: true }))}
             />
 
             {/* Overlay */}
