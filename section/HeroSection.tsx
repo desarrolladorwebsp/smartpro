@@ -93,7 +93,7 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <section id="inicio" className="relative overflow-hidden bg-background">
+    <section id="inicio" className="relative overflow-hidden bg-background pt-[72px]">
       {/* ======================================================
           SLIDER DE IMÁGENES
       ====================================================== */}
