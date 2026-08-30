@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
 } from "lucide-react";
+import { SmartImage } from "@/components/ui/SmartImage";
 
 /* ============================================================
    PRESENTADORES
@@ -21,24 +22,28 @@ const PRESENTERS = [
     name: "Kolinka Gavrilovics",
     role: "Modelo / Presentadora",
     video: "/videos/presenters/presenter-01.mov",
+    image: "/images/presenters/kalinka-gavrilovics.webp",
   },
   {
     id: 2,
     name: "Nicole Silva",
     role: "Modelo / Presentadora",
     video: "/videos/presenters/presenter-02.mov",
+    image: "/images/presenters/nicole-silva.webp",
   },
   {
     id: 3,
     name: "Maritza Zúñiga",
     role: "Modelo / Presentadora",
     video: "/videos/presenters/presenter-03.mov",
+    image: "/images/presenters/maritzu-zuniga.webp",
   },
   {
     id: 4,
     name: "Presentadora SmartPro",
     role: "Modelo / Presentadora",
     video: "/videos/presenters/presenter-04.mov",
+    image: "/images/presenters/cristian-luci.webp",
   },
 ] as const;
 
@@ -647,15 +652,6 @@ type PresenterVideoCardProps = {
    VIDEO CARD
 ============================================================ */
 
-function getPresenterInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
 function PresenterVideoCard({
   presenter,
   index,
@@ -768,64 +764,87 @@ function PresenterVideoCard({
       >
         {!shouldLoadVideo ? (
           /* ==================================================
-              POSTER ESTÁTICO (sin video montado ni descargado)
+              POSTER ESTÁTICO (Imagen + Overlay + Botón Play)
           ================================================== */
-          <button
-            type="button"
-            onClick={handleVideoClick}
-            aria-label={`Reproducir video de ${presenter.name}`}
-            className="
-              absolute inset-0 z-10 flex flex-col
-              items-center justify-center gap-5
-              bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.35),_rgba(15,23,42,0.6)_55%,_rgba(15,23,42,0.94))]
-              transition-transform duration-500
-              group-hover:scale-[1.01]
-            "
-          >
-            <span
+          <>
+            <SmartImage
+              src={presenter.image}
+              alt={`Fotografía de ${presenter.name}`}
+              fill
+              sizes="(max-width: 767px) 100vw, (max-width: 1100px) 50vw, 33vw"
+              className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              containerClassName="absolute inset-0"
+            />
+
+            {/* Overlay sutil para legibilidad y profundidad */}
+            <div
               aria-hidden="true"
               className="
-                flex h-20 w-20 items-center justify-center
-                rounded-full border border-white/20 bg-white/10
-                text-2xl font-semibold uppercase tracking-wide
-                text-white backdrop-blur-sm
+                pointer-events-none
+                absolute inset-0
+                bg-gradient-to-t
+                from-navy/80
+                via-navy/30
+                to-transparent
+                transition-opacity duration-300
+                group-hover:from-navy/90
               "
-            >
-              {getPresenterInitials(presenter.name)}
-            </span>
+            />
 
-            <span
+            {/* Botón de reproducción sobre la foto */}
+            <button
+              type="button"
+              onClick={handleVideoClick}
+              aria-label={`Reproducir video de ${presenter.name}`}
               className="
-                flex h-14 w-14 items-center justify-center
-                rounded-full bg-white/95 text-primary shadow-lg
-                transition-transform duration-300
-                group-hover:scale-105
+                absolute inset-0 z-10 flex flex-col
+                items-center justify-center
               "
             >
-              <Play
-                size={22}
-                fill="currentColor"
-                strokeWidth={1.5}
-                className="ml-0.5"
-              />
-            </span>
-          </button>
+              <span
+                className="
+                  flex h-16 w-16 items-center justify-center
+                  rounded-full bg-white/95 text-primary shadow-xl
+                  backdrop-blur-sm
+                  transition-transform duration-300
+                  group-hover:scale-110
+                "
+              >
+                <Play
+                  size={24}
+                  fill="currentColor"
+                  strokeWidth={1.5}
+                  className="ml-1"
+                />
+              </span>
+            </button>
+          </>
         ) : (
           <>
             {!isVideoReady && (
-              <div
-                aria-hidden="true"
-                className="
-                  absolute inset-0 z-10 flex flex-col
-                  items-center justify-center gap-3
-                  bg-[radial-gradient(circle_at_top,_rgba(109,40,217,0.25),_rgba(15,23,42,0.55)_55%,_rgba(15,23,42,0.9))]
-                "
-              >
-                <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-primary" />
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/80">
-                  Cargando video…
-                </span>
-              </div>
+              <>
+                <SmartImage
+                  src={presenter.image}
+                  alt={`Fotografía de ${presenter.name}`}
+                  fill
+                  sizes="(max-width: 767px) 100vw, (max-width: 1100px) 50vw, 33vw"
+                  className="object-cover object-center"
+                  containerClassName="absolute inset-0"
+                />
+                <div
+                  aria-hidden="true"
+                  className="
+                    absolute inset-0 z-10 flex flex-col
+                    items-center justify-center gap-3
+                    bg-navy/70 backdrop-blur-[2px]
+                  "
+                >
+                  <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-primary" />
+                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/90">
+                    Cargando video…
+                  </span>
+                </div>
+              </>
             )}
 
             <video

@@ -1424,3 +1424,21 @@
 {"timestamp":"08:34:25.694","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/logo/webpay-plus.png\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
 {"timestamp":"08:34:29.321","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
 {"timestamp":"08:34:35.462","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"08:42:06.940","source":"Server","level":"LOG","message":"✓ Compiled in 283ms"}
+{"timestamp":"08:42:26.976","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"08:42:30.867","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"08:42:46.946","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"08:45:50.824","source":"Server","level":"LOG","message":"✓ Compiled in 73ms"}
+{"timestamp":"08:45:59.744","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"09:08:33.890","source":"Server","level":"LOG","message":"✓ Compiled in 216ms"}
+{"timestamp":"09:09:05.576","source":"Server","level":"LOG","message":"✓ Compiled in 42ms"}
+{"timestamp":"09:11:36.846","source":"Server","level":"LOG","message":"✓ Compiled in 50ms"}
+{"timestamp":"09:11:59.855","source":"Server","level":"LOG","message":"✓ Compiled in 538ms"}
+{"timestamp":"09:12:17.401","source":"Server","level":"LOG","message":"✓ Compiled in 40ms"}
+{"timestamp":"09:12:45.914","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"09:12:57.377","source":"Server","level":"LOG","message":"✓ Compiled in 68ms"}
+{"timestamp":"09:13:01.806","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"09:13:17.226","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"09:13:39.213","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"09:22:46.170","source":"Browser","level":"WARN","message":"Image with src \"/images/presenters/kalinka-gavrilovics.webp\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"}
+{"timestamp":"09:22:46.170","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mImage with src \\\"/images/presenters/kalinka-gavrilovics.webp\\\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\\\"eager\\\"` property if this image is above the fold.\\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading\\u001b[39m\""}
