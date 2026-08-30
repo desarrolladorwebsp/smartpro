@@ -109,7 +109,7 @@ export default function PresentersSection() {
   }, [maxIndex]);
 
   useEffect(() => {
-    if (carouselPaused || maxIndex === 0) return;
+    if (carouselPaused || activePresenterId !== null || maxIndex === 0) return;
 
     const timer = window.setInterval(() => {
       nextSlide();
@@ -118,7 +118,7 @@ export default function PresentersSection() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [carouselPaused, maxIndex, nextSlide]);
+  }, [activePresenterId, carouselPaused, maxIndex, nextSlide]);
 
   /* ==========================================================
      REPRODUCCIÓN
