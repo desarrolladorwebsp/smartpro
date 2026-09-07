@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import type { PoolConfig } from "mariadb";
 
 function loadLocalEnv() {
   if (process.env.DATABASE_URL || process.env.DB_CONNECTION_URL) {
@@ -36,28 +37,76 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient | null;
 };
 
-function createMariaDbAdapter() {
+function parseDatabaseUrl(connectionString: string) {
+  const url = new URL(connectionString);
+
+  return {
+    host: url.hostname,
+    port: url.port ? Number(url.port) : 3306,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\/+/, "") || undefined,
+    ssl: url.searchParams.get("sslmode") === "require" || url.searchParams.get("ssl") === "true",
+  };
+}
+
+function getConnectionSettings() {
   const connectionString = process.env.DATABASE_URL ?? process.env.DB_CONNECTION_URL ?? "";
 
-  if (!connectionString) {
+  if (connectionString) {
+    return parseDatabaseUrl(connectionString);
+  }
+
+  const host = process.env.DB_HOST?.trim();
+  const user = process.env.DB_USER?.trim();
+  const password = process.env.DB_PASSWORD ?? "";
+  const database = process.env.DB_NAME?.trim();
+  const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
+
+  if (!host || !user || !database) {
+    return null;
+  }
+
+  return {
+    host,
+    port,
+    user,
+    password,
+    database,
+    ssl: process.env.DB_SSL === "true",
+  };
+}
+
+function createMariaDbAdapter() {
+  const settings = getConnectionSettings();
+
+  if (!settings) {
     return undefined;
   }
 
-  try {
-    const url = new URL(connectionString);
-    const database = url.pathname.replace(/^\/+/, "") || undefined;
+  const isServerless = Boolean(process.env.VERCEL);
 
-    return new PrismaMariaDb({
-      host: url.hostname,
-      port: url.port ? Number(url.port) : 3306,
-      user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
-      database,
-      ssl: false,
-      // The remote host caps total connections; keep each client's pool small
-      // so ad-hoc scripts and the dev server don't exhaust the server-side limit.
-      connectionLimit: 3,
-    });
+  const poolConfig: PoolConfig = {
+    host: settings.host,
+    port: settings.port,
+    user: settings.user,
+    password: settings.password,
+    database: settings.database,
+    ssl: settings.ssl ? { rejectUnauthorized: false } : false,
+    // Shared hosting MySQL can be slow to accept remote connections (especially from Vercel).
+    connectTimeout: 30_000,
+    acquireTimeout: 30_000,
+    initializationTimeout: 30_000,
+    // Serverless: one connection per lambda avoids exhausting the host's connection cap.
+    connectionLimit: isServerless ? 1 : 3,
+    minimumIdle: 0,
+    idleTimeout: isServerless ? 20 : 600,
+    allowPublicKeyRetrieval: true,
+    resetAfterUse: true,
+  };
+
+  try {
+    return new PrismaMariaDb(poolConfig);
   } catch {
     return undefined;
   }
