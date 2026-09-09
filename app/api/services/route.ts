@@ -8,6 +8,7 @@ import {
   listServiceSubcategories,
   upsertServicePlan,
 } from "@/lib/services/repository";
+import { parseServicePlanPayload } from "@/lib/services/types";
 
 export async function GET() {
   try {
@@ -38,23 +39,10 @@ export async function POST(request: Request) {
   try {
     await requireAdminSession();
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const payload = parseServicePlanPayload(body);
     const plan = await upsertServicePlan({
-      subcategoryId: String(body.subcategoryId ?? ""),
-      name: String(body.name ?? ""),
-      price: body.price as number | string,
-      pricePrefix: String(body.pricePrefix ?? ""),
-      taxLabel: String(body.taxLabel ?? ""),
-      taxRate: body.taxRate as number | string | undefined,
-      summary: String(body.summary ?? ""),
-      badge: String(body.badge ?? ""),
-      note: String(body.note ?? ""),
-      featureGroupTitle: String(body.featureGroupTitle ?? ""),
-      highlighted: Boolean(body.highlighted),
-      sortOrder: body.sortOrder as number | string | undefined,
-      status: body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
-      icon: String(body.icon ?? ""),
-      externalLink: String(body.externalLink ?? ""),
-      items: Array.isArray(body.items) ? (body.items as Array<{ label?: string }>) : [],
+      ...payload,
+      items: payload.items ?? [],
     });
 
     return NextResponse.json({ plan }, { status: 201, headers: { "Cache-Control": "no-store" } });

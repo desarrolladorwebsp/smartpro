@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import type { UserRole } from "@prisma/client";
 
 import { prisma } from "./db";
@@ -142,7 +143,7 @@ export function verifySessionToken(token: string | undefined): { email: string; 
   }
 }
 
-export async function getCurrentAdminSession(): Promise<{ email: string; role: AdminSessionRole } | null> {
+export const getCurrentAdminSession = cache(async (): Promise<{ email: string; role: AdminSessionRole } | null> => {
   const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
   const session = verifySessionToken(token);
@@ -166,7 +167,7 @@ export async function getCurrentAdminSession(): Promise<{ email: string; role: A
   }
 
   return { email: user.email, role: user.role };
-}
+});
 
 export async function requireAdminSession(): Promise<{ email: string; role: AdminSessionRole }> {
   const session = await getCurrentAdminSession();

@@ -9,7 +9,7 @@ export async function seedServiceCatalog() {
   let plans = 0;
   let items = 0;
 
-  console.log(`Sembrando ${source.length} planes desde plans.js...`);
+  console.log(`Sembrando ${source.length} planes de forma idempotente...`);
 
   for (const [index, entry] of source.entries()) {
     let category = categories.get(entry.categorySlug);
@@ -52,7 +52,7 @@ export async function seedServiceCatalog() {
       status: "ACTIVE",
       icon: entry.icon,
       externalLink: entry.externalLink,
-      items: entry.items.map((label, index) => ({ label, sortOrder: index, status: "ACTIVE" as const })),
+      items: entry.items.map((label, itemIndex) => ({ label, sortOrder: itemIndex, status: "ACTIVE" as const })),
     });
 
     plans += 1;

@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { motion } from "motion/react";
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
 
@@ -37,6 +44,10 @@ const FILTERS: PortfolioCategory[] = [
   "E-commerce",
   "Sistemas",
 ];
+
+function isPortfolioCategory(value: string): value is PortfolioCategory {
+  return (FILTERS as readonly string[]).includes(value);
+}
 
 /* ============================================================
    PROYECTOS
@@ -102,22 +113,45 @@ const PORTFOLIO_ITEMS: PortfolioItem[] = [
 
 ];
 
+const SCROLL_EDGE_PX = 8;
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function getCarouselStep(node: HTMLElement) {
+  const card = node.querySelector<HTMLElement>("[data-portfolio-card]");
+
+  if (!card) {
+    return Math.max(node.clientWidth * 0.82, 240);
+  }
+
+  const gap = Number.parseFloat(getComputedStyle(node).columnGap || "0") || 0;
+
+  return card.offsetWidth + gap;
+}
+
+function getCarouselScrollState(node: HTMLElement) {
+  const maxScrollLeft = node.scrollWidth - node.clientWidth;
+  const hasOverflow = maxScrollLeft > SCROLL_EDGE_PX;
+
+  return {
+    canScrollPrev: hasOverflow && node.scrollLeft > SCROLL_EDGE_PX,
+    canScrollNext: hasOverflow && node.scrollLeft < maxScrollLeft - SCROLL_EDGE_PX,
+  };
+}
+
 /* ============================================================
    PORTFOLIO SECTION
 ============================================================ */
 
 export default function PortfolioSection() {
   const [activeFilter, setActiveFilter] = useState<PortfolioCategory>("Todos");
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
   const portfolioTrackRef = useRef<HTMLDivElement | null>(null);
-
-  const scrollPortfolio = (direction: number) => {
-    const node = portfolioTrackRef.current;
-
-    if (!node) return;
-
-    const cardWidth = node.clientWidth * 0.8;
-    node.scrollBy({ left: direction * cardWidth, behavior: "smooth" });
-  };
 
   const filteredProjects = useMemo(() => {
     if (activeFilter === "Todos") {
@@ -128,6 +162,84 @@ export default function PortfolioSection() {
       (project) => project.category === activeFilter,
     );
   }, [activeFilter]);
+
+  const syncCarouselState = useCallback(() => {
+    const node = portfolioTrackRef.current;
+
+    if (!node) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    const nextState = getCarouselScrollState(node);
+
+    setCanScrollPrev(nextState.canScrollPrev);
+    setCanScrollNext(nextState.canScrollNext);
+  }, []);
+
+  const scrollPortfolio = useCallback((direction: -1 | 1) => {
+    const node = portfolioTrackRef.current;
+
+    if (!node) return;
+
+    node.scrollBy({
+      left: direction * getCarouselStep(node),
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }, []);
+
+  const handleFilterChange = (filter: PortfolioCategory) => {
+    setActiveFilter(filter);
+  };
+
+  const handleTrackKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      scrollPortfolio(-1);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      scrollPortfolio(1);
+    }
+  };
+
+  useLayoutEffect(() => {
+    const node = portfolioTrackRef.current;
+
+    if (!node) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    node.scrollTo({ left: 0, behavior: "auto" });
+    syncCarouselState();
+
+    const frame = window.requestAnimationFrame(syncCarouselState);
+    const handleScroll = () => syncCarouselState();
+    const observer = new ResizeObserver(() => syncCarouselState());
+
+    observer.observe(node);
+
+    for (const child of node.children) {
+      if (child instanceof HTMLElement) {
+        observer.observe(child);
+      }
+    }
+
+    node.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      node.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [filteredProjects, syncCarouselState]);
 
   return (
     <section
@@ -288,112 +400,201 @@ export default function PortfolioSection() {
             duration: 0.5,
             delay: 0.2,
           }}
-          className="
-            mb-10
-            flex
-            flex-wrap
-            items-center
-            justify-center
-            gap-2.5
-          "
+          className="mb-8 md:mb-10"
         >
-          {FILTERS.map((filter) => {
-            const isActive = activeFilter === filter;
+          <div className="relative mx-auto w-full max-w-sm md:hidden">
+            <label htmlFor="portfolio-filter" className="sr-only">
+              Filtrar proyectos por categoría
+            </label>
+            <select
+              id="portfolio-filter"
+              value={activeFilter}
+              aria-controls="portfolio-carousel"
+              onChange={(event) => {
+                const nextFilter = event.target.value;
 
-            return (
-              <button
-                key={filter}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => setActiveFilter(filter)}
-                className={`
-                  relative
-                  min-h-11
-                  overflow-hidden
-                  rounded-full
-                  border
-                  px-5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  duration-300
+                if (isPortfolioCategory(nextFilter)) {
+                  handleFilterChange(nextFilter);
+                }
+              }}
+              className="
+                min-h-12
+                w-full
+                appearance-none
+                rounded-full
+                border
+                border-primary/25
+                bg-surface
+                px-5
+                pr-12
+                text-sm
+                font-medium
+                text-foreground
+                outline-none
+                transition-colors
+                duration-300
+                focus:border-primary/50
+              "
+            >
+              {FILTERS.map((filter) => (
+                <option key={filter} value={filter}>
+                  {filter}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-primary"
+            />
+          </div>
 
-                  ${
-                    isActive
-                      ? "border-primary bg-primary text-white"
-                      : "border-primary/25 bg-surface text-muted hover:border-primary/50 hover:text-primary"
-                  }
-                `}
-              >
-                {filter}
-              </button>
-            );
-          })}
+          <div className="hidden flex-wrap items-center justify-center gap-2.5 md:flex">
+            {FILTERS.map((filter) => {
+              const isActive = activeFilter === filter;
+
+              return (
+                <button
+                  key={filter}
+                  type="button"
+                  aria-pressed={isActive}
+                  aria-controls="portfolio-carousel"
+                  onClick={() => handleFilterChange(filter)}
+                  className={`
+                    relative
+                    min-h-11
+                    overflow-hidden
+                    rounded-full
+                    border
+                    px-5
+                    text-sm
+                    font-medium
+                    transition-colors
+                    duration-300
+
+                    ${
+                      isActive
+                        ? "border-primary bg-primary text-white"
+                        : "border-primary/25 bg-surface text-muted hover:border-primary/50 hover:text-primary"
+                    }
+                  `}
+                >
+                  {filter}
+                </button>
+              );
+            })}
+          </div>
         </motion.div>
-
-        <div className="mb-4 flex items-center justify-end gap-2 md:hidden">
-          <button
-            type="button"
-            aria-label="Ver proyectos anteriores"
-            onClick={() => scrollPortfolio(-1)}
-            className="icon-button h-10 w-10"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Ver proyectos siguientes"
-            onClick={() => scrollPortfolio(1)}
-            className="icon-button h-10 w-10"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
 
         {/* ====================================================
             CARRUSEL
         ==================================================== */}
 
-        <motion.div
-          layout
-          ref={portfolioTrackRef}
-          className="
-            no-scrollbar
-            flex
-            gap-4
-            overflow-x-auto
-            pb-2
-            snap-x
-            snap-mandatory
-            md:grid
-            md:grid-cols-2
-            md:gap-5
-            lg:grid-cols-3
-            lg:gap-5
-          "
+        <div
+          id="portfolio-carousel"
+          role="region"
+          aria-roledescription="carrusel"
+          aria-label="Proyectos del portafolio"
+          className="relative min-w-0 max-w-full"
         >
-          <AnimatePresence mode="popLayout">
-            {filteredProjects.map((project) => (
-              <PortfolioCard key={project.id} project={project} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+          <p className="sr-only" aria-live="polite">
+            {filteredProjects.length}{" "}
+            {filteredProjects.length === 1 ? "proyecto" : "proyectos"} en {activeFilter}.
+          </p>
 
-        {/* ====================================================
-            EMPTY STATE
-        ==================================================== */}
+          {filteredProjects.length === 0 ? (
+            <div className="py-16 text-center text-muted">
+              No hay proyectos en esta categoría todavía.
+            </div>
+          ) : (
+            <>
+            <div
+              key={activeFilter}
+              ref={portfolioTrackRef}
+              tabIndex={0}
+              onKeyDown={handleTrackKeyDown}
+              className="
+                no-scrollbar
+                flex
+                w-full
+                min-w-0
+                flex-nowrap
+                items-stretch
+                gap-5
+                overflow-x-auto
+                overflow-y-hidden
+                overscroll-x-contain
+                scroll-smooth
+                pb-2
+                snap-x
+                snap-mandatory
+                touch-pan-x
+                outline-none
+                focus-visible:ring-2
+                focus-visible:ring-primary/40
+                focus-visible:ring-offset-2
+              "
+            >
+              {filteredProjects.map((project) => (
+                <PortfolioCard key={project.id} project={project} />
+              ))}
+            </div>
 
-        {filteredProjects.length === 0 && (
-          <div
-            className="
-              py-16
-              text-center
-              text-muted
-            "
-          >
-            No hay proyectos en esta categoría todavía.
-          </div>
-        )}
+            <button
+              type="button"
+              aria-label="Ver proyectos anteriores"
+              aria-disabled={!canScrollPrev}
+              disabled={!canScrollPrev}
+              onClick={() => scrollPortfolio(-1)}
+              className={`
+                icon-button
+                absolute
+                top-1/2
+                left-2
+                z-10
+                hidden
+                h-11
+                w-11
+                -translate-y-1/2
+                bg-surface/95
+                shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]
+                backdrop-blur-md
+                lg:flex
+                disabled:pointer-events-none
+                ${canScrollPrev ? "opacity-100" : "pointer-events-none opacity-0"}
+              `}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Ver proyectos siguientes"
+              aria-disabled={!canScrollNext}
+              disabled={!canScrollNext}
+              onClick={() => scrollPortfolio(1)}
+              className={`
+                icon-button
+                absolute
+                top-1/2
+                right-2
+                z-10
+                hidden
+                h-11
+                w-11
+                -translate-y-1/2
+                bg-surface/95
+                shadow-[0_8px_24px_rgb(16_16_36_/_0.12)]
+                backdrop-blur-md
+                lg:flex
+                disabled:pointer-events-none
+                ${canScrollNext ? "opacity-100" : "pointer-events-none opacity-0"}
+              `}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -408,21 +609,14 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
 
   return (
     <motion.article
-      layout
+      data-portfolio-card
       initial={{
         opacity: 0,
-        y: 25,
-        scale: 0.98,
+        y: 20,
       }}
       animate={{
         opacity: 1,
         y: 0,
-        scale: 1,
-      }}
-      exit={{
-        opacity: 0,
-        y: 15,
-        scale: 0.98,
       }}
       transition={{
         duration: 0.4,
@@ -430,11 +624,15 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
       }}
       className="
         card-frame
-        min-w-[78vw]
-        snap-center
+        group
+        h-full
+        w-[min(82%,22rem)]
+        shrink-0
+        snap-start
         transition-shadow duration-500
         hover:-translate-y-px hover:shadow-[0_14px_40px_rgb(109_40_217_/_0.1)]
-        md:min-w-0
+        md:w-[calc((100%-1.25rem)/2)]
+        lg:w-[calc((100%-2.5rem)/3)]
       "
     >
       {/* ======================================================
@@ -498,7 +696,7 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
           alt={`Proyecto ${project.title}`}
           fill
           className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-          sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
+          sizes="(max-width: 767px) 82vw, (max-width: 1023px) 50vw, 33vw"
           containerClassName="absolute inset-0"
         />
 

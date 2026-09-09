@@ -67,7 +67,11 @@ Desktop.ini
 *~
 
 # Cursor local workspace data
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+!.cursor/skills/
+!.cursor/skills/**
 
 # Runtime local data (orders, legacy JSON snapshots)
 /data/*.json

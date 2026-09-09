@@ -79,8 +79,7 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
         onInvited={refreshExecutives}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
+      <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
@@ -155,8 +154,9 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
               ))
             )}
           </div>
-        </div>
+      </div>
 
+      <div className="hidden" aria-hidden="true">
         <ExecutiveRegistrationForm onCreated={handleCreated} />
       </div>
     </div>

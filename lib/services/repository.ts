@@ -58,6 +58,10 @@ function toBoolean(value: unknown): boolean {
   return value === true || value === "true" || value === "1" || value === 1;
 }
 
+function hasProvided(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== "";
+}
+
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value == null) return 0;
   return Number(value);
@@ -237,25 +241,32 @@ export async function getServicePlanById(id: string): Promise<ServicePlanRecord 
   return row ? toPlanRecord(row) : null;
 }
 
-export async function getCatalogTree(): Promise<CatalogTree> {
-  const categories = await getPrisma().serviceCategory.findMany({
+const catalogTreeInclude = {
+  subcategories: {
+    orderBy: [{ sortOrder: "asc" as const }, { name: "asc" as const }],
     include: {
-      subcategories: {
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      plans: {
+        orderBy: [{ sortOrder: "asc" as const }, { name: "asc" as const }],
         include: {
-          plans: {
-            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-            include: {
-              items: { orderBy: { sortOrder: "asc" } },
-              subcategory: { include: { category: true } },
-            },
-          },
+          items: { orderBy: { sortOrder: "asc" as const } },
+          subcategory: { include: { category: true } },
         },
       },
     },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
+  },
+};
 
+function mapCategoryTree(
+  categories: Array<
+    CategoryRow & {
+      subcategories: Array<
+        SubcategoryRow & {
+          plans: PlanRow[];
+        }
+      >;
+    }
+  >,
+): CatalogTree {
   return categories.map((category) => ({
     ...toCategoryRecord(category),
     subcategories: category.subcategories.map((subcategory) => ({
@@ -265,22 +276,143 @@ export async function getCatalogTree(): Promise<CatalogTree> {
   }));
 }
 
+export async function getCatalogTree(): Promise<CatalogTree> {
+  const categories = await getPrisma().serviceCategory.findMany({
+    include: catalogTreeInclude,
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+
+  return mapCategoryTree(categories);
+}
+
+export async function getPublicCatalogTree(): Promise<CatalogTree> {
+  const categories = await getPrisma().serviceCategory.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      subcategories: {
+        where: { status: "ACTIVE" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: {
+          plans: {
+            where: { status: "ACTIVE" },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            include: {
+              items: {
+                where: { status: "ACTIVE" },
+                orderBy: { sortOrder: "asc" },
+              },
+              subcategory: { include: { category: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+
+  return mapCategoryTree(categories);
+}
+
+export async function getPublicCategoryPlans(categorySlug: string): Promise<{
+  name: string;
+  slug: string;
+  categories: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    plans: ServicePlanRecord[];
+  }>;
+  plans: ServicePlanRecord[];
+} | null> {
+  const slug = normalizeText(categorySlug);
+  if (!slug) return null;
+
+  const category = await getPrisma().serviceCategory.findFirst({
+    where: { slug, status: "ACTIVE" },
+    include: {
+      subcategories: {
+        where: { status: "ACTIVE" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: {
+          plans: {
+            where: { status: "ACTIVE" },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            include: {
+              items: {
+                where: { status: "ACTIVE" },
+                orderBy: { sortOrder: "asc" },
+              },
+              subcategory: { include: { category: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!category) return null;
+
+  const categories = category.subcategories
+    .map((subcategory) => ({
+      id: subcategory.id,
+      name: subcategory.name,
+      slug: subcategory.slug,
+      plans: subcategory.plans.map(toPlanRecord),
+    }))
+    .filter((entry) => entry.plans.length > 0);
+
+  return {
+    name: category.name,
+    slug: category.slug,
+    categories,
+    plans: categories.flatMap((entry) => entry.plans),
+  };
+}
+
+async function nextCategorySortOrder(): Promise<number> {
+  const last = await getPrisma().serviceCategory.findFirst({
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  return (last?.sortOrder ?? -1) + 1;
+}
+
+async function nextSubcategorySortOrder(categoryId: string): Promise<number> {
+  const last = await getPrisma().serviceSubcategory.findFirst({
+    where: { categoryId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  return (last?.sortOrder ?? -1) + 1;
+}
+
+async function nextPlanSortOrder(subcategoryId: string): Promise<number> {
+  const last = await getPrisma().servicePlan.findFirst({
+    where: { subcategoryId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  return (last?.sortOrder ?? -1) + 1;
+}
+
 export async function upsertServiceCategory(input: ServiceCategoryPayload & { slug?: string }): Promise<ServiceCategoryRecord> {
   const name = normalizeText(input.name);
-  if (!name) throw new Error("El nombre de la categoría es obligatorio.");
+  if (!name) throw new Error("El nombre del servicio es obligatorio.");
 
   const slug = slugify(input.slug ?? name);
-  if (!slug) throw new Error("No se pudo generar el identificador de la categoría.");
+  if (!slug) throw new Error("No se pudo generar el identificador del servicio.");
 
+  const existing = await getPrisma().serviceCategory.findUnique({ where: { slug } });
   const data = {
     name,
     slug,
-    description: normalizeText(input.description),
-    sortOrder: Math.max(0, Math.trunc(toNumber(input.sortOrder))),
-    status: toStatus(input.status),
+    description: input.description == null ? (existing?.description ?? "") : normalizeText(input.description),
+    sortOrder: hasProvided(input.sortOrder)
+      ? Math.max(0, Math.trunc(toNumber(input.sortOrder)))
+      : (existing?.sortOrder ?? (await nextCategorySortOrder())),
+    status: toStatus(input.status, existing?.status ?? "ACTIVE"),
   };
 
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { slug } });
   const row = existing
     ? await getPrisma().serviceCategory.update({ where: { id: existing.id }, data })
     : await getPrisma().serviceCategory.create({ data });
@@ -290,10 +422,10 @@ export async function upsertServiceCategory(input: ServiceCategoryPayload & { sl
 
 export async function updateServiceCategory(id: string, input: ServiceCategoryPayload): Promise<ServiceCategoryRecord> {
   const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
-  if (!existing) throw new Error("La categoría no existe.");
+  if (!existing) throw new Error("El servicio no existe.");
 
   const name = normalizeText(input.name ?? existing.name);
-  if (!name) throw new Error("El nombre de la categoría es obligatorio.");
+  if (!name) throw new Error("El nombre del servicio es obligatorio.");
 
   const row = await getPrisma().serviceCategory.update({
     where: { id },
@@ -313,24 +445,25 @@ export async function upsertServiceSubcategory(
 ): Promise<ServiceSubcategoryRecord> {
   const categoryId = normalizeText(input.categoryId);
   const name = normalizeText(input.name);
-  if (!categoryId) throw new Error("La categoría es obligatoria.");
-  if (!name) throw new Error("El nombre de la subcategoría es obligatorio.");
+  if (!categoryId) throw new Error("El servicio es obligatorio.");
+  if (!name) throw new Error("El nombre de la categoría es obligatorio.");
 
   const category = await getPrisma().serviceCategory.findUnique({ where: { id: categoryId } });
-  if (!category) throw new Error("La categoría no existe.");
+  if (!category) throw new Error("El servicio no existe.");
 
   const slug = slugify(input.slug ?? name);
+  const existing = await getPrisma().serviceSubcategory.findUnique({
+    where: { categoryId_slug: { categoryId, slug } },
+  });
   const data = {
     categoryId,
     name,
     slug,
-    sortOrder: Math.max(0, Math.trunc(toNumber(input.sortOrder))),
-    status: toStatus(input.status),
+    sortOrder: hasProvided(input.sortOrder)
+      ? Math.max(0, Math.trunc(toNumber(input.sortOrder)))
+      : (existing?.sortOrder ?? (await nextSubcategorySortOrder(categoryId))),
+    status: toStatus(input.status, existing?.status ?? "ACTIVE"),
   };
-
-  const existing = await getPrisma().serviceSubcategory.findUnique({
-    where: { categoryId_slug: { categoryId, slug } },
-  });
 
   const row = existing
     ? await getPrisma().serviceSubcategory.update({
@@ -351,10 +484,10 @@ export async function updateServiceSubcategory(
     where: { id },
     include: { category: true },
   });
-  if (!existing) throw new Error("La subcategoría no existe.");
+  if (!existing) throw new Error("La categoría no existe.");
 
   const name = normalizeText(input.name ?? existing.name);
-  if (!name) throw new Error("El nombre de la subcategoría es obligatorio.");
+  if (!name) throw new Error("El nombre de la categoría es obligatorio.");
 
   const row = await getPrisma().serviceSubcategory.update({
     where: { id },
@@ -375,6 +508,7 @@ async function syncPlanItems(
 ) {
   const db = getPrisma();
   const usedSlugs = new Set<string>();
+  const incomingSlugs = new Set<string>();
 
   for (const [index, item] of items.entries()) {
     const label = stripHtml(normalizeText(item.label));
@@ -383,6 +517,7 @@ async function syncPlanItems(
     let slug = slugify(label) || `item-${index + 1}`;
     if (usedSlugs.has(slug)) slug = `${slug}-${index + 1}`;
     usedSlugs.add(slug);
+    incomingSlugs.add(slug);
 
     const data = {
       label,
@@ -406,16 +541,25 @@ async function syncPlanItems(
       await db.servicePlanItem.create({ data: { ...data, planId } });
     }
   }
+
+  const existingItems = await db.servicePlanItem.findMany({ where: { planId } });
+  const staleItems = existingItems.filter((item) => !incomingSlugs.has(item.slug));
+
+  if (staleItems.length > 0) {
+    await db.servicePlanItem.deleteMany({
+      where: { id: { in: staleItems.map((item) => item.id) } },
+    });
+  }
 }
 
-export async function upsertServicePlan(input: ServicePlanPayload & { slug?: string }): Promise<ServicePlanRecord> {
+export async function upsertServicePlan(input: ServicePlanPayload & { slug?: string; id?: string }): Promise<ServicePlanRecord> {
   const subcategoryId = normalizeText(input.subcategoryId);
   const name = normalizeText(input.name);
-  if (!subcategoryId) throw new Error("La subcategoría es obligatoria.");
+  if (!subcategoryId) throw new Error("La categoría es obligatoria.");
   if (!name) throw new Error("El nombre del plan es obligatorio.");
 
   const subcategory = await getPrisma().serviceSubcategory.findUnique({ where: { id: subcategoryId } });
-  if (!subcategory) throw new Error("La subcategoría no existe.");
+  if (!subcategory) throw new Error("La categoría no existe.");
 
   const price = parseMoney(input.price);
   if (!Number.isFinite(price) || price < 0) {
@@ -423,28 +567,35 @@ export async function upsertServicePlan(input: ServicePlanPayload & { slug?: str
   }
 
   const slug = slugify(input.slug ?? name);
+  const existingById = input.id ? await getPrisma().servicePlan.findUnique({ where: { id: input.id } }) : null;
+  const existingBySlug = await getPrisma().servicePlan.findUnique({
+    where: { subcategoryId_slug: { subcategoryId, slug } },
+  });
+  const existing = existingById ?? existingBySlug;
+
   const data = {
     subcategoryId,
     name,
     slug,
     price,
-    pricePrefix: normalizeText(input.pricePrefix),
-    taxLabel: normalizeText(input.taxLabel) || "+ IVA",
-    taxRate: Math.min(1, Math.max(0, toNumber(input.taxRate, 0.19))),
-    summary: normalizeText(input.summary),
-    badge: normalizeText(input.badge),
-    note: normalizeText(input.note),
-    featureGroupTitle: normalizeText(input.featureGroupTitle),
-    highlighted: toBoolean(input.highlighted),
-    sortOrder: Math.max(0, Math.trunc(toNumber(input.sortOrder))),
-    status: toStatus(input.status),
-    icon: normalizeText(input.icon),
-    externalLink: normalizeText(input.externalLink),
+    pricePrefix: input.pricePrefix == null ? (existing?.pricePrefix ?? "") : normalizeText(input.pricePrefix),
+    taxLabel: hasProvided(input.taxLabel) ? normalizeText(input.taxLabel) : (existing?.taxLabel || "+ IVA"),
+    taxRate: hasProvided(input.taxRate)
+      ? Math.min(1, Math.max(0, toNumber(input.taxRate, 0.19)))
+      : decimalToNumber(existing?.taxRate ?? 0.19),
+    summary: input.summary == null ? (existing?.summary ?? "") : normalizeText(input.summary),
+    badge: input.badge == null ? (existing?.badge ?? "") : normalizeText(input.badge),
+    note: input.note == null ? (existing?.note ?? "") : normalizeText(input.note),
+    featureGroupTitle:
+      input.featureGroupTitle == null ? (existing?.featureGroupTitle ?? "") : normalizeText(input.featureGroupTitle),
+    highlighted: input.highlighted == null ? Boolean(existing?.highlighted) : toBoolean(input.highlighted),
+    sortOrder: hasProvided(input.sortOrder)
+      ? Math.max(0, Math.trunc(toNumber(input.sortOrder)))
+      : (existing?.sortOrder ?? (await nextPlanSortOrder(subcategoryId))),
+    status: toStatus(input.status, existing?.status ?? "ACTIVE"),
+    icon: input.icon == null ? (existing?.icon ?? "") : normalizeText(input.icon),
+    externalLink: input.externalLink == null ? (existing?.externalLink ?? "") : normalizeText(input.externalLink),
   };
-
-  const existing = await getPrisma().servicePlan.findUnique({
-    where: { subcategoryId_slug: { subcategoryId, slug } },
-  });
 
   const row = existing
     ? await getPrisma().servicePlan.update({ where: { id: existing.id }, data })
@@ -466,6 +617,7 @@ export async function updateServicePlan(id: string, input: ServicePlanPayload): 
   return upsertServicePlan({
     ...existing,
     ...input,
+    id: existing.id,
     subcategoryId: input.subcategoryId ?? existing.subcategoryId,
     items: input.items ?? existing.items,
     slug: existing.slug,

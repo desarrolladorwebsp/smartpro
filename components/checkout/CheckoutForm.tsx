@@ -65,7 +65,7 @@ export default function CheckoutForm() {
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/webpay/transaction", {
+      const response = await fetch("/api/mercadopago/preference", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -90,17 +90,17 @@ export default function CheckoutForm() {
       const payload = (await response.json()) as {
         error?: string;
         order?: { id?: string; total?: number; customer?: { email?: string } };
-        webpay?: { url?: string; token?: string };
+        mercadopago?: { checkoutUrl?: string; preferenceId?: string };
       };
 
-      if (!response.ok || !payload.order?.id || !payload.webpay?.url) {
-        throw new Error(payload.error ?? "No se pudo iniciar el pago con Webpay.");
+      if (!response.ok || !payload.order?.id || !payload.mercadopago?.checkoutUrl) {
+        throw new Error(payload.error ?? "No se pudo iniciar el pago con Mercado Pago.");
       }
 
-      setSuccess(`Orden creada correctamente: ${payload.order.id}. Redirigiendo a Webpay...`);
-      window.location.href = payload.webpay.url;
+      setSuccess(`Orden creada correctamente: ${payload.order.id}. Redirigiendo a Mercado Pago...`);
+      window.location.href = payload.mercadopago.checkoutUrl;
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "No se pudo iniciar el pago con Webpay.");
+      setSubmitError(error instanceof Error ? error.message : "No se pudo iniciar el pago con Mercado Pago.");
     } finally {
       setProcessing(false);
     }
@@ -179,7 +179,7 @@ export default function CheckoutForm() {
             disabled={processing || !items.length}
             className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-6 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(109,40,217,0.2)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {processing ? "Procesando orden..." : "Confirmar compra"}
+            {processing ? "Procesando orden..." : "Pagar con Mercado Pago"}
           </button>
         </div>
 

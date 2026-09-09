@@ -19,27 +19,52 @@ export type CustomerOrder = {
   tax: number;
   total: number;
   paymentStatus: "pending" | "paid" | "failed" | "cancelled";
-  paymentMethod: "simulated" | "transbank";
+  paymentMethod: "simulated" | "transbank" | "mercadopago";
+  preferenceId?: string;
+  mercadopagoPaymentId?: string;
+  processedPaymentKeys?: string[];
+  notificationEmailSentAt?: string;
 };
 
-const ORDERS_PATH = path.join(process.cwd(), "data", "orders.json");
+function getOrdersPath() {
+  const fileName = process.env.ORDERS_FILE?.trim() || "orders.json";
+
+  if (fileName.includes("..") || fileName.includes("/") || fileName.includes("\\")) {
+    throw new Error("ORDERS_FILE inválido.");
+  }
+
+  return path.join(process.cwd(), "data", fileName);
+}
 
 async function ensureOrdersFile() {
-  const directory = path.dirname(ORDERS_PATH);
+  const ordersPath = getOrdersPath();
+  const directory = path.dirname(ordersPath);
 
   await fs.mkdir(directory, { recursive: true });
 
   try {
-    await fs.access(ORDERS_PATH);
+    await fs.access(ordersPath);
   } catch {
-    await fs.writeFile(ORDERS_PATH, "[]", "utf-8");
+    await fs.writeFile(ordersPath, "[]", "utf-8");
   }
+}
+
+function normalizeOrder(order: CustomerOrder): CustomerOrder {
+  const orderStatus = order.orderStatus ?? order.status ?? "pending";
+
+  return {
+    ...order,
+    orderStatus,
+    status: orderStatus,
+    paymentMethod: order.paymentMethod ?? "transbank",
+    processedPaymentKeys: Array.isArray(order.processedPaymentKeys) ? order.processedPaymentKeys : [],
+  };
 }
 
 export async function listOrders(): Promise<CustomerOrder[]> {
   await ensureOrdersFile();
 
-  const file = await fs.readFile(ORDERS_PATH, "utf-8");
+  const file = await fs.readFile(getOrdersPath(), "utf-8");
 
   if (!file.trim()) {
     return [];
@@ -47,15 +72,29 @@ export async function listOrders(): Promise<CustomerOrder[]> {
 
   try {
     const parsed = JSON.parse(file);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map((order) => normalizeOrder(order as CustomerOrder)) : [];
   } catch {
     return [];
   }
 }
 
+async function saveOrders(orders: CustomerOrder[]) {
+  await fs.writeFile(getOrdersPath(), JSON.stringify(orders, null, 2), "utf-8");
+}
+
 export async function getOrderRecord(orderId: string): Promise<CustomerOrder | null> {
   const orders = await listOrders();
   return orders.find((order) => order.id === orderId) ?? null;
+}
+
+export async function findOrderByPreferenceId(preferenceId: string): Promise<CustomerOrder | null> {
+  const orders = await listOrders();
+  return orders.find((order) => order.preferenceId === preferenceId) ?? null;
+}
+
+export async function findOrderByMercadoPagoPaymentId(paymentId: string): Promise<CustomerOrder | null> {
+  const orders = await listOrders();
+  return orders.find((order) => order.mercadopagoPaymentId === paymentId) ?? null;
 }
 
 export async function createOrderRecord(
@@ -95,18 +134,25 @@ export async function createOrderRecord(
     total: totals.total,
     paymentStatus,
     paymentMethod: orderInput.paymentMethod ?? "transbank",
+    preferenceId: orderInput.preferenceId,
+    mercadopagoPaymentId: orderInput.mercadopagoPaymentId,
+    processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
+    notificationEmailSentAt: orderInput.notificationEmailSentAt,
   };
 
   orders.push(record);
 
-  await fs.writeFile(ORDERS_PATH, JSON.stringify(orders, null, 2), "utf-8");
+  await saveOrders(orders);
 
   return record;
 }
 
-export async function updateOrderStatus(
+export async function updateOrderRecord(
   orderId: string,
-  updates: Partial<Pick<CustomerOrder, "orderStatus" | "status" | "paymentStatus" | "paymentMethod">>,
+  updates: Partial<Omit<CustomerOrder, "id" | "customer" | "items">> & {
+    customer?: CustomerOrder["customer"];
+    items?: CartItemDraft[];
+  },
 ): Promise<CustomerOrder | null> {
   const orders = await listOrders();
   const index = orders.findIndex((order) => order.id === orderId);
@@ -116,17 +162,26 @@ export async function updateOrderStatus(
   }
 
   const current = orders[index];
+  const nextOrderStatus = updates.orderStatus ?? updates.status ?? current.orderStatus;
   const nextOrder: CustomerOrder = {
     ...current,
     ...updates,
-    status: updates.status ?? updates.orderStatus ?? current.status,
-    orderStatus: updates.orderStatus ?? current.orderStatus,
+    status: nextOrderStatus,
+    orderStatus: nextOrderStatus,
     paymentStatus: updates.paymentStatus ?? current.paymentStatus,
     paymentMethod: updates.paymentMethod ?? current.paymentMethod,
+    processedPaymentKeys: updates.processedPaymentKeys ?? current.processedPaymentKeys ?? [],
   };
 
   orders[index] = nextOrder;
-  await fs.writeFile(ORDERS_PATH, JSON.stringify(orders, null, 2), "utf-8");
+  await saveOrders(orders);
 
   return nextOrder;
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  updates: Partial<Pick<CustomerOrder, "orderStatus" | "status" | "paymentStatus" | "paymentMethod">>,
+): Promise<CustomerOrder | null> {
+  return updateOrderRecord(orderId, updates);
 }

@@ -93,7 +93,7 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <section id="inicio" className="relative overflow-hidden bg-background pt-[72px]">
+    <section id="inicio" className="relative overflow-hidden bg-background">
       {/* ======================================================
           SLIDER DE IMÁGENES
       ====================================================== */}
@@ -104,9 +104,9 @@ export default function HeroSection() {
           h-[260px]
           w-full
           overflow-hidden
-          sm:h-[340px]
-          md:h-[400px]
-          xl:h-[900px]
+          sm:h-[300px]
+          md:h-[350px]
+          xl:h-[700px]
         "
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}

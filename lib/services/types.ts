@@ -108,6 +108,29 @@ export type ServicePlanPayload = {
   }>;
 };
 
+export function parseServicePlanPayload(body: Record<string, unknown>): ServicePlanPayload {
+  return {
+    subcategoryId: body.subcategoryId == null ? undefined : String(body.subcategoryId),
+    name: body.name == null ? undefined : String(body.name),
+    price: body.price as number | string | undefined,
+    pricePrefix: body.pricePrefix == null ? undefined : String(body.pricePrefix),
+    taxLabel: body.taxLabel == null ? undefined : String(body.taxLabel),
+    taxRate: body.taxRate as number | string | undefined,
+    summary: body.summary == null ? undefined : String(body.summary),
+    badge: body.badge == null ? undefined : String(body.badge),
+    note: body.note == null ? undefined : String(body.note),
+    featureGroupTitle: body.featureGroupTitle == null ? undefined : String(body.featureGroupTitle),
+    highlighted: body.highlighted == null ? undefined : Boolean(body.highlighted),
+    sortOrder: body.sortOrder as number | string | undefined,
+    status: body.status === "INACTIVE" ? "INACTIVE" : body.status === "ACTIVE" ? "ACTIVE" : undefined,
+    icon: body.icon == null ? undefined : String(body.icon),
+    externalLink: body.externalLink == null ? undefined : String(body.externalLink),
+    items: Array.isArray(body.items)
+      ? (body.items as Array<{ id?: string; label?: string; sortOrder?: number | string; status?: CatalogStatus }>)
+      : undefined,
+  };
+}
+
 export function getCatalogStatusLabel(status: CatalogStatus): string {
   return status === "ACTIVE" ? "Activo" : "Inactivo";
 }

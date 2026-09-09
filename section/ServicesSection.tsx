@@ -5,50 +5,14 @@ import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
-import ViewServiceButton, {
-  type ServicePlansKey,
-} from "@/components/plans/ViewServiceButton";
+import ViewServiceButton from "@/components/plans/ViewServiceButton";
+import type { PublicServiceView } from "@/lib/services/public";
 
-const services = [
-  {
-    number: "01",
-    title: "Desarrollo Web",
-    image: "/images/services/service-01.png",
-    planKey: "desarrolloWeb",
-  },
-  {
-    number: "02",
-    title: "Campañas Publicitarias",
-    image: "/images/services/service-02.png",
-    planKey: "campanaPublicitaria",
-  },
-  {
-    number: "03",
-    title: "Redes Sociales & Contenido",
-    image: "/images/services/service-03.png",
-    planKey: "redesSociales",
-  },
-  {
-    number: "04",
-    title: "Automatización & Conversión",
-    image: "/images/services/service-04.png",
-    planKey: "automatizacionBots",
-  },
-  {
-    number: "05",
-    title: "Producción Audiovisual",
-    image: "/images/services/service-05.png",
-    planKey: "produccionVisual",
-  },
-  {
-    number: "06",
-    title: "Membresías & Negocios",
-    image: "/images/services/service-06.png",
-    planKey: "membresias",
-  },
-];
+type ServicesSectionProps = {
+  catalog: PublicServiceView[];
+};
 
-export default function ServicesSection() {
+export default function ServicesSection({ catalog }: ServicesSectionProps) {
   const servicesTrackRef = useRef<HTMLDivElement | null>(null);
 
   const scrollServices = (direction: number) => {
@@ -188,13 +152,19 @@ export default function ServicesSection() {
             md:grid
             md:grid-cols-2
             md:gap-5
-            lg:grid-cols-3
+            lg:grid-cols-4
             lg:gap-5
           "
         >
-          {services.map((service, index) => (
+          {catalog.length === 0 ? (
+            <div className="rounded-[1.25rem] border border-dashed border-border bg-white px-6 py-16 text-center">
+              <p className="text-lg font-semibold text-foreground">Catálogo en preparación</p>
+              <p className="mt-2 text-sm text-muted">Los planes públicos se cargan desde la base de datos de SmartPro.</p>
+            </div>
+          ) : (
+            catalog.map((service, index) => (
             <motion.article
-              key={service.number}
+              key={service.id}
               initial={{ opacity: 0, y: 28 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -206,25 +176,24 @@ export default function ServicesSection() {
               className="
                 group
                 relative
-                min-h-[320px]
+                aspect-[16/10]
                 min-w-[78vw]
                 snap-center
                 overflow-hidden
                 rounded-[1.25rem]
                 bg-navy
-                sm:min-h-[360px]
                 md:min-w-0
-                lg:min-h-[390px]
+                md:w-full
               "
             >
               {/* Imagen */}
               <SmartImage
                 key={service.image}
                 src={service.image}
-                alt={service.title}
+                alt={service.name}
                 fill
-                className="object-cover transition-all duration-700 ease-out group-hover:scale-[1.045]"
-                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
+                className="object-cover object-center transition-all duration-700 ease-out group-hover:scale-[1.045]"
+                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 25vw"
                 containerClassName="absolute inset-0"
               />
 
@@ -269,32 +238,37 @@ export default function ServicesSection() {
               />
 
               {/* Contenido */}
-              <div className="relative z-10 flex h-full min-h-[320px] flex-col p-6 sm:min-h-[360px] lg:min-h-[390px] lg:p-7">
+              <div className="relative z-10 flex h-full flex-col p-5 sm:p-6">
                 {/* Título */}
                 <h3
                   className="
-                    mt-1
-                    max-w-[280px]
-                    text-[1.5rem]
+                    mt-0
+                    max-w-[18ch]
+                    text-[1.35rem]
                     font-semibold
                     leading-[1.12]
                     tracking-[-0.035em]
                     text-on-dark
-                    sm:text-[1.75rem]
+                    sm:text-[1.5rem]
+                    lg:text-[1.35rem]
+                    xl:text-[1.5rem]
                   "
                 >
-                  {service.title}
+                  {service.name}
                 </h3>
 
                 {/* CTA */}
-                <div className="mt-auto pt-10">
+                <div className="mt-auto pt-4">
                   <ViewServiceButton
-                    service={service.planKey as ServicePlansKey}
+                    categorySlug={service.slug}
+                    title={service.name}
+                    initialPlans={service.plans}
                   />
                 </div>
               </div>
             </motion.article>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </section>

@@ -4,7 +4,7 @@ async function main() {
   try {
     const result = await seedServiceCatalog();
     console.log(
-      `Seed OK: ${result.categories} categorías, ${result.subcategories} subcategorías, ${result.plans} planes, ${result.items} ítems.`,
+      `Seed OK: ${result.categories} servicios, ${result.subcategories} categorías, ${result.plans} planes, ${result.items} ítems.`,
     );
   } finally {
     await disconnectCatalogSeed();

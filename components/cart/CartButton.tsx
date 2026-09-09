@@ -32,12 +32,12 @@ export default function CartButton() {
           border
           border-primary/15
           bg-surface
-          text-foreground
-          shadow-[0_8px_24px_rgba(109,40,217,0.08)]
+          text-magenta
+          shadow-[0_8px_24px_rgba(236,22,140,0.10)]
           transition-all
           duration-300
-          hover:border-primary/40
-          hover:text-primary
+          hover:border-magenta/45
+          hover:text-pink
           lg:h-12
           lg:w-12
         "

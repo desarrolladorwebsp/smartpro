@@ -1,0 +1,17 @@
+---
+description: Plantilla corporativa única para correos transaccionales de SmartPro (logo, paleta, CTA, APP_URL).
+globs: lib/email/**/*.ts,lib/orders/email.ts,lib/executives/invitations.ts
+alwaysApply: false
+---
+
+# Correos transaccionales
+
+Reutiliza `renderCorporateEmail` y `sendEmail`. No crees HTML de correo paralelo.
+
+- URLs con `getAppUrl()` / `APP_URL`. Nunca hardcodees localhost.
+- Logo: `getEmailLogoUrl(appUrl)` (`/images/logo/logo-smartpro-01.png`).
+- Paleta: navy `#101024`, violeta `#6D28D9`, magenta `#EC168C`, blanco.
+- CTA como `<a>` con estilos inline. Incluye texto plano equivalente.
+- Firma: `Equipo SmartPro`.
+- Tablas, estilos inline, sin JavaScript. Escapa texto dinámico.
+- Invitaciones: `buildExecutiveInvitationEmail`.

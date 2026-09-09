@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -89,15 +89,10 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
     };
   }, [isMobileOpen]);
 
-  useEffect(() => {
-    if (isMobileOpen) return;
-    menuButtonRef.current?.blur();
-  }, [isMobileOpen]);
-
   return (
     <>
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-navy px-4 lg:hidden">
-        <Link href="/dashboard" aria-label="Ir al resumen del dashboard" className="flex min-w-0 items-center">
+        <Link href="/dashboard" prefetch onClick={() => setIsMobileOpen(false)} aria-label="Ir al resumen del dashboard" className="flex min-w-0 items-center">
           <Image
             src={LOGO_SRC}
             alt="SmartPro"
@@ -122,7 +117,13 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
       </header>
 
       <aside className="hidden w-64 shrink-0 flex-col bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white lg:sticky lg:top-0 lg:flex lg:h-screen xl:w-72">
-        <SidebarPanel adminEmail={adminEmail} role={role} pathname={pathname} onLogout={handleLogout} />
+        <SidebarPanel
+          adminEmail={adminEmail}
+          role={role}
+          pathname={pathname}
+          onLogout={handleLogout}
+          onNavigate={() => setIsMobileOpen(false)}
+        />
       </aside>
 
       <AnimatePresence>
@@ -161,7 +162,13 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
                 </button>
               </div>
 
-              <SidebarPanel adminEmail={adminEmail} role={role} pathname={pathname} onLogout={handleLogout} />
+              <SidebarPanel
+                adminEmail={adminEmail}
+                role={role}
+                pathname={pathname}
+                onLogout={handleLogout}
+                onNavigate={() => setIsMobileOpen(false)}
+              />
             </motion.aside>
           </>
         )}
@@ -175,11 +182,13 @@ function SidebarPanel({
   role,
   pathname,
   onLogout,
+  onNavigate,
 }: {
   adminEmail: string;
   role: "ADMIN" | "EXECUTIVE";
   pathname: string;
   onLogout: () => void;
+  onNavigate: () => void;
 }) {
   const initials = getEmailInitials(adminEmail);
   const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || role === "ADMIN");
@@ -188,7 +197,7 @@ function SidebarPanel({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col px-4 pb-5 pt-4 xl:px-5">
       <div className="mb-7 px-1">
-        <Link href="/dashboard" aria-label="Ir al resumen del dashboard" className="block">
+        <Link href="/dashboard" prefetch onClick={onNavigate} aria-label="Ir al resumen del dashboard" className="block">
           <Image
             src={LOGO_SRC}
             alt="SmartPro"
@@ -205,7 +214,12 @@ function SidebarPanel({
 
       <nav aria-label="Navegación principal" className="min-h-0 flex-1 space-y-1.5">
         {visibleNavItems.map((item) => (
-          <NavLink key={item.href} item={item} active={isNavItemActive(pathname, item.href)} />
+          <NavLink
+            key={item.href}
+            item={item}
+            active={isNavItemActive(pathname, item.href)}
+            onNavigate={onNavigate}
+          />
         ))}
       </nav>
 
@@ -236,15 +250,17 @@ function SidebarPanel({
 function NavLink({
   item,
   active,
+  onNavigate,
 }: {
   item: { label: string; href: string; icon: LucideIcon };
   active: boolean;
+  onNavigate: () => void;
 }) {
-  const Icon = item.icon;
-
   return (
     <Link
       href={item.href}
+      prefetch
+      onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={`group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
         active
@@ -252,12 +268,75 @@ function NavLink({
           : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
     >
+      <NavLinkInner item={item} active={active} />
+    </Link>
+  );
+}
+
+function NavLinkInner({
+  item,
+  active,
+}: {
+  item: { label: string; href: string; icon: LucideIcon };
+  active: boolean;
+}) {
+  const { pending } = useLinkStatus();
+  const Icon = item.icon;
+
+  return (
+    <>
       <Icon
         size={17}
         strokeWidth={1.8}
         className={active ? "text-white" : "text-white/45 transition group-hover:text-white"}
       />
-      {item.label}
-    </Link>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span
+        aria-hidden="true"
+        className={`h-1.5 w-1.5 shrink-0 rounded-full bg-current transition-opacity duration-200 ${
+          pending && !active ? "animate-pulse opacity-70" : "opacity-0"
+        }`}
+      />
+    </>
+  );
+}
+
+export function DashboardSidebarFallback() {
+  return (
+    <>
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-navy px-4 lg:hidden">
+        <div className="h-9 w-40 animate-pulse rounded-lg bg-white/10" />
+        <div className="h-11 w-11 animate-pulse rounded-2xl bg-white/10" />
+      </header>
+
+      <aside className="hidden w-64 shrink-0 flex-col bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white lg:sticky lg:top-0 lg:flex lg:h-screen xl:w-72">
+        <div className="flex h-full min-h-0 flex-1 flex-col px-4 pb-5 pt-4 xl:px-5">
+          <div className="mb-7 px-1">
+            <div className="h-11 w-44 animate-pulse rounded-xl bg-white/10" />
+            <div className="mt-3 h-2.5 w-32 animate-pulse rounded-full bg-white/10" />
+          </div>
+
+          <nav aria-hidden="true" className="min-h-0 flex-1 space-y-1.5">
+            {Array.from({ length: 5 }, (_, index) => (
+              <div key={index} className="flex min-h-11 items-center gap-3 rounded-2xl px-3">
+                <div className="h-4 w-4 animate-pulse rounded bg-white/10" />
+                <div className="h-3 w-24 animate-pulse rounded-full bg-white/10" />
+              </div>
+            ))}
+          </nav>
+
+          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+            <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/10" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
+                <div className="h-2.5 w-20 animate-pulse rounded-full bg-white/10" />
+              </div>
+            </div>
+            <div className="h-11 w-full animate-pulse rounded-full bg-white/10" />
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

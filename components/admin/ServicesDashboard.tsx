@@ -11,11 +11,14 @@ type PlanFormState = {
   subcategoryId: string;
   name: string;
   price: string;
+  pricePrefix: string;
   taxLabel: string;
   summary: string;
   badge: string;
   note: string;
+  featureGroupTitle: string;
   highlighted: boolean;
+  sortOrder: string;
   status: CatalogStatus;
   items: string[];
 };
@@ -25,11 +28,14 @@ const emptyPlanForm: PlanFormState = {
   subcategoryId: "",
   name: "",
   price: "",
+  pricePrefix: "",
   taxLabel: "+ IVA",
   summary: "",
   badge: "",
   note: "",
+  featureGroupTitle: "Incluye",
   highlighted: false,
+  sortOrder: "",
   status: "ACTIVE",
   items: [""],
 };
@@ -65,6 +71,10 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
   const [categoryName, setCategoryName] = useState("");
   const [subcategoryName, setSubcategoryName] = useState("");
   const [subcategoryCategoryId, setSubcategoryCategoryId] = useState("");
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingServiceName, setEditingServiceName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
 
   const categories = tree;
   const subcategories = useMemo(
@@ -120,11 +130,14 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
       subcategoryId: plan.subcategoryId,
       name: plan.name,
       price: String(plan.price),
+      pricePrefix: plan.pricePrefix,
       taxLabel: plan.taxLabel,
       summary: plan.summary,
       badge: plan.badge,
       note: plan.note,
+      featureGroupTitle: plan.featureGroupTitle,
       highlighted: plan.highlighted,
+      sortOrder: String(plan.sortOrder),
       status: plan.status,
       items: plan.items.length > 0 ? plan.items.map((item) => item.label) : [""],
     });
@@ -142,11 +155,14 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
         subcategoryId: planForm.subcategoryId,
         name: planForm.name.trim(),
         price: Number(planForm.price),
+        pricePrefix: planForm.pricePrefix.trim(),
         taxLabel: planForm.taxLabel.trim() || "+ IVA",
         summary: planForm.summary.trim(),
         badge: planForm.badge.trim(),
         note: planForm.note.trim(),
+        featureGroupTitle: planForm.featureGroupTitle.trim(),
         highlighted: planForm.highlighted,
+        sortOrder: planForm.sortOrder.trim() === "" ? undefined : Number(planForm.sortOrder),
         status: planForm.status,
         items: planForm.items.map((label) => ({ label: label.trim() })).filter((item) => item.label),
       };
@@ -159,17 +175,17 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
       const data = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        setSubmitError(data.error ?? "No se pudo guardar el servicio.");
+        setSubmitError(data.error ?? "No se pudo guardar el plan.");
         return;
       }
 
-      setSuccessMessage(editingPlanId ? "Servicio actualizado correctamente." : "Servicio creado correctamente.");
+      setSuccessMessage(editingPlanId ? "Plan actualizado correctamente." : "Plan creado correctamente.");
       setIsPlanModalOpen(false);
       setPlanForm(emptyPlanForm);
       setEditingPlanId(null);
       await refreshCatalog();
     } catch {
-      setSubmitError("No se pudo guardar el servicio.");
+      setSubmitError("No se pudo guardar el plan.");
     } finally {
       setIsSaving(false);
     }
@@ -193,11 +209,11 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
     });
     const data = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo crear la categoría.");
+      setSubmitError(data.error ?? "No se pudo crear el servicio.");
       return;
     }
     setCategoryName("");
-    setSuccessMessage("Categoría creada correctamente.");
+    setSuccessMessage("Servicio creado correctamente.");
     await refreshCatalog();
   }
 
@@ -210,11 +226,43 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
     });
     const data = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo crear la subcategoría.");
+      setSubmitError(data.error ?? "No se pudo crear la categoría.");
       return;
     }
     setSubcategoryName("");
-    setSuccessMessage("Subcategoría creada correctamente.");
+    setSuccessMessage("Categoría creada correctamente.");
+    await refreshCatalog();
+  }
+
+  async function handleRenameService(id: string) {
+    const response = await fetch("/api/services/categories", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name: editingServiceName }),
+    });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setSubmitError(data.error ?? "No se pudo actualizar el servicio.");
+      return;
+    }
+    setEditingServiceId(null);
+    setSuccessMessage("Servicio actualizado correctamente.");
+    await refreshCatalog();
+  }
+
+  async function handleRenameCategory(id: string) {
+    const response = await fetch("/api/services/subcategories", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name: editingCategoryName }),
+    });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setSubmitError(data.error ?? "No se pudo actualizar la categoría.");
+      return;
+    }
+    setEditingCategoryId(null);
+    setSuccessMessage("Categoría actualizada correctamente.");
     await refreshCatalog();
   }
 
@@ -242,8 +290,8 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
         icon="servicios"
         eyebrow="Catálogo"
         title="Gestión de servicios"
-        description="Administra categorías, subcategorías, planes y características vendibles de SmartPro."
-        action={{ label: "Nuevo servicio", onClick: openCreatePlan }}
+        description="Administra servicios, categorías, planes e ítems incluidos. La base de datos es la única fuente de verdad del catálogo."
+        action={{ label: "Nuevo plan", onClick: openCreatePlan }}
       />
 
       <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
@@ -251,7 +299,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar plan, categoría o subcategoría"
+            placeholder="Buscar plan, servicio o categoría"
             className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary lg:max-w-md"
           />
           <select
@@ -275,12 +323,12 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <h2 className="text-lg font-bold text-foreground">Categorías</h2>
+          <h2 className="text-lg font-bold text-foreground">Servicios</h2>
           <form onSubmit={handleCreateCategory} className="mt-4 flex gap-2">
             <input
               value={categoryName}
               onChange={(event) => setCategoryName(event.target.value)}
-              placeholder="Nueva categoría"
+              placeholder="Nuevo servicio"
               className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
             />
             <button type="submit" className="rounded-full bg-primary px-4 text-sm font-semibold text-white">
@@ -289,22 +337,49 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
           </form>
           <div className="mt-4 space-y-2">
             {categories.length === 0 ? (
-              <p className="text-sm text-muted">Aún no hay categorías.</p>
+              <p className="text-sm text-muted">Aún no hay servicios.</p>
             ) : (
               categories.map((category) => (
                 <div key={category.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-soft-background px-3 py-2">
-                  <div>
-                    <div className="font-semibold text-foreground">{category.name}</div>
-                    <div className="text-xs text-muted">{category.subcategories.length} subcategorías</div>
+                  <div className="min-w-0 flex-1">
+                    {editingServiceId === category.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={editingServiceName}
+                          onChange={(event) => setEditingServiceName(event.target.value)}
+                          className="w-full rounded-xl border border-border bg-white px-3 py-1 text-sm outline-none focus:border-primary"
+                        />
+                        <button type="button" onClick={() => void handleRenameService(category.id)} className="text-sm font-medium text-primary">
+                          Guardar
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-foreground">{category.name}</div>
+                        <div className="text-xs text-muted">{category.subcategories.length} categorías</div>
+                      </>
+                    )}
                   </div>
-                  <select
-                    value={category.status}
-                    onChange={(event) => handleCategoryStatus(category.id, event.target.value as CatalogStatus)}
-                    className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
-                  >
-                    <option value="ACTIVE">Activo</option>
-                    <option value="INACTIVE">Inactivo</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingServiceId(category.id);
+                        setEditingServiceName(category.name);
+                      }}
+                      className="text-xs font-medium text-primary"
+                    >
+                      Editar
+                    </button>
+                    <select
+                      value={category.status}
+                      onChange={(event) => handleCategoryStatus(category.id, event.target.value as CatalogStatus)}
+                      className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                    </select>
+                  </div>
                 </div>
               ))
             )}
@@ -312,14 +387,14 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
         </section>
 
         <section className="rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <h2 className="text-lg font-bold text-foreground">Subcategorías</h2>
+          <h2 className="text-lg font-bold text-foreground">Categorías</h2>
           <form onSubmit={handleCreateSubcategory} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
             <select
               value={subcategoryCategoryId}
               onChange={(event) => setSubcategoryCategoryId(event.target.value)}
               className="rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
             >
-              <option value="">Categoría</option>
+              <option value="">Servicio</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -329,7 +404,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
             <input
               value={subcategoryName}
               onChange={(event) => setSubcategoryName(event.target.value)}
-              placeholder="Nueva subcategoría"
+              placeholder="Nueva categoría"
               className="rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
             />
             <button type="submit" className="rounded-full bg-primary px-4 text-sm font-semibold text-white">
@@ -338,22 +413,49 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
           </form>
           <div className="mt-4 space-y-2">
             {subcategories.length === 0 ? (
-              <p className="text-sm text-muted">Aún no hay subcategorías.</p>
+              <p className="text-sm text-muted">Aún no hay categorías.</p>
             ) : (
               subcategories.map((subcategory) => (
                 <div key={subcategory.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-soft-background px-3 py-2">
-                  <div>
-                    <div className="font-semibold text-foreground">{subcategory.name}</div>
-                    <div className="text-xs text-muted">{subcategory.categoryName}</div>
+                  <div className="min-w-0 flex-1">
+                    {editingCategoryId === subcategory.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={editingCategoryName}
+                          onChange={(event) => setEditingCategoryName(event.target.value)}
+                          className="w-full rounded-xl border border-border bg-white px-3 py-1 text-sm outline-none focus:border-primary"
+                        />
+                        <button type="button" onClick={() => void handleRenameCategory(subcategory.id)} className="text-sm font-medium text-primary">
+                          Guardar
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-foreground">{subcategory.name}</div>
+                        <div className="text-xs text-muted">{subcategory.categoryName}</div>
+                      </>
+                    )}
                   </div>
-                  <select
-                    value={subcategory.status}
-                    onChange={(event) => handleSubcategoryStatus(subcategory.id, event.target.value as CatalogStatus)}
-                    className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
-                  >
-                    <option value="ACTIVE">Activo</option>
-                    <option value="INACTIVE">Inactivo</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCategoryId(subcategory.id);
+                        setEditingCategoryName(subcategory.name);
+                      }}
+                      className="text-xs font-medium text-primary"
+                    >
+                      Editar
+                    </button>
+                    <select
+                      value={subcategory.status}
+                      onChange={(event) => handleSubcategoryStatus(subcategory.id, event.target.value as CatalogStatus)}
+                      className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                    </select>
+                  </div>
                 </div>
               ))
             )}
@@ -363,15 +465,15 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
 
       <section className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-lg font-bold text-foreground">Planes / servicios vendibles</h2>
+          <h2 className="text-lg font-bold text-foreground">Planes</h2>
         </div>
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm text-foreground">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Plan</th>
+                <th className="px-4 py-3 font-medium">Servicio</th>
                 <th className="px-4 py-3 font-medium">Categoría</th>
-                <th className="px-4 py-3 font-medium">Subcategoría</th>
                 <th className="px-4 py-3 font-medium">Precio</th>
                 <th className="px-4 py-3 font-medium">Ítems</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
@@ -382,7 +484,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
               {filteredPlans.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted">
-                    No hay servicios registrados con esos filtros.
+                    No hay planes registrados con esos filtros.
                   </td>
                 </tr>
               ) : (
@@ -429,7 +531,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
         <div className="space-y-3 p-3 md:hidden">
           {filteredPlans.length === 0 ? (
             <div className="rounded-2xl border border-border bg-soft-background p-4 text-center text-sm text-muted">
-              No hay servicios registrados con esos filtros.
+              No hay planes registrados con esos filtros.
             </div>
           ) : (
             filteredPlans.map((plan) => (
@@ -463,12 +565,12 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
           <form onSubmit={handleSavePlan} className="my-6 w-full max-w-2xl space-y-4 rounded-[24px] border border-border bg-white p-5 shadow-xl">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Servicio</p>
-              <h2 className="mt-1 text-2xl font-bold text-foreground">{editingPlanId ? "Editar servicio" : "Nuevo servicio"}</h2>
+              <h2 className="mt-1 text-2xl font-bold text-foreground">{editingPlanId ? "Editar plan" : "Nuevo plan"}</h2>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium">Categoría</span>
+                <span className="mb-2 block text-sm font-medium">Servicio padre</span>
                 <select
                   value={planForm.categoryId}
                   onChange={(event) =>
@@ -480,7 +582,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
                   }
                   className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
                 >
-                  <option value="">Selecciona categoría</option>
+                  <option value="">Selecciona servicio</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -489,13 +591,13 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium">Subcategoría</span>
+                <span className="mb-2 block text-sm font-medium">Categoría</span>
                 <select
                   value={planForm.subcategoryId}
                   onChange={(event) => setPlanForm((current) => ({ ...current, subcategoryId: event.target.value }))}
                   className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
                 >
-                  <option value="">Selecciona subcategoría</option>
+                  <option value="">Selecciona categoría</option>
                   {subcategoriesForForm.map((subcategory) => (
                     <option key={subcategory.id} value={subcategory.id}>
                       {subcategory.name}
@@ -532,6 +634,25 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
                 />
               </label>
               <label className="block">
+                <span className="mb-2 block text-sm font-medium">Prefijo de precio</span>
+                <input
+                  value={planForm.pricePrefix}
+                  onChange={(event) => setPlanForm((current) => ({ ...current, pricePrefix: event.target.value }))}
+                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+                  placeholder="desde"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium">Orden</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={planForm.sortOrder}
+                  onChange={(event) => setPlanForm((current) => ({ ...current, sortOrder: event.target.value }))}
+                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block">
                 <span className="mb-2 block text-sm font-medium">Badge</span>
                 <input
                   value={planForm.badge}
@@ -558,6 +679,15 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
                   value={planForm.summary}
                   onChange={(event) => setPlanForm((current) => ({ ...current, summary: event.target.value }))}
                   className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-sm font-medium">Título de características</span>
+                <input
+                  value={planForm.featureGroupTitle}
+                  onChange={(event) => setPlanForm((current) => ({ ...current, featureGroupTitle: event.target.value }))}
+                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+                  placeholder="Incluye"
                 />
               </label>
               <label className="block md:col-span-2">
@@ -636,7 +766,7 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
                 disabled={isSaving}
                 className="rounded-full bg-gradient-to-r from-primary to-magenta px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
               >
-                {isSaving ? "Guardando..." : "Guardar servicio"}
+                {isSaving ? "Guardando..." : "Guardar plan"}
               </button>
             </div>
           </form>

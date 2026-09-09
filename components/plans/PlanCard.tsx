@@ -15,6 +15,7 @@ import { parseMoney } from "@/lib/orders/service";
 export type Plan = {
   id?: string;
   category?: string;
+  subcategory?: string | null;
   badge?: string | null;
   icon?: string | null;
   accentIcon?: string | null;
@@ -24,6 +25,7 @@ export type Plan = {
   oldPrice?: string | null;
   price: string;
   tax?: string | null;
+  taxRate?: number;
 
   summary?: string | null;
 
@@ -76,7 +78,7 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
       quantity: 1,
       unitPrice: parseMoney(plan.price),
       priceDisplay: plan.price,
-      taxRate: 0.19,
+      taxRate: plan.taxRate ?? 0.19,
       source: "plan-card",
     });
 

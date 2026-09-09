@@ -16,6 +16,13 @@ export default function CheckoutResultClient() {
       action: "Volver al inicio",
       href: "/",
     },
+    pending: {
+      title: "Pago pendiente",
+      message: "Mercado Pago todavía está procesando tu pago. Te confirmaremos cuando se acredite.",
+      tone: "border-sky-200 bg-sky-50 text-sky-700",
+      action: "Volver al inicio",
+      href: "/",
+    },
     cancelled: {
       title: "Pago cancelado",
       message: "La transacción fue cancelada antes de completarse.",

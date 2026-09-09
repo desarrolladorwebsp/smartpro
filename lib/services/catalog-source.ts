@@ -1,3 +1,4 @@
+/** Seed-only source. Runtime catalog is always read from the database. */
 import * as plansData from "../../public/js/plans.js";
 import { parseMoney } from "../orders/service";
 import { slugify } from "./repository";
@@ -27,6 +28,7 @@ export type CatalogSourceItem = {
 
 type RawPlan = {
   name?: string;
+  subcategory?: string | null;
   price?: string | number | null;
   oldPrice?: string | null;
   tax?: string | null;
@@ -51,7 +53,7 @@ type CatalogGroup = {
 };
 
 const GROUPS: CatalogGroup[] = [
-  { key: "desarrolloWeb", categoryName: "Desarrollo Web", defaultSubcategory: "Sitios web" },
+  { key: "desarrolloWeb", categoryName: "Desarrollo Web", defaultSubcategory: "Landing Page" },
   { key: "campanaPublicitaria", categoryName: "Campañas Publicitarias", defaultSubcategory: "Campañas Publicitarias" },
   { key: "redesSociales", categoryName: "Redes Sociales & Contenido", defaultSubcategory: "Redes Sociales" },
   { key: "produccionVisual", categoryName: "Producción Audiovisual", defaultSubcategory: "Producción Audiovisual" },
@@ -64,13 +66,21 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function normalizeText(value: unknown): string {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
 function subcategoryForPlan(group: CatalogGroup, plan: RawPlan): string {
+  const explicitSubcategory = normalizeText(plan.subcategory);
+  if (explicitSubcategory) return explicitSubcategory;
+
   const name = String(plan.name ?? "").toLowerCase();
 
   if (group.key === "desarrolloWeb") {
-    if (name.includes("sitio")) return "Website";
-    if (name.includes("smartweb")) return "Landing Page";
-    return "Desarrollo Web";
+    if (name.includes("e-commerce") || name.includes("ecommerce")) return "E-commerce";
+    if (name.includes("website") || name.includes("sitio")) return "Website";
+    if (name.includes("landing")) return "Landing Page";
+    return group.defaultSubcategory;
   }
 
   if (group.key === "redesSociales") {

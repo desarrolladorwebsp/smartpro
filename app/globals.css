@@ -128,4 +128,24 @@ body {
   .dashboard-field {
     @apply w-full rounded-2xl border border-border bg-slate-50 px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-primary/50 focus:bg-white;
   }
+
+  .dashboard-content-in {
+    animation: dashboard-content-in 220ms ease-out;
+  }
+
+  .dashboard-skeleton {
+    @apply animate-pulse rounded-2xl bg-slate-200/80;
+  }
+}
+
+@keyframes dashboard-content-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }

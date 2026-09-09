@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnimatePresence, motion } from "motion/react";
 
@@ -39,6 +39,30 @@ export default function ServicePlansModal({
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
   const [addedPlanName, setAddedPlanName] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | "all">("all");
+
+  const categoryFilters = useMemo(() => {
+    const names: string[] = [];
+
+    for (const plan of plans) {
+      const name = plan.subcategory?.trim();
+      if (name && !names.includes(name)) {
+        names.push(name);
+      }
+    }
+
+    return names;
+  }, [plans]);
+
+  const visiblePlans = useMemo(() => {
+    if (activeCategory === "all") return plans;
+    return plans.filter((plan) => plan.subcategory === activeCategory);
+  }, [activeCategory, plans]);
+
+  const handleClose = useCallback(() => {
+    setActiveCategory("all");
+    onClose();
+  }, [onClose]);
 
   const updateCarouselState = () => {
     const node = carouselRef.current;
@@ -77,7 +101,7 @@ export default function ServicePlansModal({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        handleClose();
       }
     };
 
@@ -86,7 +110,7 @@ export default function ServicePlansModal({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, handleClose]);
 
   useEffect(() => {
     updateCarouselState();
@@ -106,7 +130,7 @@ export default function ServicePlansModal({
       node.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
-  }, [open, plans.length]);
+  }, [open, visiblePlans.length]);
 
   /* ==========================================================
      BODY SCROLL LOCK
@@ -130,7 +154,6 @@ export default function ServicePlansModal({
 
   useEffect(() => {
     if (!open) return;
-
     requestAnimationFrame(() => {
       modalRef.current?.focus();
     });
@@ -173,7 +196,7 @@ export default function ServicePlansModal({
             transition={{
               duration: 0.25,
             }}
-            onClick={onClose}
+            onClick={handleClose}
             className="
               absolute
               inset-0
@@ -280,7 +303,7 @@ export default function ServicePlansModal({
               <motion.button
                 type="button"
                 aria-label="Cerrar"
-                onClick={onClose}
+                onClick={handleClose}
                 whileHover={{
                   rotate: 5,
                   scale: 1.04,
@@ -329,6 +352,54 @@ export default function ServicePlansModal({
             >
               {plans.length > 0 ? (
                 <div className="relative">
+                  {categoryFilters.length > 1 && (
+                    <div className="mb-5 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={activeCategory === "all"}
+                        onClick={() => {
+                          setActiveCategory("all");
+                          carouselRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+                        }}
+                        className={`
+                          min-h-10 rounded-full border px-4 text-sm font-medium transition-colors
+                          ${
+                            activeCategory === "all"
+                              ? "border-primary bg-primary text-white"
+                              : "border-primary/25 bg-white text-muted hover:border-primary/50 hover:text-primary"
+                          }
+                        `}
+                      >
+                        Todas
+                      </button>
+                      {categoryFilters.map((category) => {
+                        const isActive = activeCategory === category;
+
+                        return (
+                          <button
+                            key={category}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setActiveCategory(category);
+                              carouselRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+                            }}
+                            className={`
+                              min-h-10 rounded-full border px-4 text-sm font-medium transition-colors
+                              ${
+                                isActive
+                                  ? "border-primary bg-primary text-white"
+                                  : "border-primary/25 bg-white text-muted hover:border-primary/50 hover:text-primary"
+                              }
+                            `}
+                          >
+                            {category}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <AnimatePresence>
                     {addedPlanName && (
                       <motion.div
@@ -358,7 +429,7 @@ export default function ServicePlansModal({
 
                             <Link
                               href="/checkout"
-                              onClick={onClose}
+                              onClick={handleClose}
                               className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#4f46e5] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#4338ca]"
                             >
                               Ir al carrito
@@ -388,41 +459,37 @@ export default function ServicePlansModal({
                       [&::-webkit-scrollbar]:hidden
                     "
                   >
-                    {plans.map((plan, index) => (
-                      <div
-                        key={`${plan.name}-${index}`}
-                        className="
-                          mx-auto
-                          flex
-                          min-w-0
-                          shrink-0
-                          snap-center
-                          scroll-ml-2
-                          py-2
-                          transition-all
-                          duration-300
-                          sm:scroll-ml-3
-                          md:scroll-ml-1
-                          w-[calc(100%-0.5rem)]
-                          max-w-[360px]
-                          sm:w-[72%]
-                          sm:max-w-[380px]
-                          md:w-[calc(50%-0.5rem)]
-                          md:max-w-[360px]
-                          xl:w-[calc(33.333%-0.75rem)]
-                          xl:max-w-[360px]
-                        "
-                      >
-                        <PlanCard
-                          plan={plan}
-                          index={index}
-                          onAdded={setAddedPlanName}
-                        />
-                      </div>
-                    ))}
+                    {visiblePlans.map((plan, index) => (
+                          <div
+                            key={plan.id ?? `${plan.name}-${index}`}
+                            className="
+                              mx-auto
+                              flex
+                              min-w-0
+                              shrink-0
+                              snap-center
+                              scroll-ml-2
+                              py-2
+                              transition-all
+                              duration-300
+                              sm:scroll-ml-3
+                              md:scroll-ml-1
+                              w-[calc(100%-0.5rem)]
+                              max-w-[360px]
+                              sm:w-[72%]
+                              sm:max-w-[380px]
+                              md:w-[calc(50%-0.5rem)]
+                              md:max-w-[360px]
+                              xl:w-[calc(33.333%-0.75rem)]
+                              xl:max-w-[360px]
+                            "
+                          >
+                            <PlanCard plan={plan} index={index} onAdded={setAddedPlanName} />
+                          </div>
+                        ))}
                   </div>
 
-                  {plans.length > 1 && (
+                  {visiblePlans.length > 1 && (
                     <>
                       <motion.button
                         type="button"

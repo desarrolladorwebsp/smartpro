@@ -3,7 +3,21 @@ import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import type { PoolConfig } from "mariadb";
+
+function parseEnvValue(raw: string): string {
+  const trimmed = raw.trim();
+
+  if (
+    (trimmed.startsWith("\"") && trimmed.includes("\"", 1)) ||
+    (trimmed.startsWith("'") && trimmed.includes("'", 1))
+  ) {
+    const quote = trimmed[0];
+    const closingQuoteIndex = trimmed.indexOf(quote, 1);
+    return trimmed.slice(1, closingQuoteIndex);
+  }
+
+  return trimmed.split("#")[0]?.trim() ?? "";
+}
 
 function loadLocalEnv() {
   if (process.env.DATABASE_URL || process.env.DB_CONNECTION_URL) {
@@ -20,7 +34,7 @@ function loadLocalEnv() {
 
       const separator = line.indexOf("=");
       const key = line.slice(0, separator).trim();
-      const value = line.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
+      const value = parseEnvValue(line.slice(separator + 1));
 
       if (!(key in process.env)) {
         process.env[key] = value;
@@ -51,62 +65,76 @@ function parseDatabaseUrl(connectionString: string) {
 }
 
 function getConnectionSettings() {
-  const connectionString = process.env.DATABASE_URL ?? process.env.DB_CONNECTION_URL ?? "";
-
-  if (connectionString) {
-    return parseDatabaseUrl(connectionString);
-  }
-
   const host = process.env.DB_HOST?.trim();
   const user = process.env.DB_USER?.trim();
   const password = process.env.DB_PASSWORD ?? "";
   const database = process.env.DB_NAME?.trim();
   const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
 
-  if (!host || !user || !database) {
-    return null;
+  if (host && user && database) {
+    return {
+      host,
+      port,
+      user,
+      password,
+      database,
+      ssl: process.env.DB_SSL === "true",
+    };
   }
 
-  return {
-    host,
-    port,
-    user,
-    password,
-    database,
-    ssl: process.env.DB_SSL === "true",
-  };
+  const connectionString = process.env.DATABASE_URL ?? process.env.DB_CONNECTION_URL ?? "";
+
+  if (connectionString) {
+    return parseDatabaseUrl(connectionString);
+  }
+
+  return null;
+}
+
+function buildMariaDbConnectionUrl(settings: {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl: boolean;
+}) {
+  const url = new URL("mariadb://localhost");
+  url.username = settings.user;
+  url.password = settings.password;
+  url.hostname = settings.host;
+  url.port = String(settings.port);
+  url.pathname = `/${settings.database}`;
+  url.searchParams.set("allowPublicKeyRetrieval", "true");
+  url.searchParams.set("connectTimeout", "30000");
+  url.searchParams.set("acquireTimeout", "30000");
+  url.searchParams.set("connectionLimit", "1");
+
+  if (settings.ssl) {
+    url.searchParams.set("ssl", "true");
+  }
+
+  return url.toString();
 }
 
 function createMariaDbAdapter() {
   const settings = getConnectionSettings();
 
-  if (!settings) {
+  if (!settings?.database) {
     return undefined;
   }
 
-  const isServerless = Boolean(process.env.VERCEL);
-
-  const poolConfig: PoolConfig = {
-    host: settings.host,
-    port: settings.port,
-    user: settings.user,
-    password: settings.password,
-    database: settings.database,
-    ssl: settings.ssl ? { rejectUnauthorized: false } : false,
-    // Shared hosting MySQL can be slow to accept remote connections (especially from Vercel).
-    connectTimeout: 30_000,
-    acquireTimeout: 30_000,
-    initializationTimeout: 30_000,
-    // Serverless: one connection per lambda avoids exhausting the host's connection cap.
-    connectionLimit: isServerless ? 1 : 3,
-    minimumIdle: 0,
-    idleTimeout: isServerless ? 20 : 600,
-    allowPublicKeyRetrieval: true,
-    resetAfterUse: true,
-  };
-
   try {
-    return new PrismaMariaDb(poolConfig);
+    return new PrismaMariaDb(
+      buildMariaDbConnectionUrl({
+        host: settings.host,
+        port: settings.port,
+        user: settings.user,
+        password: settings.password,
+        database: settings.database,
+        ssl: settings.ssl,
+      }),
+    );
   } catch {
     return undefined;
   }

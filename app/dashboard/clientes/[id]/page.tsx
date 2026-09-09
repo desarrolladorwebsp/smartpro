@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -19,8 +20,18 @@ import {
 } from "lucide-react";
 
 import { ClientQuickActions } from "@/components/admin/ClientQuickActions";
+import { DashboardDataError } from "@/components/admin/DashboardDataError";
+import { ClientDetailPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
-import { getClientById, getClientStatusLabel, getInitialContactByClientId, listClientNotes } from "@/lib/clients/repository";
+import {
+  getClientById,
+  getClientStatusLabel,
+  getInitialContactByClientId,
+  listClientNotes,
+  type ClientNoteRecord,
+  type InitialContactRecord,
+} from "@/lib/clients/repository";
+import type { ClientRecord } from "@/lib/clients/types";
 
 const statusClasses: Record<string, string> = {
   ACTIVO: "bg-emerald-100 text-emerald-700 border border-emerald-200",
@@ -28,10 +39,49 @@ const statusClasses: Record<string, string> = {
   INACTIVO: "bg-slate-200 text-slate-700 border border-slate-300",
 };
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export const dynamic = "force-dynamic";
+
+export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<ClientDetailPageSkeleton />}>
+      <ClientDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+async function ClientDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminSession();
   const { id } = await params;
-  const client = await getClientById(id);
+
+  let client: ClientRecord | null = null;
+  let initialContact: InitialContactRecord | null = null;
+  let clientNotes: ClientNoteRecord[] = [];
+  let loadError = false;
+
+  try {
+    client = await getClientById(id);
+
+    if (client) {
+      [initialContact, clientNotes] = await Promise.all([
+        getInitialContactByClientId(client.id),
+        listClientNotes(client.id),
+      ]);
+    }
+  } catch (error) {
+    console.error("[smartpro:dashboard:clientes:detalle] Error de conexión a la base de datos", error);
+    loadError = true;
+  }
+
+  if (loadError) {
+    return (
+      <DashboardDataError
+        icon="clientes"
+        eyebrow="Clientes"
+        title="Detalle"
+        message="No se pudo cargar la ficha del cliente."
+      />
+    );
+  }
 
   if (!client) {
     return (
@@ -46,9 +96,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       </div>
     );
   }
-
-  const initialContact = await getInitialContactByClientId(client.id);
-  const clientNotes = await listClientNotes(client.id);
 
   const summaryCards = [
     { label: "Cotizaciones", value: 3, icon: FileText },

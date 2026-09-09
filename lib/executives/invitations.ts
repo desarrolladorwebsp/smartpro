@@ -3,7 +3,8 @@ import crypto from "node:crypto";
 import type { UserRole } from "@prisma/client";
 
 import { getAppUrl } from "../app-url";
-import { sendPlainTextEmail } from "../email/resend";
+import { buildExecutiveInvitationEmail } from "../email/executive-invitation";
+import { sendEmail } from "../email/resend";
 import { prisma } from "../db";
 import { hashPassword, normalizeEmail } from "../auth";
 import type { ExecutiveInviteInput, InvitationAcceptInput } from "./invitation-validation";
@@ -111,6 +112,7 @@ export async function createExecutiveInvitation(
     throw new Error("Ya existe una invitación pendiente para este correo.");
   }
 
+  const appUrl = getAppUrl();
   const token = generateInvitationToken();
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
@@ -134,28 +136,19 @@ export async function createExecutiveInvitation(
     },
   });
 
-  const inviteUrl = `${getAppUrl()}/invitacion/ejecutivo?token=${encodeURIComponent(token)}`;
+  const inviteUrl = `${appUrl}/invitacion/ejecutivo?token=${encodeURIComponent(token)}`;
   const roleLabel = getExecutiveRoleLabel(input.role);
+  const invitationEmail = buildExecutiveInvitationEmail({
+    roleLabel,
+    inviteUrl,
+    appUrl,
+  });
 
-  const emailResult = await sendPlainTextEmail({
+  const emailResult = await sendEmail({
     to: email,
-    subject: "Invitación al panel administrativo de SmartPro",
-    text: [
-      "Hola,",
-      "",
-      "Has sido invitado/a a unirte al panel administrativo de SmartPro.",
-      "",
-      `Rol asignado: ${roleLabel}`,
-      "",
-      "Para completar tu cuenta y crear tu contraseña, abre el siguiente enlace:",
-      inviteUrl,
-      "",
-      "Este enlace expira en 72 horas y solo puede usarse una vez.",
-      "",
-      "Si no esperabas esta invitación, puedes ignorar este correo.",
-      "",
-      "Equipo SmartPro",
-    ].join("\n"),
+    subject: invitationEmail.subject,
+    text: invitationEmail.text,
+    html: invitationEmail.html,
   });
 
   return {

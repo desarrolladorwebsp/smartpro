@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 import { AnimatePresence, motion } from "motion/react";
@@ -12,6 +13,11 @@ import { useCart } from "@/components/cart/CartProvider";
 
 export default function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { items, subtotal, tax, total, itemCount, removeItem, updateQuantity, clearCart } = useCart();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -24,7 +30,7 @@ export default function CartDrawer({ open, onClose }: { open: boolean; onClose: 
     };
   }, [open]);
 
-  return (
+  const drawer = (
     <AnimatePresence>
       {open && (
         <>
@@ -106,4 +112,8 @@ export default function CartDrawer({ open, onClose }: { open: boolean; onClose: 
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+
+  return createPortal(drawer, document.body);
 }

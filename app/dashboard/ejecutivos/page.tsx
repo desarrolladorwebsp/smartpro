@@ -1,32 +1,49 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { requireAdminSession } from "@/lib/auth";
 import { ExecutivesDashboard } from "@/components/admin/ExecutivesDashboard";
-import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { DashboardDataError } from "@/components/admin/DashboardDataError";
+import { ExecutivesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { listExecutives } from "@/lib/executives/repository";
+import type { ExecutiveRecord } from "@/lib/executives/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExecutivesPage() {
+export default function ExecutivesPage() {
+  return (
+    <Suspense fallback={<ExecutivesPageSkeleton />}>
+      <ExecutivesPageContent />
+    </Suspense>
+  );
+}
+
+async function ExecutivesPageContent() {
   const session = await requireAdminSession();
 
   if (session.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
+  let executives: ExecutiveRecord[] = [];
+  let loadError = false;
+
   try {
-    const executives = await listExecutives();
-    return <ExecutivesDashboard initialExecutives={executives} />;
+    executives = await listExecutives();
   } catch (error) {
     console.error("[smartpro:dashboard:ejecutivos] Error de conexión a la base de datos", error);
+    loadError = true;
+  }
+
+  if (loadError) {
     return (
-      <div className="space-y-6">
-        <DashboardPageHeader icon="ejecutivos" eyebrow="Gestión de ejecutivos" title="Ejecutivos" />
-        <div className="rounded-[24px] border border-dashed border-border bg-white p-8 text-center shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
-          <p className="text-sm font-semibold text-foreground">No se pudo conectar a la base de datos.</p>
-          <p className="mt-2 text-sm text-muted">Intenta nuevamente en unos minutos. Si el problema persiste, contacta al equipo técnico.</p>
-        </div>
-      </div>
+      <DashboardDataError
+        icon="ejecutivos"
+        eyebrow="Gestión de ejecutivos"
+        title="Ejecutivos"
+      />
     );
   }
+
+  return <ExecutivesDashboard initialExecutives={executives} />;
 }

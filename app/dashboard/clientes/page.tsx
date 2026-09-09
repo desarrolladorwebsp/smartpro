@@ -1,26 +1,44 @@
+import { Suspense } from "react";
+
 import { requireAdminSession } from "@/lib/auth";
 import { ClientsDashboard } from "@/components/admin/ClientsDashboard";
-import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { DashboardDataError } from "@/components/admin/DashboardDataError";
+import { ClientsPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { listClients } from "@/lib/clients/repository";
+import type { ClientRecord } from "@/lib/clients/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientsPage() {
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={<ClientsPageSkeleton />}>
+      <ClientsPageContent />
+    </Suspense>
+  );
+}
+
+async function ClientsPageContent() {
   await requireAdminSession();
 
+  let clients: ClientRecord[] = [];
+  let loadError = false;
+
   try {
-    const clients = await listClients();
-    return <ClientsDashboard initialClients={clients} />;
+    clients = await listClients();
   } catch (error) {
     console.error("[smartpro:dashboard:clientes] Error de conexión a la base de datos", error);
+    loadError = true;
+  }
+
+  if (loadError) {
     return (
-      <div className="space-y-6">
-        <DashboardPageHeader icon="clientes" eyebrow="Gestión de clientes" title="Clientes" />
-        <div className="rounded-[24px] border border-dashed border-border bg-white p-8 text-center shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
-          <p className="text-sm font-semibold text-foreground">No se pudo conectar a la base de datos.</p>
-          <p className="mt-2 text-sm text-muted">Intenta nuevamente en unos minutos. Si el problema persiste, contacta al equipo técnico.</p>
-        </div>
-      </div>
+      <DashboardDataError
+        icon="clientes"
+        eyebrow="Gestión de clientes"
+        title="Clientes"
+      />
     );
   }
+
+  return <ClientsDashboard initialClients={clients} />;
 }

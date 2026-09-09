@@ -9,103 +9,78 @@ import { ArrowRight } from "lucide-react";
 import ServicePlansModal from "./ServicePlansModal";
 
 import type { Plan } from "./PlanCard";
-import * as plansData from "@/public/js/plans";
-
-/* ============================================================
-   SERVICIOS DISPONIBLES
-
-   Deben corresponder exactamente a los exports
-   existentes dentro de public/js/planes.js
-============================================================ */
-
-export type ServicePlansKey =
-  | "desarrolloWeb"
-  | "campanaPublicitaria"
-  | "redesSociales"
-  | "produccionVisual"
-  | "automatizacionBots"
-  | "membresias"
-  | "negocioCompleto";
-
-/* ============================================================
-   TITLES
-============================================================ */
-
-const SERVICE_TITLES: Record<ServicePlansKey, string> = {
-  desarrolloWeb: "Desarrollo Web",
-
-  campanaPublicitaria: "Campañas Publicitarias",
-
-  redesSociales: "Redes Sociales & Contenido",
-
-  produccionVisual: "Producción Audiovisual",
-
-  automatizacionBots: "Automatización & Conversión",
-
-  membresias: "Membresías",
-
-  negocioCompleto: "Negocio Completo",
-};
-
-/* ============================================================
-   TYPES
-============================================================ */
 
 type ViewServiceButtonProps = {
-  service: ServicePlansKey;
-
+  categorySlug: string;
+  title?: string;
   label?: string;
-
   className?: string;
+  initialPlans?: Plan[];
 };
 
-/* ============================================================
-   COMPONENT
-============================================================ */
+type CatalogCategoryResponse = {
+  source?: string;
+  category?: {
+    name: string;
+    slug: string;
+  };
+  categories?: Array<{
+    id?: string;
+    name: string;
+    slug?: string;
+  }>;
+  plans?: Plan[];
+  error?: string;
+};
 
 export default function ViewServiceButton({
-  service,
+  categorySlug,
+  title,
   label = "Ver servicio",
   className = "",
+  initialPlans = [],
 }: ViewServiceButtonProps) {
   const [open, setOpen] = useState(false);
-
-  const [plans, setPlans] = useState<Plan[]>([]);
-
+  const [fetchedPlans, setFetchedPlans] = useState<Plan[] | null>(null);
+  const [modalTitle, setModalTitle] = useState(title ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const plans = fetchedPlans ?? initialPlans;
 
-  /* ==========================================================
-     LOAD PLANS
-  ========================================================== */
-
-  const handleOpen = () => {
-    /*
-     * Si ya fueron cargados anteriormente,
-     * no los volvemos a descargar.
-     */
-
-    if (plans.length > 0) {
-      setOpen(true);
-      return;
-    }
-
-    const selectedPlans = plansData[service];
-
-    if (!Array.isArray(selectedPlans)) {
-      setError(`No existe el grupo de planes: ${service}`);
-      return;
-    }
-
-    setError(null);
-    setPlans(selectedPlans);
+  const handleOpen = async () => {
     setOpen(true);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/catalog?category=${encodeURIComponent(categorySlug)}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = (await response.json().catch(() => ({}))) as CatalogCategoryResponse;
+
+      if (!response.ok || !Array.isArray(data.plans)) {
+        throw new Error(data.error ?? "No se pudieron cargar los planes.");
+      }
+
+      setFetchedPlans(data.plans);
+      setModalTitle(data.category?.name ?? title ?? "Planes SmartPro");
+    } catch (loadError) {
+      if (plans.length === 0) {
+        setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar los planes.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <>
       <motion.button
         type="button"
-        onClick={handleOpen}
+        onClick={() => void handleOpen()}
+        disabled={isLoading && plans.length === 0}
         whileTap={{ scale: 0.97 }}
         className={`
           group/button
@@ -127,10 +102,12 @@ export default function ViewServiceButton({
           duration-300
           hover:border-magenta
           hover:bg-primary/20
+          disabled:cursor-not-allowed
+          disabled:opacity-70
           ${className}
         `}
       >
-        {label}
+        {isLoading && plans.length === 0 ? "Cargando..." : label}
 
         <ArrowRight
           size={16}
@@ -138,8 +115,6 @@ export default function ViewServiceButton({
           className="transition-transform duration-300 group-hover/button:translate-x-1"
         />
       </motion.button>
-
-      {/* Error */}
 
       {error && (
         <p
@@ -153,11 +128,9 @@ export default function ViewServiceButton({
         </p>
       )}
 
-      {/* Modal */}
-
       <ServicePlansModal
         open={open}
-        title={SERVICE_TITLES[service]}
+        title={modalTitle}
         plans={plans}
         onClose={() => setOpen(false)}
       />

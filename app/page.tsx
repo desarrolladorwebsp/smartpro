@@ -12,6 +12,9 @@ import PortfolioSection from "@/section/PortfolioSection";
 import PresentersSection from "@/section/PresentersSection";
 import ServicesSection from "@/section/ServicesSection";
 import TeamSection from "@/section/TeamSection";
+import { hasDatabaseConnection } from "@/lib/db";
+import { getPublicServicesForHome } from "@/lib/services/public";
+import type { PublicServiceView } from "@/lib/services/public";
 
 export const metadata: Metadata = {
   title: "Agencia de marketing digital y desarrollo web en Chile",
@@ -100,7 +103,19 @@ const websiteSchema = {
   inLanguage: "es-CL",
 };
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  let catalog: PublicServiceView[] = [];
+
+  try {
+    if (hasDatabaseConnection()) {
+      catalog = await getPublicServicesForHome();
+    }
+  } catch (error) {
+    console.error("[smartpro:home:catalog]", error);
+  }
+
   return (
     <>
       <JsonLd data={websiteSchema} />
@@ -109,7 +124,7 @@ export default function Home() {
         <Navbar />
         <main className="flex-1">
           <HeroSection />
-          <ServicesSection />
+          <ServicesSection catalog={catalog} />
           <ClientsMarqueeSection />
           <PortfolioSection />
           <PresentersSection />

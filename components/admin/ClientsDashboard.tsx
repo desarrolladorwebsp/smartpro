@@ -351,11 +351,16 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted">
-                    Cargando clientes...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }, (_, index) => (
+                  <tr key={`client-skeleton-${index}`} className="border-t border-border">
+                    <td className="px-4 py-3" colSpan={8}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+                        <div className="h-3 w-full max-w-xl animate-pulse rounded-full bg-slate-200/80" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filteredClients.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted">
@@ -438,9 +443,13 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
 
         <div className="space-y-3 p-3 md:hidden">
           {isLoading ? (
-            <div className="rounded-2xl border border-border bg-soft-background p-4 text-center text-sm text-muted">
-              Cargando clientes...
-            </div>
+            Array.from({ length: 4 }, (_, index) => (
+              <div key={`client-card-skeleton-${index}`} className="rounded-[20px] border border-border bg-soft-background p-4">
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="mt-3 h-3 w-1/2 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="mt-4 h-8 w-24 animate-pulse rounded-full bg-slate-200/80" />
+              </div>
+            ))
           ) : filteredClients.length === 0 ? (
             <div className="rounded-2xl border border-border bg-soft-background p-4 text-center text-sm text-muted">
               No hay clientes registrados con esos filtros.

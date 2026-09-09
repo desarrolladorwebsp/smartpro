@@ -1,7 +1,18 @@
+import { Suspense } from "react";
+
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { OverviewPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<OverviewPageSkeleton />}>
+      <DashboardOverview />
+    </Suspense>
+  );
+}
+
+async function DashboardOverview() {
   await requireAdminSession();
 
   return (

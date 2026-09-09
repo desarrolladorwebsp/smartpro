@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { LogIn, Menu, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Menu, User, X } from "lucide-react";
 
 import CartButton from "@/components/cart/CartButton";
 
 /* ============================================================
    CONSTANTES
 ============================================================ */
+
+const SCROLL_COMPACT_AT = 20;
+const SCROLL_SHOW_AT_TOP = 48;
+const SCROLL_DIRECTION_DELTA = 12;
 
 const LOGOS = {
   icon: "/images/logo/logo-smartpro-02.png",
@@ -47,27 +51,72 @@ const NAV_ITEMS = [
 
 export default function Navbar() {
   const router = useRouter();
+  const shouldReduceMotion = useReducedMotion();
   const [scrolled, setScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("inicio");
+  const mobileMenuOpenRef = useRef(false);
 
   /* ------------------------------------------------------------
-     DETECTAR SCROLL
+     DETECTAR SCROLL (dirección + compacto, con rAF)
   ------------------------------------------------------------ */
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+    mobileMenuOpenRef.current = mobileMenuOpen;
+
+    if (mobileMenuOpen) {
+      setHidden(false);
+    }
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    let lastY = Math.max(0, window.scrollY);
+    let frame = 0;
+    let initialized = false;
+
+    const syncFromScroll = () => {
+      frame = 0;
+
+      const currentY = Math.max(0, window.scrollY);
+      const compact = currentY > SCROLL_COMPACT_AT;
+
+      setScrolled((previous) => (previous === compact ? previous : compact));
+
+      if (!initialized) {
+        initialized = true;
+        lastY = currentY;
+        setHidden(false);
+        return;
+      }
+
+      if (mobileMenuOpenRef.current || currentY <= SCROLL_SHOW_AT_TOP) {
+        lastY = currentY;
+        setHidden(false);
+        return;
+      }
+
+      const delta = currentY - lastY;
+
+      if (Math.abs(delta) < SCROLL_DIRECTION_DELTA) {
+        return;
+      }
+
+      setHidden(delta > 0);
+      lastY = currentY;
     };
 
-    handleScroll();
+    const handleScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(syncFromScroll);
+    };
 
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
+    syncFromScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, []);
 
@@ -104,7 +153,9 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
-    const sectionIds = ["inicio", "servicios", "proyectos", "nosotros", "contacto"]; 
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const sectionIds = ["inicio", "servicios", "proyectos", "nosotros", "contacto"];
     const sectionElements = sectionIds
       .map((id) => document.getElementById(id))
       .filter(Boolean) as HTMLElement[];
@@ -146,15 +197,23 @@ export default function Navbar() {
         }}
         animate={{
           opacity: 1,
-          y: 0,
+          y: hidden ? "-110%" : 0,
         }}
-        transition={{
-          duration: 0.65,
-          ease: "easeOut",
-        }}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : {
+                opacity: { duration: 0.45, ease: "easeOut" },
+                y: {
+                  duration: 0.4,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+              }
+        }
+        onFocusCapture={() => setHidden(false)}
         className={`
           fixed inset-x-0 top-0 z-50
-          transition-all duration-500
+          transition-[background-color,box-shadow,backdrop-filter] duration-500
           ${
             scrolled
               ? "bg-surface/92 shadow-[0_8px_28px_rgb(16_16_36_/_0.06)] backdrop-blur-xl"
@@ -229,7 +288,7 @@ export default function Navbar() {
                     relative
                     z-10
                     h-auto
-                    w-[38px]
+                    w-[32px]
                     object-contain
                     transition-transform
                     duration-500
@@ -314,17 +373,17 @@ export default function Navbar() {
                   border
                   border-primary/15
                   bg-surface
-                  text-foreground
-                  shadow-[0_8px_24px_rgba(109,40,217,0.08)]
+                  text-magenta
+                  shadow-[0_8px_24px_rgba(236,22,140,0.10)]
                   transition-all
                   duration-300
-                  hover:border-primary/40
-                  hover:text-primary
+                  hover:border-magenta/45
+                  hover:text-pink
                   lg:h-12
                   lg:w-12
                 "
               >
-                <LogIn size={18} strokeWidth={2.1} />
+                <User size={18} strokeWidth={2.1} />
               </motion.button>
 
               <motion.a
@@ -397,15 +456,15 @@ export default function Navbar() {
                   border
                   border-primary/15
                   bg-surface
-                  text-foreground
-                  shadow-[0_8px_24px_rgba(109,40,217,0.08)]
+                  text-magenta
+                  shadow-[0_8px_24px_rgba(236,22,140,0.10)]
                   transition-all
                   duration-300
-                  hover:border-primary/40
-                  hover:text-primary
+                  hover:border-magenta/45
+                  hover:text-pink
                 "
               >
-                <LogIn size={17} strokeWidth={2.1} />
+                <User size={17} strokeWidth={2.1} />
               </button>
 
               <button
@@ -413,7 +472,7 @@ export default function Navbar() {
                 aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
                 aria-expanded={mobileMenuOpen}
                 onClick={() => setMobileMenuOpen((current) => !current)}
-                className="icon-button"
+                className="icon-button text-magenta hover:border-magenta/45 hover:text-pink"
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {mobileMenuOpen ? (
