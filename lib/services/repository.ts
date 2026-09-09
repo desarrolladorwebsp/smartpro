@@ -1,6 +1,8 @@
 import { Prisma, type CatalogStatus as PrismaCatalogStatus } from "@prisma/client";
 
 import { getPrismaClient } from "../db";
+import { removeManagedServiceCoverFile } from "./cover-image";
+import { DEFAULT_SERVICE_COVERS } from "./default-covers";
 import { parseMoney } from "../orders/service";
 import type {
   CatalogStatus,
@@ -76,6 +78,7 @@ type CategoryRow = {
   name: string;
   slug: string;
   description: string;
+  coverImage: string;
   sortOrder: number;
   status: PrismaCatalogStatus;
   createdAt: Date;
@@ -140,6 +143,7 @@ function toCategoryRecord(row: CategoryRow): ServiceCategoryRecord {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    coverImage: row.coverImage ?? "",
     sortOrder: row.sortOrder,
     status: row.status,
     createdAt: toIso(row.createdAt),
@@ -407,6 +411,8 @@ export async function upsertServiceCategory(input: ServiceCategoryPayload & { sl
     name,
     slug,
     description: input.description == null ? (existing?.description ?? "") : normalizeText(input.description),
+    coverImage:
+      input.coverImage === undefined ? (existing?.coverImage ?? "") : normalizeText(input.coverImage ?? ""),
     sortOrder: hasProvided(input.sortOrder)
       ? Math.max(0, Math.trunc(toNumber(input.sortOrder)))
       : (existing?.sortOrder ?? (await nextCategorySortOrder())),
@@ -432,6 +438,7 @@ export async function updateServiceCategory(id: string, input: ServiceCategoryPa
     data: {
       name,
       description: input.description == null ? existing.description : normalizeText(input.description),
+      coverImage: input.coverImage === undefined ? existing.coverImage : normalizeText(input.coverImage ?? ""),
       sortOrder: input.sortOrder == null ? existing.sortOrder : Math.max(0, Math.trunc(toNumber(input.sortOrder))),
       status: input.status ? toStatus(input.status) : existing.status,
     },
@@ -662,4 +669,70 @@ export async function updateServiceSubcategoryStatus(id: string, status: Catalog
     include: { category: true },
   });
   return toSubcategoryRecord(row);
+}
+
+export async function setServiceCategoryCoverImage(id: string, coverImage: string): Promise<ServiceCategoryRecord> {
+  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  if (!existing) throw new Error("El servicio no existe.");
+
+  const nextCoverImage = normalizeText(coverImage);
+  if (existing.coverImage && existing.coverImage !== nextCoverImage) {
+    await removeManagedServiceCoverFile(existing.coverImage);
+  }
+
+  const row = await getPrisma().serviceCategory.update({
+    where: { id },
+    data: { coverImage: nextCoverImage },
+  });
+
+  return toCategoryRecord(row);
+}
+
+export async function clearServiceCategoryCoverImage(id: string): Promise<ServiceCategoryRecord> {
+  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  if (!existing) throw new Error("El servicio no existe.");
+
+  await removeManagedServiceCoverFile(existing.coverImage);
+
+  const row = await getPrisma().serviceCategory.update({
+    where: { id },
+    data: { coverImage: "" },
+  });
+
+  return toCategoryRecord(row);
+}
+
+export async function deleteServiceCategory(id: string): Promise<void> {
+  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  if (!existing) throw new Error("El servicio no existe.");
+
+  await removeManagedServiceCoverFile(existing.coverImage);
+  await getPrisma().serviceCategory.delete({ where: { id } });
+}
+
+export async function backfillDefaultServiceCoverImages(): Promise<number> {
+  const categories = await getPrisma().serviceCategory.findMany({
+    select: { id: true, slug: true, coverImage: true },
+  });
+
+  let updated = 0;
+
+  for (const category of categories) {
+    if (String(category.coverImage ?? "").trim()) {
+      continue;
+    }
+
+    const coverImage = DEFAULT_SERVICE_COVERS[category.slug];
+    if (!coverImage) {
+      continue;
+    }
+
+    await getPrisma().serviceCategory.update({
+      where: { id: category.id },
+      data: { coverImage },
+    });
+    updated += 1;
+  }
+
+  return updated;
 }

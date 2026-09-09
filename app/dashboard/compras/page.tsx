@@ -15,7 +15,6 @@ function PurchasesHeader() {
       icon="compras"
       eyebrow="Ventas"
       title="Últimas ventas"
-      description="Pagos registrados y seguimiento de órdenes de SmartPro."
     />
   );
 }

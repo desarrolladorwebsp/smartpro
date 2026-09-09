@@ -76,6 +76,9 @@ Desktop.ini
 # Runtime local data (orders, legacy JSON snapshots)
 /data/*.json
 
+# Uploaded service cover images
+/public/uploads/services/
+
 # Caches
 .cache/
 .turbo

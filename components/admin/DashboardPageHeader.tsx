@@ -29,7 +29,6 @@ type DashboardPageHeaderProps = {
   leading?: ReactNode;
   eyebrow: string;
   title: string;
-  description?: string;
   action?: HeaderAction;
   trailing?: ReactNode;
 };
@@ -112,7 +111,6 @@ export function DashboardPageHeader({
   leading,
   eyebrow,
   title,
-  description,
   action,
   trailing,
 }: DashboardPageHeaderProps) {
@@ -135,7 +133,6 @@ export function DashboardPageHeader({
             <h1 className="mt-1 truncate text-2xl font-bold tracking-[-0.05em] text-foreground sm:text-[1.85rem]">
               {title}
             </h1>
-            {description ? <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p> : null}
           </div>
         </div>
 

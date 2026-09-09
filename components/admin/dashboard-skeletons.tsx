@@ -11,7 +11,6 @@ function DashboardPageHeaderSkeleton({ withAction = true }: { withAction?: boole
           <div className="min-w-0 space-y-2">
             <Pulse className="h-2.5 w-28 rounded-full" />
             <Pulse className="h-7 w-40 rounded-full sm:w-52" />
-            <Pulse className="h-3 w-56 max-w-full rounded-full sm:w-72" />
           </div>
         </div>
 
@@ -125,29 +124,16 @@ export function ClientsPageSkeleton() {
 
 export function ServicesPageSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-live="polite">
+    <div className="space-y-4" aria-busy="true" aria-live="polite">
       <DashboardPageHeaderSkeleton />
-      <FilterBarSkeleton />
-      <div className="grid gap-6 xl:grid-cols-2">
-        {Array.from({ length: 2 }, (_, sectionIndex) => (
-          <section
-            key={sectionIndex}
-            className="rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]"
-          >
-            <Pulse className="h-5 w-28 rounded-full" />
-            <div className="mt-4 flex gap-2">
-              <Pulse className="h-12 flex-1 rounded-2xl" />
-              <Pulse className="h-12 w-20 rounded-full" />
-            </div>
-            <div className="mt-4 space-y-2">
-              {Array.from({ length: 4 }, (_, index) => (
-                <Pulse key={index} className="h-12 w-full rounded-2xl" />
-              ))}
-            </div>
-          </section>
-        ))}
+      <div className="rounded-[24px] border border-border bg-white p-3 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <Pulse className="h-14 w-full rounded-2xl xl:w-80" />
+          <Pulse className="h-10 w-full flex-1 rounded-xl" />
+          <Pulse className="h-10 w-full rounded-xl xl:w-40" />
+        </div>
       </div>
-      <TableSkeleton columns={7} rows={5} />
+      <TableSkeleton columns={6} rows={7} />
     </div>
   );
 }

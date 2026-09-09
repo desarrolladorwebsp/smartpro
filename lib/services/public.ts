@@ -1,4 +1,5 @@
 import { mapServicePlansToPlans } from "./map-to-plan";
+import { resolveServiceCoverImage } from "./default-covers";
 import { getPublicCatalogTree } from "./repository";
 import type { Plan } from "@/components/plans/PlanCard";
 
@@ -18,20 +19,6 @@ export type PublicServiceView = {
   plans: Plan[];
 };
 
-const SERVICE_COVERS: Record<string, string> = {
-  "desarrollo-web": "/images/services/service-01.png",
-  "campanas-publicitarias": "/images/services/service-02.png",
-  "redes-sociales-contenido": "/images/services/service-03.png",
-  "automatizacion-conversion": "/images/services/service-04.png",
-  "produccion-audiovisual": "/images/services/service-05.png",
-  "membresias-negocios": "/images/services/service-06.png",
-  "negocio-completo": "/images/services/service-01.png",
-};
-
-export function getServiceCoverImage(slug: string, index: number): string {
-  return SERVICE_COVERS[slug] ?? `/images/services/service-0${(index % 6) + 1}.png`;
-}
-
 export async function getPublicServicesForHome(): Promise<PublicServiceView[]> {
   const tree = await getPublicCatalogTree();
 
@@ -50,7 +37,7 @@ export async function getPublicServicesForHome(): Promise<PublicServiceView[]> {
         name: service.name,
         slug: service.slug,
         description: service.description,
-        image: getServiceCoverImage(service.slug, index),
+        image: resolveServiceCoverImage(service.coverImage, service.slug, index),
         categories,
         plans: mapServicePlansToPlans(service.subcategories.flatMap((category) => category.plans)),
       };

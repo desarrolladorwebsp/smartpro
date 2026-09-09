@@ -4,24 +4,31 @@ import { ServicesDashboard } from "@/components/admin/ServicesDashboard";
 import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { ServicesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
+import { parseCatalogView } from "@/lib/services/catalog-table";
 import { getCatalogTree } from "@/lib/services/repository";
 import type { CatalogTree } from "@/lib/services/types";
 
 export const dynamic = "force-dynamic";
 
-export default function ServicesPage() {
+type ServicesPageProps = {
+  searchParams: Promise<{ vista?: string | string[] }>;
+};
+
+export default function ServicesPage({ searchParams }: ServicesPageProps) {
   return (
     <Suspense fallback={<ServicesPageSkeleton />}>
-      <ServicesPageContent />
+      <ServicesPageContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function ServicesPageContent() {
+async function ServicesPageContent({ searchParams }: ServicesPageProps) {
   await requireAdminSession();
 
   let tree: CatalogTree = [];
   let loadError = false;
+  const params = await searchParams;
+  const vista = Array.isArray(params.vista) ? params.vista[0] : params.vista;
 
   try {
     tree = await getCatalogTree();
@@ -40,5 +47,5 @@ async function ServicesPageContent() {
     );
   }
 
-  return <ServicesDashboard initialTree={tree} />;
+  return <ServicesDashboard initialTree={tree} initialView={parseCatalogView(vista)} />;
 }

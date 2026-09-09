@@ -5,6 +5,7 @@ export type ServiceCategoryRecord = {
   name: string;
   slug: string;
   description: string;
+  coverImage: string;
   sortOrder: number;
   status: CatalogStatus;
   createdAt: string;
@@ -73,6 +74,7 @@ export type CatalogTree = Array<
 export type ServiceCategoryPayload = {
   name?: string;
   description?: string;
+  coverImage?: string | null;
   sortOrder?: number | string;
   status?: CatalogStatus;
 };

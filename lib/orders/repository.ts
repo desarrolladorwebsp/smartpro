@@ -1,7 +1,7 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import type { Order, OrderItem, Prisma } from "@prisma/client";
 
-import { buildOrderTotals, generateOrderId, type CartItemDraft } from "./service";
+import { getPrismaClient } from "../db";
+import { buildOrderItems, buildOrderTotals, generateOrderId, TAX_RATE, type CartItemDraft } from "./service";
 
 export type CustomerOrder = {
   id: string;
@@ -26,75 +26,154 @@ export type CustomerOrder = {
   notificationEmailSentAt?: string;
 };
 
-function getOrdersPath() {
-  const fileName = process.env.ORDERS_FILE?.trim() || "orders.json";
+const ORDER_INCLUDE = {
+  items: {
+    orderBy: { id: "asc" as const },
+  },
+} as const;
 
-  if (fileName.includes("..") || fileName.includes("/") || fileName.includes("\\")) {
-    throw new Error("ORDERS_FILE inválido.");
+type OrderWithItems = Order & { items: OrderItem[] };
+
+function getPrisma() {
+  const client = getPrismaClient();
+
+  if (!client) {
+    throw new Error("No hay conexión a la base de datos.");
   }
 
-  return path.join(process.cwd(), "data", fileName);
+  return client;
 }
 
-async function ensureOrdersFile() {
-  const ordersPath = getOrdersPath();
-  const directory = path.dirname(ordersPath);
-
-  await fs.mkdir(directory, { recursive: true });
-
-  try {
-    await fs.access(ordersPath);
-  } catch {
-    await fs.writeFile(ordersPath, "[]", "utf-8");
+function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number {
+  if (typeof value === "number") {
+    return value;
   }
+
+  if (value == null) {
+    return 0;
+  }
+
+  return Number(value);
 }
 
-function normalizeOrder(order: CustomerOrder): CustomerOrder {
-  const orderStatus = order.orderStatus ?? order.status ?? "pending";
+function parseProcessedPaymentKeys(value: Prisma.JsonValue | null | undefined): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function normalizePaymentMethod(value: string | undefined | null): CustomerOrder["paymentMethod"] {
+  if (value === "simulated" || value === "transbank" || value === "mercadopago") {
+    return value;
+  }
+
+  return "transbank";
+}
+
+function normalizePaymentStatus(value: string | undefined | null): CustomerOrder["paymentStatus"] {
+  if (value === "pending" || value === "paid" || value === "failed" || value === "cancelled") {
+    return value;
+  }
+
+  return "pending";
+}
+
+function normalizeOrderStatus(value: string | undefined | null): CustomerOrder["orderStatus"] {
+  if (value === "pending" || value === "confirmed" || value === "cancelled") {
+    return value;
+  }
+
+  return "pending";
+}
+
+function buildItemCreateInput(items: CartItemDraft[]) {
+  return buildOrderItems(items).map((item) => ({
+    serviceId: item.id,
+    name: item.name,
+    category: item.category,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    priceDisplay: item.priceDisplay ?? null,
+    taxRate: item.taxRate ?? TAX_RATE,
+    source: item.source ?? null,
+    subtotal: item.subtotal,
+    tax: item.tax,
+    total: item.total,
+  }));
+}
+
+function rowToCustomerOrder(row: OrderWithItems): CustomerOrder {
+  const orderStatus = row.orderStatus;
 
   return {
-    ...order,
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
     orderStatus,
     status: orderStatus,
-    paymentMethod: order.paymentMethod ?? "transbank",
-    processedPaymentKeys: Array.isArray(order.processedPaymentKeys) ? order.processedPaymentKeys : [],
+    customer: {
+      name: row.customerName,
+      email: row.customerEmail,
+      phone: row.customerPhone,
+      company: row.customerCompany ?? undefined,
+    },
+    items: row.items.map((item) => ({
+      id: item.serviceId ?? item.id,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unitPrice: decimalToNumber(item.unitPrice),
+      priceDisplay: item.priceDisplay ?? undefined,
+      taxRate: decimalToNumber(item.taxRate),
+      source: item.source ?? undefined,
+    })),
+    subtotal: decimalToNumber(row.subtotal),
+    tax: decimalToNumber(row.tax),
+    total: decimalToNumber(row.total),
+    paymentStatus: row.paymentStatus,
+    paymentMethod: row.paymentMethod,
+    preferenceId: row.preferenceId ?? undefined,
+    mercadopagoPaymentId: row.mercadopagoPaymentId ?? undefined,
+    processedPaymentKeys: parseProcessedPaymentKeys(row.processedPaymentKeys),
+    notificationEmailSentAt: row.notificationEmailSentAt?.toISOString(),
   };
 }
 
 export async function listOrders(): Promise<CustomerOrder[]> {
-  await ensureOrdersFile();
+  const rows = await getPrisma().order.findMany({
+    include: ORDER_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
 
-  const file = await fs.readFile(getOrdersPath(), "utf-8");
-
-  if (!file.trim()) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(file);
-    return Array.isArray(parsed) ? parsed.map((order) => normalizeOrder(order as CustomerOrder)) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveOrders(orders: CustomerOrder[]) {
-  await fs.writeFile(getOrdersPath(), JSON.stringify(orders, null, 2), "utf-8");
+  return rows.map(rowToCustomerOrder);
 }
 
 export async function getOrderRecord(orderId: string): Promise<CustomerOrder | null> {
-  const orders = await listOrders();
-  return orders.find((order) => order.id === orderId) ?? null;
+  const row = await getPrisma().order.findUnique({
+    where: { id: orderId },
+    include: ORDER_INCLUDE,
+  });
+
+  return row ? rowToCustomerOrder(row) : null;
 }
 
 export async function findOrderByPreferenceId(preferenceId: string): Promise<CustomerOrder | null> {
-  const orders = await listOrders();
-  return orders.find((order) => order.preferenceId === preferenceId) ?? null;
+  const row = await getPrisma().order.findUnique({
+    where: { preferenceId },
+    include: ORDER_INCLUDE,
+  });
+
+  return row ? rowToCustomerOrder(row) : null;
 }
 
 export async function findOrderByMercadoPagoPaymentId(paymentId: string): Promise<CustomerOrder | null> {
-  const orders = await listOrders();
-  return orders.find((order) => order.mercadopagoPaymentId === paymentId) ?? null;
+  const row = await getPrisma().order.findUnique({
+    where: { mercadopagoPaymentId: paymentId },
+    include: ORDER_INCLUDE,
+  });
+
+  return row ? rowToCustomerOrder(row) : null;
 }
 
 export async function createOrderRecord(
@@ -106,45 +185,40 @@ export async function createOrderRecord(
     paymentMethod?: CustomerOrder["paymentMethod"];
   },
 ): Promise<CustomerOrder> {
-  await ensureOrdersFile();
-
-  const orders = await listOrders();
-  const generatedId = orderInput.id ?? generateOrderId();
-
   const safeItems = Array.isArray(orderInput.items) ? orderInput.items : [];
   const totals = buildOrderTotals(safeItems);
+  const orderStatus = normalizeOrderStatus(orderInput.orderStatus ?? orderInput.status);
+  const paymentStatus = normalizePaymentStatus(orderInput.paymentStatus);
+  const createdAt = orderInput.createdAt ? new Date(orderInput.createdAt) : undefined;
 
-  const orderStatus = orderInput.orderStatus ?? orderInput.status ?? "pending";
-  const paymentStatus = orderInput.paymentStatus ?? "pending";
-
-  const record: CustomerOrder = {
-    id: generatedId,
-    createdAt: orderInput.createdAt ?? new Date().toISOString(),
-    orderStatus,
-    status: orderStatus,
-    customer: {
-      name: String(orderInput.customer.name ?? "").trim(),
-      email: String(orderInput.customer.email ?? "").trim(),
-      phone: String(orderInput.customer.phone ?? "").trim(),
-      company: orderInput.customer.company ? String(orderInput.customer.company).trim() : undefined,
+  const row = await getPrisma().order.create({
+    data: {
+      id: orderInput.id ?? generateOrderId(),
+      ...(createdAt ? { createdAt } : {}),
+      orderStatus,
+      customerName: String(orderInput.customer.name ?? "").trim(),
+      customerEmail: String(orderInput.customer.email ?? "").trim(),
+      customerPhone: String(orderInput.customer.phone ?? "").trim(),
+      customerCompany: orderInput.customer.company ? String(orderInput.customer.company).trim() : null,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total,
+      paymentStatus,
+      paymentMethod: normalizePaymentMethod(orderInput.paymentMethod),
+      preferenceId: orderInput.preferenceId ?? null,
+      mercadopagoPaymentId: orderInput.mercadopagoPaymentId ?? null,
+      processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
+      notificationEmailSentAt: orderInput.notificationEmailSentAt
+        ? new Date(orderInput.notificationEmailSentAt)
+        : null,
+      items: {
+        create: buildItemCreateInput(safeItems),
+      },
     },
-    items: safeItems,
-    subtotal: totals.subtotal,
-    tax: totals.tax,
-    total: totals.total,
-    paymentStatus,
-    paymentMethod: orderInput.paymentMethod ?? "transbank",
-    preferenceId: orderInput.preferenceId,
-    mercadopagoPaymentId: orderInput.mercadopagoPaymentId,
-    processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
-    notificationEmailSentAt: orderInput.notificationEmailSentAt,
-  };
+    include: ORDER_INCLUDE,
+  });
 
-  orders.push(record);
-
-  await saveOrders(orders);
-
-  return record;
+  return rowToCustomerOrder(row);
 }
 
 export async function updateOrderRecord(
@@ -154,29 +228,59 @@ export async function updateOrderRecord(
     items?: CartItemDraft[];
   },
 ): Promise<CustomerOrder | null> {
-  const orders = await listOrders();
-  const index = orders.findIndex((order) => order.id === orderId);
+  const existing = await getPrisma().order.findUnique({
+    where: { id: orderId },
+    include: ORDER_INCLUDE,
+  });
 
-  if (index === -1) {
+  if (!existing) {
     return null;
   }
 
-  const current = orders[index];
-  const nextOrderStatus = updates.orderStatus ?? updates.status ?? current.orderStatus;
-  const nextOrder: CustomerOrder = {
-    ...current,
-    ...updates,
-    status: nextOrderStatus,
+  const nextOrderStatus = normalizeOrderStatus(updates.orderStatus ?? updates.status ?? existing.orderStatus);
+  const data: Prisma.OrderUpdateInput = {
     orderStatus: nextOrderStatus,
-    paymentStatus: updates.paymentStatus ?? current.paymentStatus,
-    paymentMethod: updates.paymentMethod ?? current.paymentMethod,
-    processedPaymentKeys: updates.processedPaymentKeys ?? current.processedPaymentKeys ?? [],
+    paymentStatus: normalizePaymentStatus(updates.paymentStatus ?? existing.paymentStatus),
+    paymentMethod: normalizePaymentMethod(updates.paymentMethod ?? existing.paymentMethod),
+    preferenceId: updates.preferenceId === undefined ? existing.preferenceId : updates.preferenceId,
+    mercadopagoPaymentId:
+      updates.mercadopagoPaymentId === undefined ? existing.mercadopagoPaymentId : updates.mercadopagoPaymentId,
+    processedPaymentKeys: updates.processedPaymentKeys ?? parseProcessedPaymentKeys(existing.processedPaymentKeys),
+    notificationEmailSentAt:
+      updates.notificationEmailSentAt === undefined
+        ? existing.notificationEmailSentAt
+        : updates.notificationEmailSentAt
+          ? new Date(updates.notificationEmailSentAt)
+          : null,
   };
 
-  orders[index] = nextOrder;
-  await saveOrders(orders);
+  if (updates.customer) {
+    data.customerName = String(updates.customer.name ?? existing.customerName).trim();
+    data.customerEmail = String(updates.customer.email ?? existing.customerEmail).trim();
+    data.customerPhone = String(updates.customer.phone ?? existing.customerPhone).trim();
+    data.customerCompany = updates.customer.company
+      ? String(updates.customer.company).trim()
+      : existing.customerCompany;
+  }
 
-  return nextOrder;
+  if (updates.items) {
+    const totals = buildOrderTotals(updates.items);
+    data.subtotal = totals.subtotal;
+    data.tax = totals.tax;
+    data.total = totals.total;
+    data.items = {
+      deleteMany: {},
+      create: buildItemCreateInput(updates.items),
+    };
+  }
+
+  const row = await getPrisma().order.update({
+    where: { id: orderId },
+    data,
+    include: ORDER_INCLUDE,
+  });
+
+  return rowToCustomerOrder(row);
 }
 
 export async function updateOrderStatus(
@@ -184,4 +288,8 @@ export async function updateOrderStatus(
   updates: Partial<Pick<CustomerOrder, "orderStatus" | "status" | "paymentStatus" | "paymentMethod">>,
 ): Promise<CustomerOrder | null> {
   return updateOrderRecord(orderId, updates);
+}
+
+export async function deleteOrderRecord(orderId: string): Promise<void> {
+  await getPrisma().order.delete({ where: { id: orderId } }).catch(() => undefined);
 }

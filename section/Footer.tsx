@@ -50,31 +50,27 @@ const CONTACT_INFO = [
 const SITE_MAP = [
   {
     label: "Inicio",
-    href: "#inicio",
+    href: "/#inicio",
   },
   {
     label: "Modelos",
-    href: "#voceros",
+    href: "/#voceros",
   },
   {
     label: "Servicios",
-    href: "#servicios",
-  },
-  {
-    label: "Planes",
-    href: "#planes",
+    href: "/#servicios",
   },
   {
     label: "Proyectos",
-    href: "#proyectos",
+    href: "/#proyectos",
   },
   {
-    label: "Testimonios",
-    href: "#testimonios",
+    label: "Nosotros",
+    href: "/#nosotros",
   },
   {
     label: "Contacto",
-    href: "#contacto",
+    href: "/#contacto",
   },
   {
     label: "Política de privacidad",
@@ -108,7 +104,6 @@ const SOCIAL_LINKS = [
 export default function Footer() {
   return (
     <footer
-      id="contacto"
       className="
         relative
         overflow-hidden
@@ -565,7 +560,7 @@ export default function Footer() {
 
             <div className="mt-8 flex flex-col gap-3">
               <Link
-                href="#contacto"
+                href="/#contacto"
                 className="
                   group
                   inline-flex

@@ -55,7 +55,7 @@ const TEAM_MEMBERS = [
 export default function TeamSection() {
   return (
     <section
-      id="equipo"
+      id="nosotros"
       className="
         relative
         overflow-hidden

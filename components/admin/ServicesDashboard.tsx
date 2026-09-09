@@ -1,10 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { CircleDollarSign, ImageIcon, ListChecks, Search, Settings2, TextAlignStart, X } from "lucide-react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import {
+  DashboardFormActions,
+  DashboardFormField,
+  DashboardFormFooter,
+  DashboardFormModal,
+  DashboardFormSection,
+  dashboardFieldClassName,
+  dashboardTextareaClassName,
+} from "@/components/admin/dashboard-form";
+import {
+  filterCategories,
+  filterPlans,
+  filterServices,
+  flattenCatalog,
+  formatCatalogDate,
+  formatCatalogPrice,
+  getCatalogCreateLabel,
+  getCatalogEmptyMessage,
+  getCatalogSearchPlaceholder,
+  hasActiveCatalogFilters,
+  CATALOG_VIEWS,
+  type CatalogCategoryRow,
+  type CatalogHighlightedFilter,
+  type CatalogServiceRow,
+  type CatalogStatusFilter,
+  type CatalogView,
+} from "@/lib/services/catalog-table";
 import { getCatalogStatusLabel, type CatalogStatus, type CatalogTree, type ServicePlanRecord } from "@/lib/services/types";
+import { resolveServiceCoverImage } from "@/lib/services/default-covers";
 
 type PlanFormState = {
   categoryId: string;
@@ -21,6 +51,19 @@ type PlanFormState = {
   sortOrder: string;
   status: CatalogStatus;
   items: string[];
+};
+
+type ServiceFormState = {
+  name: string;
+  status: CatalogStatus;
+  coverImage: string;
+  slug: string;
+};
+
+type CategoryFormState = {
+  categoryId: string;
+  name: string;
+  status: CatalogStatus;
 };
 
 const emptyPlanForm: PlanFormState = {
@@ -40,90 +83,328 @@ const emptyPlanForm: PlanFormState = {
   items: [""],
 };
 
+const emptyServiceForm: ServiceFormState = {
+  name: "",
+  status: "ACTIVE",
+  coverImage: "",
+  slug: "",
+};
+
+const emptyCategoryForm: CategoryFormState = {
+  categoryId: "",
+  name: "",
+  status: "ACTIVE",
+};
+
 const statusStyles: Record<CatalogStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-200 text-slate-700",
 };
 
-function formatPrice(value: number): string {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 type ServicesDashboardProps = {
   initialTree: CatalogTree;
+  initialView?: CatalogView;
 };
 
-export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
+export function ServicesDashboard({ initialTree, initialView = "servicios" }: ServicesDashboardProps) {
   const router = useRouter();
   const [tree, setTree] = useState<CatalogTree>(initialTree);
+  const [prevInitialTree, setPrevInitialTree] = useState<CatalogTree>(initialTree);
+  if (initialTree !== prevInitialTree) {
+    setPrevInitialTree(initialTree);
+    setTree(initialTree);
+  }
+  const [view, setView] = useState<CatalogView>(initialView);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CatalogStatus | "TODOS">("TODOS");
+  const [statusFilter, setStatusFilter] = useState<CatalogStatusFilter>("TODOS");
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [highlightedFilter, setHighlightedFilter] = useState<CatalogHighlightedFilter>("TODOS");
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [viewingPlan, setViewingPlan] = useState<ServicePlanRecord | null>(null);
   const [planForm, setPlanForm] = useState<PlanFormState>(emptyPlanForm);
+  const [serviceForm, setServiceForm] = useState<ServiceFormState>(emptyServiceForm);
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [categoryName, setCategoryName] = useState("");
-  const [subcategoryName, setSubcategoryName] = useState("");
-  const [subcategoryCategoryId, setSubcategoryCategoryId] = useState("");
-  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const [editingServiceName, setEditingServiceName] = useState("");
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [isCoverSaving, setIsCoverSaving] = useState(false);
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+  const [pendingCoverPreviewUrl, setPendingCoverPreviewUrl] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
 
-  const categories = tree;
-  const subcategories = useMemo(
-    () => tree.flatMap((category) => category.subcategories.map((subcategory) => ({ ...subcategory, categoryId: category.id }))),
-    [tree],
+  useEffect(() => {
+    if (!successMessage) return;
+    const timeout = window.setTimeout(() => setSuccessMessage(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingCoverPreviewUrl) {
+        URL.revokeObjectURL(pendingCoverPreviewUrl);
+      }
+    };
+  }, [pendingCoverPreviewUrl]);
+
+  const { services, categories, plans } = useMemo(() => flattenCatalog(tree), [tree]);
+  const filters = useMemo(
+    () => ({
+      query: search,
+      status: statusFilter,
+      serviceId: serviceFilter || undefined,
+      categoryId: categoryFilter || undefined,
+      highlighted: highlightedFilter,
+    }),
+    [search, statusFilter, serviceFilter, categoryFilter, highlightedFilter],
   );
-  const plans = useMemo(
-    () => tree.flatMap((category) => category.subcategories.flatMap((subcategory) => subcategory.plans)),
-    [tree],
+
+  const filteredServices = useMemo(() => filterServices(services, filters), [services, filters]);
+  const filteredCategories = useMemo(() => filterCategories(categories, filters), [categories, filters]);
+  const filteredPlans = useMemo(() => filterPlans(plans, filters), [plans, filters]);
+
+  const categoriesForFilter = serviceFilter
+    ? categories.filter((category) => category.categoryId === serviceFilter)
+    : categories;
+  const subcategoriesForForm = categories.filter((category) =>
+    planForm.categoryId ? category.categoryId === planForm.categoryId : true,
   );
+  const filtersActive = hasActiveCatalogFilters(filters);
 
-  const filteredPlans = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  function changeView(next: CatalogView, drill?: { serviceId?: string; categoryId?: string }) {
+    setView(next);
+    setSubmitError("");
 
-    return plans.filter((plan) => {
-      const matchesSearch =
-        !query ||
-        [plan.name, plan.categoryName, plan.subcategoryName, plan.badge, plan.summary]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      const matchesStatus = statusFilter === "TODOS" || plan.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [plans, search, statusFilter]);
+    if (drill) {
+      setServiceFilter(drill.serviceId ?? "");
+      setCategoryFilter(drill.categoryId ?? "");
+    } else {
+      setServiceFilter("");
+      setCategoryFilter("");
+      setHighlightedFilter("TODOS");
+    }
 
-  const subcategoriesForForm = subcategories.filter((subcategory) =>
-    planForm.categoryId ? subcategory.categoryId === planForm.categoryId : true,
-  );
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next === "servicios") url.searchParams.delete("vista");
+      else url.searchParams.set("vista", next);
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("TODOS");
+    setServiceFilter("");
+    setCategoryFilter("");
+    setHighlightedFilter("TODOS");
+  }
+
+  function openCreateCurrent() {
+    if (view === "categorias") openCreateCategory();
+    else if (view === "planes") openCreatePlan();
+    else openCreateService();
+  }
 
   async function refreshCatalog() {
-    const response = await fetch("/api/services", { method: "GET", cache: "no-store" });
-    const data = (await response.json().catch(() => ({}))) as { tree?: CatalogTree };
-    setTree(Array.isArray(data.tree) ? data.tree : []);
-    router.refresh();
+    setIsRefreshing(true);
+    try {
+      const response = await fetch("/api/services", { method: "GET", cache: "no-store" });
+      const data = (await response.json().catch(() => ({}))) as { tree?: CatalogTree; error?: string };
+      if (!response.ok) {
+        setSubmitError(data.error ?? "No se pudo actualizar el catálogo.");
+        return;
+      }
+      setTree(Array.isArray(data.tree) ? data.tree : []);
+      router.refresh();
+    } catch {
+      setSubmitError("No se pudo actualizar el catálogo.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  async function patchStatus(url: string, status: CatalogStatus, fallback: string) {
+    setSubmitError("");
+    setPendingStatusId(url);
+    try {
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setSubmitError(data.error ?? fallback);
+        return;
+      }
+      await refreshCatalog();
+    } catch {
+      setSubmitError(fallback);
+    } finally {
+      setPendingStatusId(null);
+    }
+  }
+
+  function resetCoverDraft() {
+    if (pendingCoverPreviewUrl) {
+      URL.revokeObjectURL(pendingCoverPreviewUrl);
+    }
+    setPendingCoverFile(null);
+    setPendingCoverPreviewUrl(null);
+  }
+
+  function openCreateService() {
+    setEditingServiceId(null);
+    setServiceForm(emptyServiceForm);
+    resetCoverDraft();
+    setSubmitError("");
+    setIsServiceModalOpen(true);
+  }
+
+  function openEditService(service: CatalogServiceRow) {
+    setEditingServiceId(service.id);
+    setServiceForm({
+      name: service.name,
+      status: service.status,
+      coverImage: service.coverImage ?? "",
+      slug: service.slug,
+    });
+    resetCoverDraft();
+    setSubmitError("");
+    setIsServiceModalOpen(true);
+  }
+
+  function getServicePreviewImage(service: Pick<CatalogServiceRow, "coverImage" | "slug">, index: number) {
+    return resolveServiceCoverImage(service.coverImage, service.slug, index);
+  }
+
+  async function uploadServiceCover(serviceId: string, file: File) {
+    const formData = new FormData();
+    formData.append("cover", file);
+
+    const response = await fetch(`/api/services/categories/${serviceId}/cover`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = (await response.json().catch(() => ({}))) as { error?: string; category?: { coverImage?: string } };
+
+    if (!response.ok) {
+      throw new Error(data.error ?? "No se pudo subir la imagen del servicio.");
+    }
+
+    return data.category?.coverImage ?? "";
+  }
+
+  async function removeServiceCover(serviceId: string) {
+    const response = await fetch(`/api/services/categories/${serviceId}/cover`, { method: "DELETE" });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+    if (!response.ok) {
+      throw new Error(data.error ?? "No se pudo quitar la imagen del servicio.");
+    }
+  }
+
+  function handleCoverFileChange(file: File | null) {
+    resetCoverDraft();
+
+    if (!file) {
+      return;
+    }
+
+    setPendingCoverFile(file);
+    setPendingCoverPreviewUrl(URL.createObjectURL(file));
+  }
+
+  async function handleUploadCover() {
+    if (!editingServiceId || !pendingCoverFile) {
+      setSubmitError("Guarda el servicio o selecciona una imagen antes de subirla.");
+      return;
+    }
+
+    setSubmitError("");
+    setIsCoverSaving(true);
+
+    try {
+      const coverImage = await uploadServiceCover(editingServiceId, pendingCoverFile);
+      setServiceForm((current) => ({ ...current, coverImage }));
+      resetCoverDraft();
+      setSuccessMessage("Imagen del servicio actualizada.");
+      await refreshCatalog();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "No se pudo subir la imagen del servicio.");
+    } finally {
+      setIsCoverSaving(false);
+    }
+  }
+
+  async function handleRemoveCover() {
+    if (!editingServiceId) {
+      resetCoverDraft();
+      return;
+    }
+
+    setSubmitError("");
+    setIsCoverSaving(true);
+
+    try {
+      await removeServiceCover(editingServiceId);
+      setServiceForm((current) => ({ ...current, coverImage: "" }));
+      resetCoverDraft();
+      setSuccessMessage("Imagen del servicio eliminada.");
+      await refreshCatalog();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "No se pudo quitar la imagen del servicio.");
+    } finally {
+      setIsCoverSaving(false);
+    }
+  }
+
+  function openCreateCategory() {
+    setEditingCategoryId(null);
+    setCategoryForm({
+      ...emptyCategoryForm,
+      categoryId: serviceFilter || services[0]?.id || "",
+    });
+    setSubmitError("");
+    setIsCategoryModalOpen(true);
+  }
+
+  function openEditCategory(category: CatalogCategoryRow) {
+    setEditingCategoryId(category.id);
+    setCategoryForm({
+      categoryId: category.categoryId,
+      name: category.name,
+      status: category.status,
+    });
+    setSubmitError("");
+    setIsCategoryModalOpen(true);
   }
 
   function openCreatePlan() {
+    const selectedService = tree.find((category) => category.id === (serviceFilter || tree[0]?.id));
+    const selectedCategory =
+      selectedService?.subcategories.find((subcategory) => subcategory.id === categoryFilter) ??
+      selectedService?.subcategories[0];
+
     setEditingPlanId(null);
     setPlanForm({
       ...emptyPlanForm,
-      categoryId: categories[0]?.id ?? "",
-      subcategoryId: categories[0]?.subcategories[0]?.id ?? "",
+      categoryId: selectedService?.id ?? "",
+      subcategoryId: selectedCategory?.id ?? "",
     });
     setSubmitError("");
     setIsPlanModalOpen(true);
   }
 
   function openEditPlan(plan: ServicePlanRecord) {
+    setViewingPlan(null);
     setEditingPlanId(plan.id);
     setPlanForm({
       categoryId: plan.categoryId,
@@ -143,6 +424,95 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
     });
     setSubmitError("");
     setIsPlanModalOpen(true);
+  }
+
+  async function handleSaveService(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitError("");
+    setIsSaving(true);
+
+    try {
+      const response = await fetch("/api/services/categories", {
+        method: editingServiceId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingServiceId ?? undefined,
+          name: serviceForm.name.trim(),
+          status: serviceForm.status,
+          description: editingServiceId
+            ? services.find((service) => service.id === editingServiceId)?.description ?? ""
+            : "",
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        category?: { id?: string; coverImage?: string };
+      };
+      if (!response.ok) {
+        setSubmitError(data.error ?? "No se pudo guardar el servicio.");
+        return;
+      }
+
+      const savedServiceId = editingServiceId ?? data.category?.id ?? null;
+
+      if (savedServiceId && pendingCoverFile) {
+        try {
+          const coverImage = await uploadServiceCover(savedServiceId, pendingCoverFile);
+          setServiceForm((current) => ({ ...current, coverImage }));
+          resetCoverDraft();
+        } catch (error) {
+          setSubmitError(
+            error instanceof Error ? error.message : "El servicio se guardó, pero no se pudo subir la imagen.",
+          );
+          await refreshCatalog();
+          return;
+        }
+      }
+
+      setSuccessMessage(editingServiceId ? "Servicio actualizado correctamente." : "Servicio creado correctamente.");
+      setIsServiceModalOpen(false);
+      setServiceForm(emptyServiceForm);
+      setEditingServiceId(null);
+      resetCoverDraft();
+      await refreshCatalog();
+    } catch {
+      setSubmitError("No se pudo guardar el servicio.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleSaveCategory(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitError("");
+    setIsSaving(true);
+
+    try {
+      const response = await fetch("/api/services/subcategories", {
+        method: editingCategoryId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingCategoryId ?? undefined,
+          categoryId: categoryForm.categoryId,
+          name: categoryForm.name.trim(),
+          status: categoryForm.status,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setSubmitError(data.error ?? "No se pudo guardar la categoría.");
+        return;
+      }
+      setSuccessMessage(editingCategoryId ? "Categoría actualizada correctamente." : "Categoría creada correctamente.");
+      setIsCategoryModalOpen(false);
+      setCategoryForm(emptyCategoryForm);
+      setEditingCategoryId(null);
+      await refreshCatalog();
+    } catch {
+      setSubmitError("No se pudo guardar la categoría.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function handleSavePlan(event: React.FormEvent) {
@@ -191,587 +561,987 @@ export function ServicesDashboard({ initialTree }: ServicesDashboardProps) {
     }
   }
 
-  async function handlePlanStatus(planId: string, status: CatalogStatus) {
-    const response = await fetch(`/api/services/${planId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) await refreshCatalog();
-  }
-
-  async function handleCreateCategory(event: React.FormEvent) {
-    event.preventDefault();
-    const response = await fetch("/api/services/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: categoryName }),
-    });
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo crear el servicio.");
-      return;
-    }
-    setCategoryName("");
-    setSuccessMessage("Servicio creado correctamente.");
-    await refreshCatalog();
-  }
-
-  async function handleCreateSubcategory(event: React.FormEvent) {
-    event.preventDefault();
-    const response = await fetch("/api/services/subcategories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId: subcategoryCategoryId, name: subcategoryName }),
-    });
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo crear la categoría.");
-      return;
-    }
-    setSubcategoryName("");
-    setSuccessMessage("Categoría creada correctamente.");
-    await refreshCatalog();
-  }
-
-  async function handleRenameService(id: string) {
-    const response = await fetch("/api/services/categories", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name: editingServiceName }),
-    });
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo actualizar el servicio.");
-      return;
-    }
-    setEditingServiceId(null);
-    setSuccessMessage("Servicio actualizado correctamente.");
-    await refreshCatalog();
-  }
-
-  async function handleRenameCategory(id: string) {
-    const response = await fetch("/api/services/subcategories", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name: editingCategoryName }),
-    });
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) {
-      setSubmitError(data.error ?? "No se pudo actualizar la categoría.");
-      return;
-    }
-    setEditingCategoryId(null);
-    setSuccessMessage("Categoría actualizada correctamente.");
-    await refreshCatalog();
-  }
-
-  async function handleCategoryStatus(id: string, status: CatalogStatus) {
-    const response = await fetch(`/api/services/categories/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) await refreshCatalog();
-  }
-
-  async function handleSubcategoryStatus(id: string, status: CatalogStatus) {
-    const response = await fetch(`/api/services/subcategories/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) await refreshCatalog();
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <DashboardPageHeader
         icon="servicios"
         eyebrow="Catálogo"
         title="Gestión de servicios"
-        description="Administra servicios, categorías, planes e ítems incluidos. La base de datos es la única fuente de verdad del catálogo."
-        action={{ label: "Nuevo plan", onClick: openCreatePlan }}
+        action={{ label: getCatalogCreateLabel(view), onClick: openCreateCurrent }}
       />
 
-      <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar plan, servicio o categoría"
-            className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary lg:max-w-md"
-          />
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as CatalogStatus | "TODOS")}
-            className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary lg:max-w-xs"
+      <div className="rounded-[24px] border border-border bg-white p-3 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div
+            role="tablist"
+            aria-label="Vistas del catálogo"
+            className="grid w-full grid-cols-3 rounded-2xl bg-soft-background p-1 xl:w-auto xl:min-w-[22rem]"
           >
-            <option value="TODOS">Todos los estados</option>
-            <option value="ACTIVE">Activo</option>
-            <option value="INACTIVE">Inactivo</option>
-          </select>
-        </div>
-      </div>
-
-      {successMessage && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</div>
-      )}
-      {submitError && !isPlanModalOpen && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</div>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <h2 className="text-lg font-bold text-foreground">Servicios</h2>
-          <form onSubmit={handleCreateCategory} className="mt-4 flex gap-2">
-            <input
-              value={categoryName}
-              onChange={(event) => setCategoryName(event.target.value)}
-              placeholder="Nuevo servicio"
-              className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <button type="submit" className="rounded-full bg-primary px-4 text-sm font-semibold text-white">
-              Crear
-            </button>
-          </form>
-          <div className="mt-4 space-y-2">
-            {categories.length === 0 ? (
-              <p className="text-sm text-muted">Aún no hay servicios.</p>
-            ) : (
-              categories.map((category) => (
-                <div key={category.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-soft-background px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    {editingServiceId === category.id ? (
-                      <div className="flex gap-2">
-                        <input
-                          value={editingServiceName}
-                          onChange={(event) => setEditingServiceName(event.target.value)}
-                          className="w-full rounded-xl border border-border bg-white px-3 py-1 text-sm outline-none focus:border-primary"
-                        />
-                        <button type="button" onClick={() => void handleRenameService(category.id)} className="text-sm font-medium text-primary">
-                          Guardar
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="font-semibold text-foreground">{category.name}</div>
-                        <div className="text-xs text-muted">{category.subcategories.length} categorías</div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingServiceId(category.id);
-                        setEditingServiceName(category.name);
-                      }}
-                      className="text-xs font-medium text-primary"
-                    >
-                      Editar
-                    </button>
-                    <select
-                      value={category.status}
-                      onChange={(event) => handleCategoryStatus(category.id, event.target.value as CatalogStatus)}
-                      className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
-                    >
-                      <option value="ACTIVE">Activo</option>
-                      <option value="INACTIVE">Inactivo</option>
-                    </select>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <h2 className="text-lg font-bold text-foreground">Categorías</h2>
-          <form onSubmit={handleCreateSubcategory} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <select
-              value={subcategoryCategoryId}
-              onChange={(event) => setSubcategoryCategoryId(event.target.value)}
-              className="rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Servicio</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <input
-              value={subcategoryName}
-              onChange={(event) => setSubcategoryName(event.target.value)}
-              placeholder="Nueva categoría"
-              className="rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <button type="submit" className="rounded-full bg-primary px-4 text-sm font-semibold text-white">
-              Crear
-            </button>
-          </form>
-          <div className="mt-4 space-y-2">
-            {subcategories.length === 0 ? (
-              <p className="text-sm text-muted">Aún no hay categorías.</p>
-            ) : (
-              subcategories.map((subcategory) => (
-                <div key={subcategory.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-soft-background px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    {editingCategoryId === subcategory.id ? (
-                      <div className="flex gap-2">
-                        <input
-                          value={editingCategoryName}
-                          onChange={(event) => setEditingCategoryName(event.target.value)}
-                          className="w-full rounded-xl border border-border bg-white px-3 py-1 text-sm outline-none focus:border-primary"
-                        />
-                        <button type="button" onClick={() => void handleRenameCategory(subcategory.id)} className="text-sm font-medium text-primary">
-                          Guardar
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="font-semibold text-foreground">{subcategory.name}</div>
-                        <div className="text-xs text-muted">{subcategory.categoryName}</div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingCategoryId(subcategory.id);
-                        setEditingCategoryName(subcategory.name);
-                      }}
-                      className="text-xs font-medium text-primary"
-                    >
-                      Editar
-                    </button>
-                    <select
-                      value={subcategory.status}
-                      onChange={(event) => handleSubcategoryStatus(subcategory.id, event.target.value as CatalogStatus)}
-                      className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
-                    >
-                      <option value="ACTIVE">Activo</option>
-                      <option value="INACTIVE">Inactivo</option>
-                    </select>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      <section className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="text-lg font-bold text-foreground">Planes</h2>
-        </div>
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full text-left text-sm text-foreground">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Servicio</th>
-                <th className="px-4 py-3 font-medium">Categoría</th>
-                <th className="px-4 py-3 font-medium">Precio</th>
-                <th className="px-4 py-3 font-medium">Ítems</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPlans.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted">
-                    No hay planes registrados con esos filtros.
-                  </td>
-                </tr>
-              ) : (
-                filteredPlans.map((plan) => (
-                  <tr key={plan.id} className="border-t border-border align-top">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground">{plan.name}</div>
-                      {plan.badge && <div className="text-xs text-primary">{plan.badge}</div>}
-                    </td>
-                    <td className="px-4 py-3">{plan.categoryName}</td>
-                    <td className="px-4 py-3">{plan.subcategoryName}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-bold">{formatPrice(plan.price)}</div>
-                      <div className="text-xs text-muted">{plan.taxLabel}</div>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{plan.items.length}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[plan.status]}`}>
-                        {getCatalogStatusLabel(plan.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" onClick={() => openEditPlan(plan)} className="text-sm font-medium text-primary">
-                          Editar
-                        </button>
-                        <select
-                          value={plan.status}
-                          onChange={(event) => handlePlanStatus(plan.id, event.target.value as CatalogStatus)}
-                          className="rounded-full border border-border bg-soft-background px-2 py-1 text-[11px]"
-                        >
-                          <option value="ACTIVE">Activo</option>
-                          <option value="INACTIVE">Inactivo</option>
-                        </select>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="space-y-3 p-3 md:hidden">
-          {filteredPlans.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-soft-background p-4 text-center text-sm text-muted">
-              No hay planes registrados con esos filtros.
-            </div>
-          ) : (
-            filteredPlans.map((plan) => (
-              <div key={plan.id} className="rounded-[20px] border border-border bg-soft-background p-4">
-                <div className="font-semibold text-foreground">{plan.name}</div>
-                <div className="mt-1 text-xs text-muted">
-                  {plan.categoryName} → {plan.subcategoryName}
-                </div>
-                <div className="mt-2 font-bold">{formatPrice(plan.price)}</div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button type="button" onClick={() => openEditPlan(plan)} className="text-sm font-medium text-primary">
-                    Editar
-                  </button>
-                  <select
-                    value={plan.status}
-                    onChange={(event) => handlePlanStatus(plan.id, event.target.value as CatalogStatus)}
-                    className="rounded-full border border-border bg-white px-2 py-1 text-[11px]"
-                  >
-                    <option value="ACTIVE">Activo</option>
-                    <option value="INACTIVE">Inactivo</option>
-                  </select>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {isPlanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
-          <form onSubmit={handleSavePlan} className="my-6 w-full max-w-2xl space-y-4 rounded-[24px] border border-border bg-white p-5 shadow-xl">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Servicio</p>
-              <h2 className="mt-1 text-2xl font-bold text-foreground">{editingPlanId ? "Editar plan" : "Nuevo plan"}</h2>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Servicio padre</span>
-                <select
-                  value={planForm.categoryId}
-                  onChange={(event) =>
-                    setPlanForm((current) => ({
-                      ...current,
-                      categoryId: event.target.value,
-                      subcategoryId: "",
-                    }))
-                  }
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+            {CATALOG_VIEWS.map((tab) => {
+              const selected = view === tab.id;
+              const count =
+                tab.id === "servicios" ? services.length : tab.id === "categorias" ? categories.length : plans.length;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => changeView(tab.id)}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    selected
+                      ? "bg-white text-foreground shadow-[0_8px_20px_rgba(16,16,36,0.06)]"
+                      : "text-muted hover:text-foreground"
+                  }`}
                 >
-                  <option value="">Selecciona servicio</option>
-                  {categories.map((category) => (
+                  <span className="truncate">{tab.label}</span>
+                  <span className="ml-1.5 text-[11px] font-medium text-muted">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={getCatalogSearchPlaceholder(view)}
+              className="h-10 w-full rounded-xl border border-border bg-soft-background py-2 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-primary"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap xl:items-center">
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as CatalogStatusFilter)}
+              className="h-10 rounded-xl border border-border bg-soft-background px-3 text-sm text-foreground outline-none transition focus:border-primary"
+              aria-label="Filtrar por estado"
+            >
+              <option value="TODOS">Todos los estados</option>
+              <option value="ACTIVE">Activo</option>
+              <option value="INACTIVE">Inactivo</option>
+            </select>
+
+            {view !== "servicios" ? (
+              <select
+                value={serviceFilter}
+                onChange={(event) => {
+                  setServiceFilter(event.target.value);
+                  setCategoryFilter("");
+                }}
+                className="h-10 rounded-xl border border-border bg-soft-background px-3 text-sm text-foreground outline-none transition focus:border-primary"
+                aria-label="Filtrar por servicio"
+              >
+                <option value="">Todos los servicios</option>
+                {services.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
+            {view === "planes" ? (
+              <>
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  className="h-10 rounded-xl border border-border bg-soft-background px-3 text-sm text-foreground outline-none transition focus:border-primary"
+                  aria-label="Filtrar por categoría"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categoriesForFilter.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
                   ))}
                 </select>
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Categoría</span>
                 <select
-                  value={planForm.subcategoryId}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, subcategoryId: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
+                  value={highlightedFilter}
+                  onChange={(event) => setHighlightedFilter(event.target.value as CatalogHighlightedFilter)}
+                  className="h-10 rounded-xl border border-border bg-soft-background px-3 text-sm text-foreground outline-none transition focus:border-primary"
+                  aria-label="Filtrar planes destacados"
                 >
-                  <option value="">Selecciona categoría</option>
-                  {subcategoriesForForm.map((subcategory) => (
-                    <option key={subcategory.id} value={subcategory.id}>
-                      {subcategory.name}
-                    </option>
-                  ))}
+                  <option value="TODOS">Todos los planes</option>
+                  <option value="SI">Destacados</option>
+                  <option value="NO">Estándar</option>
                 </select>
-              </label>
-              <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-medium">Nombre del plan</span>
-                <input
-                  value={planForm.name}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, name: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                  placeholder="SmartWeb Pro"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Precio</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={planForm.price}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, price: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">IVA</span>
-                <input
-                  value={planForm.taxLabel}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, taxLabel: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Prefijo de precio</span>
-                <input
-                  value={planForm.pricePrefix}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, pricePrefix: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                  placeholder="desde"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Orden</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={planForm.sortOrder}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, sortOrder: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Badge</span>
-                <input
-                  value={planForm.badge}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, badge: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                  placeholder="★ MÁS CONTRATADO"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">Estado</span>
-                <select
-                  value={planForm.status}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, status: event.target.value as CatalogStatus }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                >
-                  <option value="ACTIVE">Activo</option>
-                  <option value="INACTIVE">Inactivo</option>
-                </select>
-              </label>
-              <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-medium">Descripción</span>
-                <textarea
-                  rows={3}
-                  value={planForm.summary}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, summary: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-medium">Título de características</span>
-                <input
-                  value={planForm.featureGroupTitle}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, featureGroupTitle: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                  placeholder="Incluye"
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-medium">Nota</span>
-                <textarea
-                  rows={2}
-                  value={planForm.note}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, note: event.target.value }))}
-                  className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="flex items-center gap-2 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={planForm.highlighted}
-                  onChange={(event) => setPlanForm((current) => ({ ...current, highlighted: event.target.checked }))}
-                />
-                <span className="text-sm">Destacado</span>
-              </label>
-            </div>
+              </>
+            ) : null}
+          </div>
+        </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Ítems incluidos</span>
-                <button
-                  type="button"
-                  onClick={() => setPlanForm((current) => ({ ...current, items: [...current.items, ""] }))}
-                  className="text-sm font-medium text-primary"
-                >
-                  Agregar ítem
-                </button>
-              </div>
-              {planForm.items.map((item, index) => (
-                <div key={`item-${index}`} className="flex gap-2">
-                  <input
-                    value={item}
-                    onChange={(event) =>
-                      setPlanForm((current) => ({
-                        ...current,
-                        items: current.items.map((value, itemIndex) => (itemIndex === index ? event.target.value : value)),
-                      }))
-                    }
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm outline-none focus:border-primary"
-                    placeholder="Dominio profesional"
+        {filtersActive ? (
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={clearFilters} className="text-xs font-semibold text-primary hover:underline">
+              Limpiar filtros
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</div>
+      ) : null}
+      {submitError && !isPlanModalOpen && !isServiceModalOpen && !isCategoryModalOpen ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</div>
+      ) : null}
+
+      <section className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
+        <div className="hidden max-h-[min(640px,calc(100vh-16.5rem))] overflow-auto md:block">
+          {view === "servicios" ? (
+            <table className="min-w-full text-left text-[13px] text-foreground">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-[0.16em] text-muted">
+                <tr>
+                  <th className="px-3 py-2.5 font-medium">Imagen</th>
+                  <th className="px-3 py-2.5 font-medium">Servicio</th>
+                  <th className="px-3 py-2.5 font-medium">Categorías</th>
+                  <th className="px-3 py-2.5 font-medium">Planes</th>
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
+                  <th className="px-3 py-2.5 font-medium">Actualizado</th>
+                  <th className="px-3 py-2.5 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isRefreshing ? (
+                  <TableLoadingRow columns={7} />
+                ) : filteredServices.length === 0 ? (
+                  <EmptyRow
+                    columns={7}
+                    message={getCatalogEmptyMessage("servicios", filtersActive)}
+                    actionLabel={filtersActive ? "Limpiar filtros" : "Nuevo servicio"}
+                    onAction={filtersActive ? clearFilters : openCreateService}
                   />
-                  {planForm.items.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPlanForm((current) => ({
-                          ...current,
-                          items: current.items.filter((_, itemIndex) => itemIndex !== index),
-                        }))
-                      }
-                      className="text-sm text-muted"
-                    >
-                      Quitar
-                    </button>
-                  )}
+                ) : (
+                  filteredServices.map((service, index) => (
+                    <tr key={service.id} className="border-t border-border">
+                      <td className="px-3 py-2">
+                        <div className="relative h-12 w-16 overflow-hidden rounded-xl bg-slate-100">
+                          <Image
+                            src={getServicePreviewImage(service, index)}
+                            alt={service.name}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-foreground">{service.name}</div>
+                        <div className="text-[11px] text-muted">{service.slug}</div>
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">{service.categoryCount}</td>
+                      <td className="px-3 py-2 tabular-nums">{service.planCount}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={service.status} />
+                      </td>
+                      <td className="px-3 py-2 text-muted">{formatCatalogDate(service.updatedAt)}</td>
+                      <td className="px-3 py-2">
+                        <RowActions
+                          disabled={pendingStatusId !== null}
+                          status={service.status}
+                          onView={() => changeView("categorias", { serviceId: service.id })}
+                          onEdit={() => openEditService(service)}
+                          onToggle={() =>
+                            void patchStatus(
+                              `/api/services/categories/${service.id}/status`,
+                              service.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                              "No se pudo actualizar el servicio.",
+                            )
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : null}
+
+          {view === "categorias" ? (
+            <table className="min-w-full text-left text-[13px] text-foreground">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-[0.16em] text-muted">
+                <tr>
+                  <th className="px-3 py-2.5 font-medium">Categoría</th>
+                  <th className="px-3 py-2.5 font-medium">Servicio</th>
+                  <th className="px-3 py-2.5 font-medium">Planes</th>
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
+                  <th className="px-3 py-2.5 font-medium">Actualizado</th>
+                  <th className="px-3 py-2.5 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isRefreshing ? (
+                  <TableLoadingRow columns={6} />
+                ) : filteredCategories.length === 0 ? (
+                  <EmptyRow
+                    columns={6}
+                    message={getCatalogEmptyMessage("categorias", filtersActive)}
+                    actionLabel={filtersActive ? "Limpiar filtros" : services.length === 0 ? "Nuevo servicio" : "Nueva categoría"}
+                    onAction={filtersActive ? clearFilters : services.length === 0 ? openCreateService : openCreateCategory}
+                  />
+                ) : (
+                  filteredCategories.map((category) => (
+                    <tr key={category.id} className="border-t border-border">
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-foreground">{category.name}</div>
+                        <div className="text-[11px] text-muted">{category.slug}</div>
+                      </td>
+                      <td className="px-3 py-2">{category.categoryName}</td>
+                      <td className="px-3 py-2 tabular-nums">{category.planCount}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={category.status} />
+                      </td>
+                      <td className="px-3 py-2 text-muted">{formatCatalogDate(category.updatedAt)}</td>
+                      <td className="px-3 py-2">
+                        <RowActions
+                          disabled={pendingStatusId !== null}
+                          status={category.status}
+                          onView={() =>
+                            changeView("planes", { serviceId: category.categoryId, categoryId: category.id })
+                          }
+                          onEdit={() => openEditCategory(category)}
+                          onToggle={() =>
+                            void patchStatus(
+                              `/api/services/subcategories/${category.id}/status`,
+                              category.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                              "No se pudo actualizar la categoría.",
+                            )
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : null}
+
+          {view === "planes" ? (
+            <table className="min-w-full text-left text-[13px] text-foreground">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-[0.16em] text-muted">
+                <tr>
+                  <th className="px-3 py-2.5 font-medium">Plan</th>
+                  <th className="px-3 py-2.5 font-medium">Servicio</th>
+                  <th className="px-3 py-2.5 font-medium">Categoría</th>
+                  <th className="px-3 py-2.5 font-medium">Precio</th>
+                  <th className="px-3 py-2.5 font-medium">Ítems</th>
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
+                  <th className="px-3 py-2.5 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isRefreshing ? (
+                  <TableLoadingRow columns={7} />
+                ) : filteredPlans.length === 0 ? (
+                  <EmptyRow
+                    columns={7}
+                    message={getCatalogEmptyMessage("planes", filtersActive)}
+                    actionLabel={filtersActive ? "Limpiar filtros" : categories.length === 0 ? "Nueva categoría" : "Nuevo plan"}
+                    onAction={filtersActive ? clearFilters : categories.length === 0 ? openCreateCategory : openCreatePlan}
+                  />
+                ) : (
+                  filteredPlans.map((plan) => (
+                    <tr key={plan.id} className="border-t border-border">
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-foreground">{plan.name}</div>
+                        <div className="flex flex-wrap gap-1 text-[11px]">
+                          {plan.badge ? <span className="font-medium text-primary">{plan.badge}</span> : null}
+                          {plan.highlighted ? <span className="text-muted">Destacado</span> : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">{plan.categoryName}</td>
+                      <td className="px-3 py-2">{plan.subcategoryName}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold">{formatCatalogPrice(plan.price)}</div>
+                        <div className="text-[11px] text-muted">{plan.taxLabel}</div>
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">{plan.items.length}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={plan.status} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <RowActions
+                          disabled={pendingStatusId !== null}
+                          status={plan.status}
+                          onView={() => setViewingPlan(plan)}
+                          onEdit={() => openEditPlan(plan)}
+                          onToggle={() =>
+                            void patchStatus(
+                              `/api/services/${plan.id}/status`,
+                              plan.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                              "No se pudo actualizar el plan.",
+                            )
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+
+        <div className="max-h-[min(70vh,640px)] space-y-2 overflow-auto p-3 md:hidden">
+          {isRefreshing ? (
+            Array.from({ length: 4 }, (_, index) => (
+              <div key={`mobile-skeleton-${index}`} className="rounded-[20px] border border-border bg-soft-background p-3">
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200/80" />
+                <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-slate-200/80" />
+              </div>
+            ))
+          ) : view === "servicios" ? (
+            filteredServices.length === 0 ? (
+              <MobileEmpty
+                message={getCatalogEmptyMessage("servicios", filtersActive)}
+                actionLabel={filtersActive ? "Limpiar filtros" : "Nuevo servicio"}
+                onAction={filtersActive ? clearFilters : openCreateService}
+              />
+            ) : (
+              filteredServices.map((service, index) => (
+                <article key={service.id} className="rounded-[20px] border border-border bg-soft-background p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                      <Image
+                        src={getServicePreviewImage(service, index)}
+                        alt={service.name}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-semibold text-foreground">{service.name}</h3>
+                      <p className="text-[11px] text-muted">
+                        {service.categoryCount} categorías · {service.planCount} planes
+                      </p>
+                    </div>
+                    <StatusBadge status={service.status} />
+                  </div>
+                  <RowActions
+                    className="mt-3"
+                    disabled={pendingStatusId !== null}
+                    status={service.status}
+                    onView={() => changeView("categorias", { serviceId: service.id })}
+                    onEdit={() => openEditService(service)}
+                    onToggle={() =>
+                      void patchStatus(
+                        `/api/services/categories/${service.id}/status`,
+                        service.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                        "No se pudo actualizar el servicio.",
+                      )
+                    }
+                  />
+                </article>
+              ))
+            )
+          ) : view === "categorias" ? (
+            filteredCategories.length === 0 ? (
+              <MobileEmpty
+                message={getCatalogEmptyMessage("categorias", filtersActive)}
+                actionLabel={filtersActive ? "Limpiar filtros" : services.length === 0 ? "Nuevo servicio" : "Nueva categoría"}
+                onAction={filtersActive ? clearFilters : services.length === 0 ? openCreateService : openCreateCategory}
+              />
+            ) : (
+              filteredCategories.map((category) => (
+                <article key={category.id} className="rounded-[20px] border border-border bg-soft-background p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-foreground">{category.name}</h3>
+                      <p className="text-[11px] text-muted">
+                        {category.categoryName} · {category.planCount} planes
+                      </p>
+                    </div>
+                    <StatusBadge status={category.status} />
+                  </div>
+                  <RowActions
+                    className="mt-3"
+                    disabled={pendingStatusId !== null}
+                    status={category.status}
+                    onView={() => changeView("planes", { serviceId: category.categoryId, categoryId: category.id })}
+                    onEdit={() => openEditCategory(category)}
+                    onToggle={() =>
+                      void patchStatus(
+                        `/api/services/subcategories/${category.id}/status`,
+                        category.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                        "No se pudo actualizar la categoría.",
+                      )
+                    }
+                  />
+                </article>
+              ))
+            )
+          ) : filteredPlans.length === 0 ? (
+            <MobileEmpty
+              message={getCatalogEmptyMessage("planes", filtersActive)}
+              actionLabel={filtersActive ? "Limpiar filtros" : categories.length === 0 ? "Nueva categoría" : "Nuevo plan"}
+              onAction={filtersActive ? clearFilters : categories.length === 0 ? openCreateCategory : openCreatePlan}
+            />
+          ) : (
+            filteredPlans.map((plan) => (
+              <article key={plan.id} className="rounded-[20px] border border-border bg-soft-background p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold text-foreground">{plan.name}</h3>
+                    <p className="text-[11px] text-muted">
+                      {plan.categoryName} → {plan.subcategoryName}
+                    </p>
+                    <p className="mt-1 font-semibold">{formatCatalogPrice(plan.price)}</p>
+                  </div>
+                  <StatusBadge status={plan.status} />
                 </div>
-              ))}
+                <RowActions
+                  className="mt-3"
+                  disabled={pendingStatusId !== null}
+                  status={plan.status}
+                  onView={() => setViewingPlan(plan)}
+                  onEdit={() => openEditPlan(plan)}
+                  onToggle={() =>
+                    void patchStatus(
+                      `/api/services/${plan.id}/status`,
+                      plan.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                      "No se pudo actualizar el plan.",
+                    )
+                  }
+                />
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
+      {isServiceModalOpen ? (
+        <DashboardFormModal
+          eyebrow="Servicio"
+          title={editingServiceId ? "Editar servicio" : "Nuevo servicio"}
+          onClose={() => setIsServiceModalOpen(false)}
+        >
+          <form onSubmit={handleSaveService} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+              <DashboardFormSection icon={Settings2} title="Configuración general">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <DashboardFormField label="Nombre" htmlFor="service-name" className="sm:col-span-2">
+                    <input
+                      id="service-name"
+                      value={serviceForm.name}
+                      onChange={(event) => setServiceForm((current) => ({ ...current, name: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="Desarrollo Web"
+                      required
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Estado" htmlFor="service-status">
+                    <select
+                      id="service-status"
+                      value={serviceForm.status}
+                      onChange={(event) =>
+                        setServiceForm((current) => ({ ...current, status: event.target.value as CatalogStatus }))
+                      }
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                    </select>
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
+
+              <DashboardFormSection icon={ImageIcon} title="Imagen de portada">
+                <div className="space-y-3">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-slate-100">
+                    <Image
+                      src={
+                        pendingCoverPreviewUrl ??
+                        resolveServiceCoverImage(serviceForm.coverImage, serviceForm.slug, 0)
+                      }
+                      alt={serviceForm.name || "Vista previa del servicio"}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 480px"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-xs font-semibold text-foreground">
+                      Elegir imagen
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(event) => handleCoverFileChange(event.target.files?.[0] ?? null)}
+                      />
+                    </label>
+
+                    {editingServiceId && pendingCoverFile ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleUploadCover()}
+                        disabled={isCoverSaving || isSaving}
+                        className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      >
+                        {isCoverSaving ? "Subiendo..." : "Subir imagen"}
+                      </button>
+                    ) : null}
+
+                    {editingServiceId && (serviceForm.coverImage || pendingCoverFile) ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveCover()}
+                        disabled={isCoverSaving || isSaving}
+                        className="inline-flex min-h-10 items-center justify-center rounded-full border border-red-200 px-4 text-xs font-semibold text-red-600 disabled:opacity-60"
+                      >
+                        Quitar imagen
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <p className="text-xs text-muted">
+                    {editingServiceId
+                      ? "Esta imagen se usa como fondo en la tarjeta del servicio en la web. Formatos JPG, PNG o WEBP, máximo 5 MB."
+                      : "Puedes elegir una imagen ahora y se subirá automáticamente al guardar el servicio."}
+                  </p>
+                </div>
+              </DashboardFormSection>
             </div>
+            <DashboardFormFooter error={submitError}>
+              <DashboardFormActions isSaving={isSaving || isCoverSaving} onCancel={() => setIsServiceModalOpen(false)} submitLabel="Guardar servicio" />
+            </DashboardFormFooter>
+          </form>
+        </DashboardFormModal>
+      ) : null}
 
-            {submitError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</p>}
+      {isCategoryModalOpen ? (
+        <DashboardFormModal
+          eyebrow="Categoría"
+          title={editingCategoryId ? "Editar categoría" : "Nueva categoría"}
+          onClose={() => setIsCategoryModalOpen(false)}
+        >
+          <form onSubmit={handleSaveCategory} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+              <DashboardFormSection icon={Settings2} title="Configuración general">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <DashboardFormField label="Servicio padre" htmlFor="category-parent">
+                    <select
+                      id="category-parent"
+                      value={categoryForm.categoryId}
+                      onChange={(event) => setCategoryForm((current) => ({ ...current, categoryId: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      required
+                      disabled={Boolean(editingCategoryId)}
+                    >
+                      <option value="">Selecciona servicio</option>
+                      {services.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name}
+                        </option>
+                      ))}
+                    </select>
+                  </DashboardFormField>
+                  <DashboardFormField label="Nombre" htmlFor="category-name">
+                    <input
+                      id="category-name"
+                      value={categoryForm.name}
+                      onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="Sitios web"
+                      required
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Estado" htmlFor="category-status">
+                    <select
+                      id="category-status"
+                      value={categoryForm.status}
+                      onChange={(event) =>
+                        setCategoryForm((current) => ({ ...current, status: event.target.value as CatalogStatus }))
+                      }
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                    </select>
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
+            </div>
+            <DashboardFormFooter error={submitError}>
+              <DashboardFormActions isSaving={isSaving} onCancel={() => setIsCategoryModalOpen(false)} submitLabel="Guardar categoría" />
+            </DashboardFormFooter>
+          </form>
+        </DashboardFormModal>
+      ) : null}
 
-            <div className="flex justify-end gap-2">
+      {viewingPlan ? (
+        <DashboardFormModal eyebrow="Plan" title={viewingPlan.name} onClose={() => setViewingPlan(null)} wide>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm">
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                <DetailItem label="Servicio" value={viewingPlan.categoryName} />
+                <DetailItem label="Categoría" value={viewingPlan.subcategoryName} />
+                <DetailItem label="Precio" value={`${formatCatalogPrice(viewingPlan.price)} ${viewingPlan.taxLabel}`.trim()} />
+                <DetailItem label="Estado" value={getCatalogStatusLabel(viewingPlan.status)} />
+              </div>
+              {viewingPlan.summary ? <DetailItem label="Descripción" value={viewingPlan.summary} /> : null}
+              {viewingPlan.note ? <DetailItem label="Nota" value={viewingPlan.note} /> : null}
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                  {viewingPlan.featureGroupTitle || "Ítems incluidos"}
+                </p>
+                {viewingPlan.items.length === 0 ? (
+                  <p className="text-muted">Sin ítems incluidos.</p>
+                ) : (
+                  <ul className="grid gap-1.5 sm:grid-cols-2">
+                    {viewingPlan.items.map((item) => (
+                      <li key={item.id} className="rounded-xl bg-soft-background px-3 py-1.5 text-foreground">
+                        {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="flex shrink-0 justify-end gap-2 border-t border-border px-4 py-2.5">
               <button
                 type="button"
-                onClick={() => setIsPlanModalOpen(false)}
-                className="rounded-full border border-border px-5 py-2 text-sm font-medium"
+                onClick={() => setViewingPlan(null)}
+                className="inline-flex h-9 items-center rounded-full border border-border px-4 text-sm font-medium"
               >
-                Cancelar
+                Cerrar
               </button>
               <button
-                type="submit"
-                disabled={isSaving}
-                className="rounded-full bg-gradient-to-r from-primary to-magenta px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                type="button"
+                onClick={() => openEditPlan(viewingPlan)}
+                className="inline-flex h-9 items-center rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white"
               >
-                {isSaving ? "Guardando..." : "Guardar plan"}
+                Editar plan
               </button>
             </div>
+          </div>
+        </DashboardFormModal>
+      ) : null}
+
+      {isPlanModalOpen ? (
+        <DashboardFormModal
+          eyebrow="Plan"
+          title={editingPlanId ? "Editar plan" : "Nuevo plan"}
+          onClose={() => setIsPlanModalOpen(false)}
+          wide
+        >
+          <form onSubmit={handleSavePlan} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3">
+              <DashboardFormSection icon={Settings2} title="Configuración general">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  <DashboardFormField label="Servicio padre" htmlFor="plan-service">
+                    <select
+                      id="plan-service"
+                      value={planForm.categoryId}
+                      onChange={(event) =>
+                        setPlanForm((current) => ({
+                          ...current,
+                          categoryId: event.target.value,
+                          subcategoryId: "",
+                        }))
+                      }
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="">Selecciona servicio</option>
+                      {services.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name}
+                        </option>
+                      ))}
+                    </select>
+                  </DashboardFormField>
+                  <DashboardFormField label="Categoría" htmlFor="plan-category">
+                    <select
+                      id="plan-category"
+                      value={planForm.subcategoryId}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, subcategoryId: event.target.value }))}
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="">Selecciona categoría</option>
+                      {subcategoriesForForm.map((subcategory) => (
+                        <option key={subcategory.id} value={subcategory.id}>
+                          {subcategory.name}
+                        </option>
+                      ))}
+                    </select>
+                  </DashboardFormField>
+                  <DashboardFormField label="Estado" htmlFor="plan-status">
+                    <select
+                      id="plan-status"
+                      value={planForm.status}
+                      onChange={(event) =>
+                        setPlanForm((current) => ({ ...current, status: event.target.value as CatalogStatus }))
+                      }
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                    </select>
+                  </DashboardFormField>
+                  <DashboardFormField label="Nombre del plan" htmlFor="plan-name" className="sm:col-span-2">
+                    <input
+                      id="plan-name"
+                      value={planForm.name}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, name: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="SmartWeb Pro"
+                    />
+                  </DashboardFormField>
+                  <label htmlFor="plan-highlighted" className="flex h-9 items-center gap-2 self-end rounded-xl border border-border bg-soft-background px-3">
+                    <input
+                      id="plan-highlighted"
+                      type="checkbox"
+                      checked={planForm.highlighted}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, highlighted: event.target.checked }))}
+                      className="size-3.5 accent-primary"
+                    />
+                    <span className="text-sm font-medium text-foreground">Destacado</span>
+                  </label>
+                </div>
+              </DashboardFormSection>
+
+              <DashboardFormSection icon={CircleDollarSign} title="Detalles">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  <DashboardFormField label="Precio" htmlFor="plan-price">
+                    <input
+                      id="plan-price"
+                      type="number"
+                      min="0"
+                      step="1000"
+                      value={planForm.price}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, price: event.target.value }))}
+                      className={dashboardFieldClassName}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Prefijo de precio" htmlFor="plan-prefix">
+                    <input
+                      id="plan-prefix"
+                      value={planForm.pricePrefix}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, pricePrefix: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="desde"
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="IVA" htmlFor="plan-tax">
+                    <input
+                      id="plan-tax"
+                      value={planForm.taxLabel}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, taxLabel: event.target.value }))}
+                      className={dashboardFieldClassName}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Badge" htmlFor="plan-badge" className="sm:col-span-2">
+                    <input
+                      id="plan-badge"
+                      value={planForm.badge}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, badge: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="★ MÁS CONTRATADO"
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Orden" htmlFor="plan-order">
+                    <input
+                      id="plan-order"
+                      type="number"
+                      min="0"
+                      value={planForm.sortOrder}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, sortOrder: event.target.value }))}
+                      className={dashboardFieldClassName}
+                    />
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
+
+              <DashboardFormSection icon={TextAlignStart} title="Descripción">
+                <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+                  <DashboardFormField label="Descripción" htmlFor="plan-summary">
+                    <textarea
+                      id="plan-summary"
+                      rows={2}
+                      value={planForm.summary}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, summary: event.target.value }))}
+                      className={dashboardTextareaClassName}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Nota" htmlFor="plan-note">
+                    <textarea
+                      id="plan-note"
+                      rows={2}
+                      value={planForm.note}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, note: event.target.value }))}
+                      className={dashboardTextareaClassName}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Título de características" htmlFor="plan-features-title" className="lg:col-span-2">
+                    <input
+                      id="plan-features-title"
+                      value={planForm.featureGroupTitle}
+                      onChange={(event) => setPlanForm((current) => ({ ...current, featureGroupTitle: event.target.value }))}
+                      className={dashboardFieldClassName}
+                      placeholder="Incluye"
+                    />
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
+
+              <DashboardFormSection icon={ListChecks} title="Ítems">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted">Lo que incluye el plan en el catálogo público.</p>
+                  <button
+                    type="button"
+                    onClick={() => setPlanForm((current) => ({ ...current, items: [...current.items, ""] }))}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Agregar ítem
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {planForm.items.map((item, index) => (
+                    <div key={`item-${index}`} className="flex items-center gap-1.5">
+                      <input
+                        value={item}
+                        onChange={(event) =>
+                          setPlanForm((current) => ({
+                            ...current,
+                            items: current.items.map((value, itemIndex) => (itemIndex === index ? event.target.value : value)),
+                          }))
+                        }
+                        className={dashboardFieldClassName}
+                        placeholder="Dominio profesional"
+                        aria-label={`Ítem ${index + 1}`}
+                      />
+                      {planForm.items.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPlanForm((current) => ({
+                              ...current,
+                              items: current.items.filter((_, itemIndex) => itemIndex !== index),
+                            }))
+                          }
+                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-soft-background hover:text-foreground"
+                          aria-label={`Quitar ítem ${index + 1}`}
+                        >
+                          <X size={14} strokeWidth={2} />
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </DashboardFormSection>
+            </div>
+            <DashboardFormFooter error={submitError}>
+              <DashboardFormActions isSaving={isSaving} onCancel={() => setIsPlanModalOpen(false)} submitLabel="Guardar plan" />
+            </DashboardFormFooter>
           </form>
-        </div>
-      )}
+        </DashboardFormModal>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: CatalogStatus }) {
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[status]}`}>
+      {getCatalogStatusLabel(status)}
+    </span>
+  );
+}
+
+function RowActions({
+  status,
+  onView,
+  onEdit,
+  onToggle,
+  disabled,
+  className = "",
+}: {
+  status: CatalogStatus;
+  onView: () => void;
+  onEdit: () => void;
+  onToggle: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${className}`}>
+      <button type="button" onClick={onView} className="text-sm font-medium text-primary">
+        Ver
+      </button>
+      <button type="button" onClick={onEdit} className="text-sm font-medium text-foreground">
+        Editar
+      </button>
+      <button type="button" onClick={onToggle} disabled={disabled} className="text-sm font-medium text-muted disabled:opacity-60">
+        {status === "ACTIVE" ? "Desactivar" : "Activar"}
+      </button>
+    </div>
+  );
+}
+
+function TableLoadingRow({ columns }: { columns: number }) {
+  return (
+    <>
+      {Array.from({ length: 6 }, (_, index) => (
+        <tr key={`catalog-skeleton-${index}`} className="border-t border-border">
+          <td className="px-3 py-3" colSpan={columns}>
+            <div className="h-3 max-w-xl animate-pulse rounded-full bg-slate-200/80" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function EmptyRow({
+  columns,
+  message,
+  actionLabel,
+  onAction,
+}: {
+  columns: number;
+  message: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <tr>
+      <td colSpan={columns} className="px-4 py-12 text-center">
+        <p className="text-sm text-muted">{message}</p>
+        <button type="button" onClick={onAction} className="mt-3 text-sm font-semibold text-primary hover:underline">
+          {actionLabel}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function MobileEmpty({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-soft-background p-4 text-center">
+      <p className="text-sm text-muted">{message}</p>
+      <button type="button" onClick={onAction} className="mt-3 text-sm font-semibold text-primary">
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{label}</p>
+      <p className="mt-1 text-foreground">{value}</p>
     </div>
   );
 }

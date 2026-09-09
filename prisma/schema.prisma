@@ -175,6 +175,7 @@ model ServiceCategory {
   name        String
   slug        String        @unique
   description String        @default("") @db.Text
+  coverImage  String        @default("")
   sortOrder   Int           @default(0)
   status      CatalogStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())
@@ -251,23 +252,29 @@ model ServicePlanItem {
 }
 
 model Order {
-  id              String        @id @default(cuid())
-  createdAt       DateTime      @default(now())
-  orderStatus     OrderStatus   @default(pending)
-  customerName    String
-  customerEmail   String
-  customerPhone   String
-  customerCompany String?
-  subtotal        Decimal       @db.Decimal(12, 2)
-  tax             Decimal       @db.Decimal(12, 2)
-  total           Decimal       @db.Decimal(12, 2)
-  paymentStatus   PaymentStatus @default(pending)
-  paymentMethod   PaymentMethod @default(transbank)
-  items           OrderItem[]
+  id                      String        @id @default(cuid())
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  orderStatus             OrderStatus   @default(pending)
+  customerName            String
+  customerEmail           String
+  customerPhone           String
+  customerCompany         String?
+  subtotal                Decimal       @db.Decimal(12, 2)
+  tax                     Decimal       @db.Decimal(12, 2)
+  total                   Decimal       @db.Decimal(12, 2)
+  paymentStatus           PaymentStatus @default(pending)
+  paymentMethod           PaymentMethod @default(transbank)
+  preferenceId            String?       @unique
+  mercadopagoPaymentId    String?       @unique
+  processedPaymentKeys    Json          @default("[]")
+  notificationEmailSentAt DateTime?
+  items                   OrderItem[]
 
   @@index([customerEmail])
   @@index([orderStatus])
   @@index([paymentStatus])
+  @@index([createdAt])
 }
 
 model OrderItem {

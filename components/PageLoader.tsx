@@ -141,7 +141,7 @@ export default function PageLoader() {
                 ease: "easeInOut",
                 repeat: Number.POSITIVE_INFINITY,
               }}
-              className="relative z-10 flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/15 bg-white/5 shadow-[0_16px_40px_rgba(109,40,217,0.18)] backdrop-blur-sm sm:h-24 sm:w-24"
+              className="relative z-10 flex h-20 w-20 items-center justify-center rounded-[22px] border border-white bg-white shadow-[0_16px_40px_rgba(109,40,217,0.18)] sm:h-24 sm:w-24"
             >
               <Image
                 src="/images/logo/logo-smartpro-02.png"

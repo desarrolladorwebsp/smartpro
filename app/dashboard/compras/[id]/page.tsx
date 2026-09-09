@@ -60,7 +60,6 @@ async function PurchaseDetailContent({ params }: { params: Promise<{ id: string 
           icon="compras"
           eyebrow="Compra"
           title={`#${order.id}`}
-          description="Detalle de la orden y el estado de pago registrado."
           action={{ label: "Volver", href: "/dashboard/compras", icon: "back", variant: "secondary" }}
         />
 

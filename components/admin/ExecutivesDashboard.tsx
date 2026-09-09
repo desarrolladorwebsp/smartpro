@@ -66,7 +66,6 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
         icon="ejecutivos"
         eyebrow="Equipo interno"
         title="Ejecutivos"
-        description="Cuentas del equipo con acceso al Dashboard interno de SmartPro."
         action={{
           label: "Invitar ejecutivo",
           onClick: () => setIsInviteModalOpen(true),

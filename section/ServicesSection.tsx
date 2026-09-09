@@ -146,14 +146,16 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
             flex
             gap-4
             overflow-x-auto
+            overflow-y-hidden
             pb-2
             snap-x
             snap-mandatory
             md:grid
             md:grid-cols-2
             md:gap-5
-            lg:grid-cols-4
-            lg:gap-5
+            md:overflow-visible
+            lg:grid-cols-3
+            xl:grid-cols-4
           "
         >
           {catalog.length === 0 ? (
@@ -176,14 +178,17 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
               className="
                 group
                 relative
-                aspect-[16/10]
-                min-w-[78vw]
+                aspect-[4/3]
+                h-auto
+                w-[min(78vw,22.5rem)]
+                shrink-0
                 snap-center
                 overflow-hidden
                 rounded-[1.25rem]
                 bg-navy
-                md:min-w-0
                 md:w-full
+                md:min-w-0
+                md:max-w-none
               "
             >
               {/* Imagen */}
@@ -193,7 +198,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                 alt={service.name}
                 fill
                 className="object-cover object-center transition-all duration-700 ease-out group-hover:scale-[1.045]"
-                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 25vw"
+                sizes="(max-width: 767px) 78vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw"
                 containerClassName="absolute inset-0"
               />
 
@@ -238,27 +243,26 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
               />
 
               {/* Contenido */}
-              <div className="relative z-10 flex h-full flex-col p-5 sm:p-6">
+              <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-5 xl:p-6">
                 {/* Título */}
                 <h3
                   className="
-                    mt-0
-                    max-w-[18ch]
-                    text-[1.35rem]
+                    max-w-[16ch]
+                    text-pretty
+                    text-[1.25rem]
                     font-semibold
-                    leading-[1.12]
+                    leading-[1.15]
                     tracking-[-0.035em]
                     text-on-dark
-                    sm:text-[1.5rem]
-                    lg:text-[1.35rem]
-                    xl:text-[1.5rem]
+                    sm:text-[1.4rem]
+                    xl:text-[1.45rem]
                   "
                 >
                   {service.name}
                 </h3>
 
                 {/* CTA */}
-                <div className="mt-auto pt-4">
+                <div className="pt-3">
                   <ViewServiceButton
                     categorySlug={service.slug}
                     title={service.name}

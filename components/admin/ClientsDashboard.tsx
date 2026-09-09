@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Building2, MapPin, StickyNote, User } from "lucide-react";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import {
+  DashboardFormActions,
+  DashboardFormField,
+  DashboardFormFooter,
+  DashboardFormModal,
+  DashboardFormSection,
+  dashboardFieldClassName,
+  dashboardTextareaClassName,
+} from "@/components/admin/dashboard-form";
 import { getClientStatusLabel, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
 
 type FormState = {
@@ -108,6 +118,7 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   function openClientDetail(clientId: string) {
     router.push(`/dashboard/clientes/${clientId}`);
@@ -234,6 +245,7 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
 
     setSubmitError("");
     setSuccessMessage("");
+    setIsSaving(true);
 
     try {
       const payload = {
@@ -275,6 +287,8 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
       await fetchClients();
     } catch {
       setSubmitError("No se pudo guardar el cliente.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -300,7 +314,6 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
         icon="clientes"
         eyebrow="Gestión comercial"
         title="Clientes"
-        description="Registros comerciales administrados desde el Dashboard interno de SmartPro."
         action={{ label: "Nuevo cliente", onClick: openCreateModal }}
       />
 
@@ -512,177 +525,170 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
         </div>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-border bg-white p-5 shadow-[0_18px_56px_rgba(16,16,36,0.14)] sm:p-6">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Clientes</p>
-                <h2 className="mt-2 text-2xl font-bold tracking-[-0.05em] text-foreground">
-                  {editingId ? "Editar cliente" : "Nuevo cliente"}
-                </h2>
-              </div>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="text-lg text-muted">×</button>
-            </div>
+      {isModalOpen ? (
+        <DashboardFormModal
+          eyebrow="Clientes"
+          title={editingId ? "Editar cliente" : "Nuevo cliente"}
+          onClose={() => setIsModalOpen(false)}
+          wide
+        >
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3">
+              <DashboardFormSection icon={Building2} title="Empresa">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  <DashboardFormField label="Empresa / Razón social" htmlFor="client-company" className="sm:col-span-2" error={errors.companyName}>
+                    <input
+                      id="client-company"
+                      value={form.companyName}
+                      onChange={(event) => handleFieldChange("companyName", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Comercial Andes SpA"
+                      aria-invalid={Boolean(errors.companyName)}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Estado" htmlFor="client-status">
+                    <select
+                      id="client-status"
+                      value={form.status}
+                      onChange={(event) => handleFieldChange("status", event.target.value as ClientStatus)}
+                      className={dashboardFieldClassName}
+                    >
+                      <option value="ACTIVO">Activo</option>
+                      <option value="POTENCIAL">Potencial</option>
+                      <option value="INACTIVO">Inactivo</option>
+                    </select>
+                  </DashboardFormField>
+                  <DashboardFormField label="RUT" htmlFor="client-rut" error={errors.rut}>
+                    <input
+                      id="client-rut"
+                      value={form.rut}
+                      onChange={(event) => handleFieldChange("rut", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="76.123.456-7"
+                      aria-invalid={Boolean(errors.rut)}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Sitio web" htmlFor="client-website" className="sm:col-span-2">
+                    <input
+                      id="client-website"
+                      value={form.website}
+                      onChange={(event) => handleFieldChange("website", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="www.empresa.cl"
+                    />
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Empresa / Razón social</span>
-                  <input
-                    value={form.companyName}
-                    onChange={(event) => handleFieldChange("companyName", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Comercial Andes SpA"
-                  />
-                  {errors.companyName && <span className="mt-1 block text-xs text-red-600">{errors.companyName}</span>}
-                </label>
+              <DashboardFormSection icon={User} title="Contacto">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <DashboardFormField label="Nombre" htmlFor="client-first-name" error={errors.contactFirstName}>
+                    <input
+                      id="client-first-name"
+                      value={form.contactFirstName}
+                      onChange={(event) => handleFieldChange("contactFirstName", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Andrea"
+                      aria-invalid={Boolean(errors.contactFirstName)}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Apellido" htmlFor="client-last-name" error={errors.contactLastName}>
+                    <input
+                      id="client-last-name"
+                      value={form.contactLastName}
+                      onChange={(event) => handleFieldChange("contactLastName", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Pérez"
+                      aria-invalid={Boolean(errors.contactLastName)}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Email" htmlFor="client-email" error={errors.email}>
+                    <input
+                      id="client-email"
+                      type="email"
+                      value={form.email}
+                      onChange={(event) => handleFieldChange("email", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="andrea@empresa.cl"
+                      aria-invalid={Boolean(errors.email)}
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Teléfono" htmlFor="client-phone">
+                    <input
+                      id="client-phone"
+                      value={form.phone}
+                      onChange={(event) => handleFieldChange("phone", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="+56 9 1234 5678"
+                    />
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">RUT</span>
-                  <input
-                    value={form.rut}
-                    onChange={(event) => handleFieldChange("rut", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="76.123.456-7"
-                  />
-                  {errors.rut && <span className="mt-1 block text-xs text-red-600">{errors.rut}</span>}
-                </label>
+              <DashboardFormSection icon={MapPin} title="Ubicación">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  <DashboardFormField label="Dirección" htmlFor="client-address" className="lg:col-span-3">
+                    <input
+                      id="client-address"
+                      value={form.address}
+                      onChange={(event) => handleFieldChange("address", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Av. Providencia 1234"
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Comuna" htmlFor="client-commune">
+                    <input
+                      id="client-commune"
+                      value={form.commune}
+                      onChange={(event) => handleFieldChange("commune", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Providencia"
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Ciudad" htmlFor="client-city">
+                    <input
+                      id="client-city"
+                      value={form.city}
+                      onChange={(event) => handleFieldChange("city", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Santiago"
+                    />
+                  </DashboardFormField>
+                  <DashboardFormField label="Región" htmlFor="client-region">
+                    <input
+                      id="client-region"
+                      value={form.region}
+                      onChange={(event) => handleFieldChange("region", event.target.value)}
+                      className={dashboardFieldClassName}
+                      placeholder="Metropolitana"
+                    />
+                  </DashboardFormField>
+                </div>
+              </DashboardFormSection>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Estado</span>
-                  <select
-                    value={form.status}
-                    onChange={(event) => handleFieldChange("status", event.target.value as ClientStatus)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                  >
-                    <option value="ACTIVO">Activo</option>
-                    <option value="POTENCIAL">Potencial</option>
-                    <option value="INACTIVO">Inactivo</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Nombre del contacto</span>
-                  <input
-                    value={form.contactFirstName}
-                    onChange={(event) => handleFieldChange("contactFirstName", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Andrea"
-                  />
-                  {errors.contactFirstName && <span className="mt-1 block text-xs text-red-600">{errors.contactFirstName}</span>}
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Apellido del contacto</span>
-                  <input
-                    value={form.contactLastName}
-                    onChange={(event) => handleFieldChange("contactLastName", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Pérez"
-                  />
-                  {errors.contactLastName && <span className="mt-1 block text-xs text-red-600">{errors.contactLastName}</span>}
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Email</span>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(event) => handleFieldChange("email", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="andrea@empresa.cl"
-                  />
-                  {errors.email && <span className="mt-1 block text-xs text-red-600">{errors.email}</span>}
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Teléfono</span>
-                  <input
-                    value={form.phone}
-                    onChange={(event) => handleFieldChange("phone", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="+56 9 1234 5678"
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Dirección</span>
-                  <input
-                    value={form.address}
-                    onChange={(event) => handleFieldChange("address", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Av. Providencia 1234"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Comuna</span>
-                  <input
-                    value={form.commune}
-                    onChange={(event) => handleFieldChange("commune", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Providencia"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Ciudad</span>
-                  <input
-                    value={form.city}
-                    onChange={(event) => handleFieldChange("city", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Santiago"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Región</span>
-                  <input
-                    value={form.region}
-                    onChange={(event) => handleFieldChange("region", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="Metropolitana"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Sitio web</span>
-                  <input
-                    value={form.website}
-                    onChange={(event) => handleFieldChange("website", event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
-                    placeholder="www.empresa.cl"
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Notas</span>
+              <DashboardFormSection icon={StickyNote} title="Notas">
+                <DashboardFormField label="Información relevante" htmlFor="client-notes">
                   <textarea
+                    id="client-notes"
+                    rows={2}
                     value={form.notes}
                     onChange={(event) => handleFieldChange("notes", event.target.value)}
-                    className="min-h-24 w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"
+                    className={dashboardTextareaClassName}
                     placeholder="Información relevante del cliente..."
                   />
-                </label>
-              </div>
-
-              {submitError && (
-                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-white px-4 text-sm font-semibold text-foreground">
-                  Cancelar
-                </button>
-                <button type="submit" className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(109,40,217,0.2)]">
-                  {editingId ? "Guardar cambios" : "Crear cliente"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                </DashboardFormField>
+              </DashboardFormSection>
+            </div>
+            <DashboardFormFooter error={submitError}>
+              <DashboardFormActions
+                isSaving={isSaving}
+                onCancel={() => setIsModalOpen(false)}
+                submitLabel={editingId ? "Guardar cambios" : "Crear cliente"}
+              />
+            </DashboardFormFooter>
+          </form>
+        </DashboardFormModal>
+      ) : null}
     </div>
   );
 }

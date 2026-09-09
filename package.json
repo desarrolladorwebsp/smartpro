@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test --test-concurrency=1 lib/email/template.test.ts lib/email/executive-invitation.test.ts lib/email/resend.test.ts lib/mercadopago/config.test.ts lib/mercadopago/signature.test.ts lib/mercadopago/status.test.ts lib/mercadopago/sync.test.ts lib/mercadopago/webhook.test.ts lib/orders/service.test.ts lib/orders/checkout.test.ts",
+    "test": "npx tsx --test --test-concurrency=1 lib/email/template.test.ts lib/email/executive-invitation.test.ts lib/email/resend.test.ts lib/mercadopago/config.test.ts lib/mercadopago/signature.test.ts lib/mercadopago/status.test.ts lib/mercadopago/sync.test.ts lib/mercadopago/webhook.test.ts lib/orders/service.test.ts lib/orders/checkout.test.ts lib/services/catalog-table.test.ts lib/services/cover-image.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "seed:services": "npx tsx scripts/seed-services.ts",
-    "create:executive": "npx tsx scripts/create-executive.ts"
+    "create:executive": "npx tsx scripts/create-executive.ts",
+    "db:orders:schema": "npx tsx scripts/apply-orders-schema.ts",
+    "db:orders:migrate": "npx tsx scripts/migrate-orders-from-json.ts",
+    "db:services:covers": "npx tsx scripts/apply-service-covers-schema.ts"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",

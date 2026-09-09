@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,25 +25,32 @@ const LOGOS = {
 const NAV_ITEMS = [
   {
     label: "Inicio",
-    href: "/",
+    href: "/#inicio",
+    sectionId: "inicio",
   },
   {
     label: "Servicios",
-    href: "#servicios",
+    href: "/#servicios",
+    sectionId: "servicios",
   },
   {
     label: "Proyectos",
-    href: "#proyectos",
+    href: "/#proyectos",
+    sectionId: "proyectos",
   },
   {
     label: "Nosotros",
-    href: "#nosotros",
+    href: "/#nosotros",
+    sectionId: "nosotros",
   },
   {
     label: "Contacto",
-    href: "#contacto",
+    href: "/#contacto",
+    sectionId: "contacto",
   },
 ] as const;
+
+const SECTION_IDS = NAV_ITEMS.map((item) => item.sectionId);
 
 /* ============================================================
    COMPONENTE PRINCIPAL
@@ -57,6 +64,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("inicio");
   const mobileMenuOpenRef = useRef(false);
+  const ignoreScrollSpyUntilRef = useRef(0);
 
   /* ------------------------------------------------------------
      DETECTAR SCROLL (dirección + compacto, con rAF)
@@ -64,10 +72,6 @@ export default function Navbar() {
 
   useEffect(() => {
     mobileMenuOpenRef.current = mobileMenuOpen;
-
-    if (mobileMenuOpen) {
-      setHidden(false);
-    }
   }, [mobileMenuOpen]);
 
   useEffect(() => {
@@ -82,6 +86,17 @@ export default function Navbar() {
       const compact = currentY > SCROLL_COMPACT_AT;
 
       setScrolled((previous) => (previous === compact ? previous : compact));
+
+      if (currentY <= SCROLL_SHOW_AT_TOP) {
+        if (Date.now() >= ignoreScrollSpyUntilRef.current) {
+          setActiveSection((previous) => (previous === "inicio" ? previous : "inicio"));
+        }
+      } else {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        if (maxScroll > 0 && currentY >= maxScroll - 32 && Date.now() >= ignoreScrollSpyUntilRef.current) {
+          setActiveSection((previous) => (previous === "contacto" ? previous : "contacto"));
+        }
+      }
 
       if (!initialized) {
         initialized = true;
@@ -155,8 +170,7 @@ export default function Navbar() {
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return;
 
-    const sectionIds = ["inicio", "servicios", "proyectos", "nosotros", "contacto"];
-    const sectionElements = sectionIds
+    const sectionElements = SECTION_IDS
       .map((id) => document.getElementById(id))
       .filter(Boolean) as HTMLElement[];
 
@@ -168,14 +182,14 @@ export default function Navbar() {
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
-        if (visibleEntry) {
+        if (visibleEntry && Date.now() >= ignoreScrollSpyUntilRef.current) {
           setActiveSection(visibleEntry.target.id);
         }
       },
       {
         root: null,
-        threshold: [0.2, 0.4, 0.6],
-        rootMargin: "-30% 0px -45% 0px",
+        threshold: [0.15, 0.35, 0.55, 0.75],
+        rootMargin: "-28% 0px -48% 0px",
       },
     );
 
@@ -183,6 +197,63 @@ export default function Navbar() {
 
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash || !(SECTION_IDS as readonly string[]).includes(hash)) return;
+
+      const element = document.getElementById(hash);
+      if (!element) return;
+
+      setActiveSection(hash);
+      element.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+    };
+
+    const timeout = window.setTimeout(scrollToHash, 0);
+    window.addEventListener("hashchange", scrollToHash);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("hashchange", scrollToHash);
+    };
+  }, []);
+
+  const handleSectionNavigate = (
+    event: MouseEvent<HTMLAnchorElement>,
+    sectionId: string,
+  ) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    const onHome = window.location.pathname === "/";
+    const element = document.getElementById(sectionId);
+
+    if (!onHome || !element) {
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    event.preventDefault();
+    setMobileMenuOpen(false);
+    setHidden(false);
+    setActiveSection(sectionId);
+    ignoreScrollSpyUntilRef.current = Date.now() + 900;
+    element.scrollIntoView({
+      behavior: shouldReduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+
+    try {
+      window.history.replaceState(null, "", `/#${sectionId}`);
+    } catch {
+      window.location.hash = sectionId;
+    }
+  };
 
   return (
     <>
@@ -234,8 +305,10 @@ export default function Navbar() {
             ================================================== */}
 
             <Link
-              href="/"
+              href="/#inicio"
+              scroll={false}
               aria-label="Ir al inicio de SmartPro"
+              onClick={(event) => handleSectionNavigate(event, "inicio")}
               className="group flex items-center gap-3"
             >
               {/* Logo SP dentro del card */}
@@ -332,21 +405,15 @@ export default function Navbar() {
                 lg:flex
               "
             >
-              {NAV_ITEMS.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? activeSection === "inicio"
-                    : activeSection === item.href.replace("#", "");
-
-                return (
+              {NAV_ITEMS.map((item) => (
                   <NavItem
                     key={item.label}
                     href={item.href}
                     label={item.label}
-                    active={isActive}
+                    active={activeSection === item.sectionId}
+                    onNavigate={(event) => handleSectionNavigate(event, item.sectionId)}
                   />
-                );
-              })}
+                ))}
             </nav>
 
             {/* ==================================================
@@ -387,7 +454,8 @@ export default function Navbar() {
               </motion.button>
 
               <motion.a
-                href="#contacto"
+                href="/#contacto"
+                onClick={(event) => handleSectionNavigate(event, "contacto")}
                 whileHover={{
                   y: -2,
                 }}
@@ -471,7 +539,10 @@ export default function Navbar() {
                 type="button"
                 aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
                 aria-expanded={mobileMenuOpen}
-                onClick={() => setMobileMenuOpen((current) => !current)}
+                onClick={() => {
+                  setHidden(false);
+                  setMobileMenuOpen((current) => !current);
+                }}
                 className="icon-button text-magenta hover:border-magenta/45 hover:text-pink"
               >
                 <AnimatePresence mode="wait" initial={false}>
@@ -631,15 +702,13 @@ export default function Navbar() {
 
               <nav aria-label="Navegación móvil" className="flex flex-col">
                 {NAV_ITEMS.map((item, index) => {
-                  const isActive =
-                    item.href === "/"
-                      ? activeSection === "inicio"
-                      : activeSection === item.href.replace("#", "");
+                  const isActive = activeSection === item.sectionId;
 
                   return (
                     <motion.a
                       key={item.label}
                       href={item.href}
+                      aria-current={isActive ? "true" : undefined}
                       initial={{
                         opacity: 0,
                         x: -10,
@@ -652,7 +721,7 @@ export default function Navbar() {
                         duration: 0.3,
                         delay: index * 0.04,
                       }}
-                      onClick={() => setMobileMenuOpen(false)}
+                      onClick={(event) => handleSectionNavigate(event, item.sectionId)}
                       className={`
                         group
                         flex
@@ -702,11 +771,11 @@ export default function Navbar() {
                 "
               >
                 <motion.a
-                  href="#contacto"
+                  href="/#contacto"
                   whileTap={{
                     scale: 0.98,
                   }}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(event) => handleSectionNavigate(event, "contacto")}
                   className="
                     flex
                     min-h-12
@@ -742,15 +811,19 @@ function NavItem({
   label,
   href,
   active,
+  onNavigate,
 }: {
   label: string;
   href: string;
   active: boolean;
+  onNavigate: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link
       href={href}
-      aria-current={active ? "page" : undefined}
+      scroll={false}
+      aria-current={active ? "true" : undefined}
+      onClick={onNavigate}
       className={`
         group
         relative
