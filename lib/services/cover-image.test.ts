@@ -7,6 +7,10 @@ import { isManagedServiceCoverPath } from "./cover-image";
 test("resolveServiceCoverImage usa la imagen de BD o el fallback por slug", () => {
   assert.equal(resolveServiceCoverImage("/uploads/services/abc.webp", "desarrollo-web", 0), "/uploads/services/abc.webp");
   assert.equal(
+    resolveServiceCoverImage("", "registro-de-marca", 0),
+    "/images/services/service-08.jpeg",
+  );
+  assert.equal(
     resolveServiceCoverImage("", "registro-de-marcas", 0),
     "/images/services/service-08.jpeg",
   );

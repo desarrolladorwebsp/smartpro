@@ -9,6 +9,7 @@ import { ArrowRight } from "lucide-react";
 import ServicePlansModal from "./ServicePlansModal";
 
 import type { Plan } from "./PlanCard";
+import type { ServiceCategoryOption } from "@/lib/services/category-cards";
 
 type ViewServiceButtonProps = {
   categorySlug: string;
@@ -16,6 +17,7 @@ type ViewServiceButtonProps = {
   label?: string;
   className?: string;
   initialPlans?: Plan[];
+  initialCategories?: ServiceCategoryOption[];
 };
 
 type CatalogCategoryResponse = {
@@ -39,13 +41,16 @@ export default function ViewServiceButton({
   label = "Ver servicio",
   className = "",
   initialPlans = [],
+  initialCategories = [],
 }: ViewServiceButtonProps) {
   const [open, setOpen] = useState(false);
   const [fetchedPlans, setFetchedPlans] = useState<Plan[] | null>(null);
+  const [fetchedCategories, setFetchedCategories] = useState<ServiceCategoryOption[] | null>(null);
   const [modalTitle, setModalTitle] = useState(title ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const plans = fetchedPlans ?? initialPlans;
+  const categories = fetchedCategories ?? initialCategories;
 
   const handleOpen = async () => {
     setOpen(true);
@@ -65,6 +70,17 @@ export default function ViewServiceButton({
       }
 
       setFetchedPlans(data.plans);
+      setFetchedCategories(
+        Array.isArray(data.categories)
+          ? data.categories
+              .filter((category) => Boolean(category.name?.trim()))
+              .map((category) => ({
+                id: category.id ?? category.slug ?? category.name,
+                name: category.name,
+                slug: category.slug ?? "",
+              }))
+          : [],
+      );
       setModalTitle(data.category?.name ?? title ?? "Planes SmartPro");
     } catch (loadError) {
       if (plans.length === 0) {
@@ -116,22 +132,19 @@ export default function ViewServiceButton({
         />
       </motion.button>
 
-      {error && (
-        <p
-          className="
-            mt-2
-            text-xs
-            text-red-300
-          "
-        >
+      {error && !open ? (
+        <p className="mt-2 text-xs text-red-300" role="alert">
           {error}
         </p>
-      )}
+      ) : null}
 
       <ServicePlansModal
         open={open}
         title={modalTitle}
         plans={plans}
+        categories={categories}
+        isLoading={isLoading}
+        error={error}
         onClose={() => setOpen(false)}
       />
     </>

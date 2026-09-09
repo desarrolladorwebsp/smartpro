@@ -407,17 +407,26 @@ export async function upsertServiceCategory(input: ServiceCategoryPayload & { sl
   if (!slug) throw new Error("No se pudo generar el identificador del servicio.");
 
   const existing = await getPrisma().serviceCategory.findUnique({ where: { slug } });
-  const data = {
+  const data: {
+    name: string;
+    slug: string;
+    description: string;
+    sortOrder: number;
+    status: PrismaCatalogStatus;
+    coverImage?: string;
+  } = {
     name,
     slug,
     description: input.description == null ? (existing?.description ?? "") : normalizeText(input.description),
-    coverImage:
-      input.coverImage === undefined ? (existing?.coverImage ?? "") : normalizeText(input.coverImage ?? ""),
     sortOrder: hasProvided(input.sortOrder)
       ? Math.max(0, Math.trunc(toNumber(input.sortOrder)))
       : (existing?.sortOrder ?? (await nextCategorySortOrder())),
     status: toStatus(input.status, existing?.status ?? "ACTIVE"),
   };
+
+  if (input.coverImage !== undefined) {
+    data.coverImage = normalizeText(input.coverImage ?? "");
+  }
 
   const row = existing
     ? await getPrisma().serviceCategory.update({ where: { id: existing.id }, data })
@@ -433,15 +442,26 @@ export async function updateServiceCategory(id: string, input: ServiceCategoryPa
   const name = normalizeText(input.name ?? existing.name);
   if (!name) throw new Error("El nombre del servicio es obligatorio.");
 
+  const data: {
+    name: string;
+    description: string;
+    sortOrder: number;
+    status: PrismaCatalogStatus;
+    coverImage?: string;
+  } = {
+    name,
+    description: input.description == null ? existing.description : normalizeText(input.description),
+    sortOrder: input.sortOrder == null ? existing.sortOrder : Math.max(0, Math.trunc(toNumber(input.sortOrder))),
+    status: input.status ? toStatus(input.status) : existing.status,
+  };
+
+  if (input.coverImage !== undefined) {
+    data.coverImage = normalizeText(input.coverImage ?? "");
+  }
+
   const row = await getPrisma().serviceCategory.update({
     where: { id },
-    data: {
-      name,
-      description: input.description == null ? existing.description : normalizeText(input.description),
-      coverImage: input.coverImage === undefined ? existing.coverImage : normalizeText(input.coverImage ?? ""),
-      sortOrder: input.sortOrder == null ? existing.sortOrder : Math.max(0, Math.trunc(toNumber(input.sortOrder))),
-      status: input.status ? toStatus(input.status) : existing.status,
-    },
+    data,
   });
 
   return toCategoryRecord(row);

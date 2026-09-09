@@ -8,10 +8,6 @@ import { ArrowRight, Check, Star } from "lucide-react";
 import { useCart } from "@/components/cart/CartProvider";
 import { parseMoney } from "@/lib/orders/service";
 
-/* ============================================================
-   TYPES
-============================================================ */
-
 export type Plan = {
   id?: string;
   category?: string;
@@ -53,10 +49,6 @@ type PlanCardProps = {
   onAdded?: (planName: string) => void;
 };
 
-/* ============================================================
-   COMPONENT
-============================================================ */
-
 export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
@@ -94,160 +86,84 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
 
   return (
     <motion.article
-      initial={{
-        opacity: 0,
-        y: 24,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
-        duration: 0.45,
-        delay: index * 0.06,
+        duration: 0.32,
+        delay: Math.min(index * 0.04, 0.2),
         ease: "easeOut",
       }}
       className={`
         group
         relative
-        mx-auto
         flex
         h-full
-        min-h-[440px]
+        min-h-0
         w-full
-        max-w-[360px]
         min-w-0
-        origin-top
         flex-col
-        rounded-[24px]
+        rounded-[18px]
         border
         bg-white
-        p-5
-        transition-all
+        px-4
+        py-3.5
+        transition-[transform,box-shadow,border-color]
         duration-300
-        hover:-translate-y-2
-        hover:scale-[1.01]
-        hover:border-primary/40
-        hover:shadow-[0_28px_60px_rgba(16,16,36,0.14)]
-        sm:max-w-[380px]
-        sm:p-6
-
+        ease-out
+        hover:z-[1]
+        hover:-translate-y-1
+        hover:scale-[1.015]
+        origin-center
+        hover:border-magenta/75
+        hover:shadow-[0_20px_44px_rgba(109,40,217,0.18),0_10px_20px_rgba(236,22,140,0.12)]
         ${
           plan.highlighted
-            ? `
-              border-magenta/60
-              shadow-[0_20px_60px_rgba(236,22,140,0.10)]
-            `
-            : `
-              border-border
-              shadow-[0_12px_35px_rgba(16,16,36,0.06)]
-            `
+            ? "border-magenta/70 shadow-[0_14px_36px_rgba(236,22,140,0.10)]"
+            : "border-border shadow-[0_8px_22px_rgba(16,16,36,0.05)]"
         }
       `}
     >
-      {/* ======================================================
-          BADGE
-      ====================================================== */}
-
-      {plan.badge && (
-        <div className="mb-5 flex justify-center">
+      {plan.badge ? (
+        <div className="mb-2.5 flex justify-center">
           <span
             className="
               inline-flex
-              min-h-8
+              min-h-6
               items-center
               justify-center
-              gap-1.5
+              gap-1
               rounded-full
               bg-gradient-to-r
               from-primary
               to-magenta
-              px-4
-              text-[11px]
-              font-bold
+              px-2.5
+              text-[10px]
+              font-semibold
               uppercase
               tracking-[0.08em]
               text-white
-              shadow-[0_8px_24px_rgba(236,22,140,0.20)]
             "
           >
-            <Star size={12} fill="currentColor" />
-
+            <Star size={10} fill="currentColor" />
             {cleanBadge(plan.badge)}
           </span>
         </div>
-      )}
-
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      ) : null}
 
       <div className="text-center">
-        <h3
-          className="
-            text-balance
-            text-[22px]
-            font-bold
-            leading-tight
-            tracking-[-0.035em]
-            text-foreground
-            sm:text-[25px]
-          "
-        >
+        <h3 className="text-pretty text-[15px] font-semibold leading-snug tracking-[-0.03em] text-foreground sm:text-base">
           {plan.name}
         </h3>
 
-        {plan.summary && (
-          <p
-            className="
-              mx-auto
-              mt-3
-              max-w-sm
-              text-sm
-              leading-6
-              text-muted
-            "
-          >
-            {stripHtml(plan.summary)}
-          </p>
-        )}
+        {plan.summary ? (
+          <p className="mt-1.5 line-clamp-2 text-[12px] leading-4 text-muted">{stripHtml(plan.summary)}</p>
+        ) : null}
       </div>
 
-      {/* ======================================================
-          PRICE
-      ====================================================== */}
+      <div className="mt-3 border-b border-border pb-3 text-center">
+        {plan.oldPrice ? <p className="mb-0.5 text-[11px] font-semibold text-muted">{plan.oldPrice}</p> : null}
 
-      <div
-        className="
-          mt-6
-          border-b
-          border-border
-          pb-5
-          text-center
-        "
-      >
-        {plan.oldPrice && (
-          <p
-            className="
-              mb-1
-              text-sm
-              font-semibold
-              text-muted
-            "
-          >
-            {plan.oldPrice}
-          </p>
-        )}
-
-        <div
-          className="
-            flex
-            flex-wrap
-            items-end
-            justify-center
-            gap-x-2
-          "
-        >
+        <div className="flex flex-wrap items-end justify-center gap-x-1.5">
           <span
             className="
               bg-gradient-to-r
@@ -255,151 +171,83 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
               via-violet-500
               to-magenta
               bg-clip-text
-              text-[34px]
-              font-extrabold
+              text-[1.5rem]
+              font-bold
               leading-none
-              tracking-[-0.05em]
+              tracking-[-0.04em]
               text-transparent
-              sm:text-[38px]
             "
           >
             {plan.price}
           </span>
 
-          {plan.tax && (
-            <span
-              className="
-                pb-0.5
-                text-sm
-                font-bold
-                text-foreground
-              "
-            >
-              {plan.tax}
-            </span>
-          )}
+          {plan.tax ? <span className="pb-px text-[11px] font-semibold text-foreground">{plan.tax}</span> : null}
         </div>
       </div>
 
-      {/* ======================================================
-          FEATURES
-      ====================================================== */}
+      <div className="flex min-h-0 flex-1 flex-col py-3">
+        {plan.featureGroupTitle ? (
+          <p className="mb-2 text-[12px] font-semibold text-foreground">{plan.featureGroupTitle}</p>
+        ) : null}
 
-      <div className="flex-1 py-5">
-        {plan.featureGroupTitle && (
-          <p
-            className="
-              mb-3
-              text-sm
-              font-semibold
-              text-foreground
-            "
-          >
-            {plan.featureGroupTitle}
-          </p>
-        )}
-
-        <ul className="space-y-3">
+        <ul className="space-y-1.5">
           {plan.features.map((feature, featureIndex) => (
-            <li
-              key={`${plan.name}-${featureIndex}`}
-              className="
-                  flex
-                  items-start
-                  gap-3
-                "
-            >
-              <span
-                className="
-                    mt-0.5
-                    flex
-                    h-5
-                    w-5
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-primary/8
-                    text-primary
-                  "
-              >
-                <Check size={13} strokeWidth={2.5} />
+            <li key={`${plan.name}-${featureIndex}`} className="flex items-start gap-2">
+              <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
+                <Check size={10} strokeWidth={2.6} />
               </span>
-
               <FeatureText html={feature} />
             </li>
           ))}
         </ul>
 
-        {plan.note && (
-          <p
-            className="
-              mt-5
-              rounded-xl
-              bg-soft-background
-              px-4
-              py-3
-              text-xs
-              leading-5
-              text-muted
-            "
-          >
+        {plan.note ? (
+          <p className="mt-3 rounded-lg bg-soft-background px-2.5 py-2 text-[11px] leading-4 text-muted">
             {stripHtml(plan.note)}
           </p>
-        )}
+        ) : null}
       </div>
-
-      {/* ======================================================
-          CTA
-      ====================================================== */}
 
       <motion.button
         type="button"
         onClick={handleAddToCart}
-        whileTap={{
-          scale: 0.985,
-        }}
+        whileTap={{ scale: 0.985 }}
         className={`
           group/button
           mt-auto
           flex
-          min-h-[50px]
+          min-h-10
           w-full
           items-center
           justify-center
-          gap-2
-          rounded-[14px]
-          px-5
-          text-sm
+          gap-1.5
+          rounded-xl
+          px-4
+          text-[13px]
           font-semibold
           transition-all
           duration-300
-
           ${
             isAdded
-              ? "scale-[1.01] bg-emerald-500 text-white shadow-[0_12px_28px_rgba(16,185,129,0.28)]"
+              ? "bg-emerald-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.24)]"
               : plan.highlighted
-                ? "bg-gradient-to-r from-primary to-magenta text-white shadow-[0_10px_30px_rgba(109,40,217,0.20)] hover:shadow-[0_14px_38px_rgba(236,22,140,0.24)]"
-                : "bg-primary text-white hover:bg-[#4f46e5]"
+                ? "bg-gradient-to-r from-primary to-magenta text-white shadow-[0_8px_20px_rgba(109,40,217,0.18)] hover:shadow-[0_10px_24px_rgba(236,22,140,0.22)]"
+                : "bg-primary text-white hover:bg-primary-hover"
           }
         `}
       >
         {isAdded ? (
           <>
-            <Check size={16} className="animate-pulse" />
+            <Check size={14} />
             Agregado
           </>
         ) : (
           <>
             Elegir plan
             <ArrowRight
-              size={16}
+              size={14}
               strokeWidth={2}
-              className="
-                transition-transform
-                duration-300
-                group-hover/button:translate-x-1
-              "
+              className="transition-transform duration-300 group-hover/button:translate-x-0.5"
             />
           </>
         )}
@@ -408,36 +256,17 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
   );
 }
 
-/* ============================================================
-   FEATURE TEXT
-
-   Tus datos tienen algunos <strong>...</strong>.
-   Los interpretamos SIN dangerouslySetInnerHTML.
-============================================================ */
-
 function FeatureText({ html }: { html: string }) {
   const parts = html.split(/(<strong>.*?<\/strong>)/g);
 
   return (
-    <span
-      className="
-        text-sm
-        leading-6
-        text-foreground/75
-      "
-    >
+    <span className="text-[13px] leading-5 text-foreground/75">
       {parts.map((part, index) => {
         const strongMatch = part.match(/^<strong>(.*?)<\/strong>$/);
 
         if (strongMatch) {
           return (
-            <strong
-              key={index}
-              className="
-                font-semibold
-                text-foreground
-              "
-            >
+            <strong key={index} className="font-semibold text-foreground">
               {strongMatch[1]}
             </strong>
           );
@@ -448,10 +277,6 @@ function FeatureText({ html }: { html: string }) {
     </span>
   );
 }
-
-/* ============================================================
-   HELPERS
-============================================================ */
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, "");

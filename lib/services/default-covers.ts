@@ -6,6 +6,7 @@ export const DEFAULT_SERVICE_COVERS: Record<string, string> = {
   "produccion-audiovisual": "/images/services/service-05.png",
   "membresias-negocios": "/images/services/service-06.png",
   "negocio-completo": "/images/services/service-01.png",
+  "registro-de-marca": "/images/services/service-08.jpeg",
   "registro-de-marcas": "/images/services/service-08.jpeg",
 };
 

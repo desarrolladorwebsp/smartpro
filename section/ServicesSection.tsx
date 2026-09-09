@@ -267,6 +267,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                     categorySlug={service.slug}
                     title={service.name}
                     initialPlans={service.plans}
+                    initialCategories={service.categories}
                   />
                 </div>
               </div>

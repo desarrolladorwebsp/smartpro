@@ -86,4 +86,5 @@ Desktop.ini
 
 # Misc temporary uploads
 .tmp/
+/tmp/
 *.tmp
