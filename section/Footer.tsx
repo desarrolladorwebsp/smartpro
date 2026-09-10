@@ -13,8 +13,22 @@ import { FaFacebookF, FaInstagram, FaXTwitter } from "react-icons/fa6";
 
 const FOOTER_ASSETS = {
   logo: "/images/logo/logo-smartpro-full.png",
-  payment: "/images/logo/webpay-plus.png",
 } as const;
+
+const PAYMENT_METHODS = [
+  {
+    name: "Webpay",
+    src: "/images/logo/webpay-plus.png",
+    width: 220,
+    height: 105,
+  },
+  {
+    name: "Mercado Pago",
+    src: "/images/logo/logo-mercado-pago.png",
+    width: 220,
+    height: 96,
+  },
+] as const;
 
 const CONTACT_INFO = [
   {
@@ -445,37 +459,37 @@ export default function Footer() {
               disponibles.
             </p>
 
-            {/* Webpay */}
-
-            <div
-              className="
-                mt-5
-                inline-flex
-                max-w-[210px]
-                items-center
-                justify-center
-                rounded-2xl
-                border
-                border-white/10
-                bg-white
-                p-4
-                transition-all
-                duration-300
-                hover:-translate-y-1
-                hover:shadow-[0_15px_40px_rgba(109,40,217,0.15)]
-              "
-            >
-              <Image
-                src={FOOTER_ASSETS.payment}
-                alt="Webpay"
-                width={220}
-                height={105}
-                className="
-                  h-auto
-                  w-full
-                  object-contain
-                "
-              />
+            <div className="mt-5 flex flex-wrap gap-3">
+              {PAYMENT_METHODS.map((method) => (
+                <div
+                  key={method.name}
+                  className="
+                    inline-flex
+                    h-[88px]
+                    w-[168px]
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    border
+                    border-white/10
+                    bg-white
+                    px-4
+                    py-3
+                    transition-all
+                    duration-300
+                    hover:-translate-y-1
+                    hover:shadow-[0_15px_40px_rgba(109,40,217,0.15)]
+                  "
+                >
+                  <Image
+                    src={method.src}
+                    alt={method.name}
+                    width={method.width}
+                    height={method.height}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              ))}
             </div>
           </motion.div>
 

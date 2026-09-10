@@ -19,32 +19,32 @@ const TEAM_MEMBERS = [
   },
   {
     id: 2,
-    name: "Ariana De La Fuente",
-    role: "Ejecutiva Comercial",
-    description: "Encargada del Area comercial y equipos.",
-    image: "/images/team/ariana-de-la-fuente.png",
-  },
-  {
-    id: 3,
-    name: "Isabel Uribe",
-    role: "Office Manager",
-    description: "Encargada de la administración y gestión de proyectos.",
-    image: "/images/team/isabel-uribe.png",
-  },
-  {
-    id: 4,
-    name: "Juan Lorca",
-    role: "Ejecutivo Comercial",
-    description: "Encargado de la atención comercial y equipos.",
-    image: "/images/team/juan-lorca.png",
-  },
-  {
-    id: 5,
     name: "Alfredo Hurtado",
     role: "Desarrollador Full Stack",
     description:
       "Convierte ideas en soluciones digitales robustas, escalables y de alto rendimiento.",
     image: "/images/team/alfredo-hurtado.png",
+  },
+  {
+    id: 3,
+    name: "Nicolas Campos",
+    role: "Soporte Tecnico",
+    description: "Encargado de la atención técnica y soporte informatico.",
+    image: "/images/team/nicolas-campos.png",
+  },
+  {
+    id: 4,
+    name: "Javiera vega",
+    role: "Publicista",
+    description: "Encargada del diseño grafico y creacion de estrategias publicitarias",
+    image: "/images/team/javiera-vega.png",
+  },
+  {
+    id: 5,
+    name: "Javier Sanhueza",
+    role: "Productor Audiovisual",
+    description: "Encargado de la producción de videos y fotografía para redes sociales y campañas publicitarias.",
+    image: "/images/team/javier-sanhueza.png",
   },
 ] as const;
 
@@ -168,28 +168,7 @@ export default function TeamSection() {
 
           {/* Description */}
 
-          <motion.p
-            initial={{
-              opacity: 0,
-              y: 10,
-            }}
-            whileInView={{
-              opacity: 1,
-              y: 0,
-            }}
-            viewport={{
-              once: true,
-            }}
-            transition={{
-              duration: 0.5,
-              delay: 0.15,
-            }}
-            className="section-copy"
-          >
-            Somos un equipo multidisciplinario de estrategas, creativos y
-            especialistas en tecnología que trabajamos para impulsar tu marca y
-            alcanzar tus objetivos.
-          </motion.p>
+          
         </div>
 
         {/* ====================================================
