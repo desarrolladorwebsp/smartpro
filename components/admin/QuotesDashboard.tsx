@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { FileText } from "lucide-react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { QuoteCreateModal } from "@/components/admin/QuoteCreateModal";
 import type { ClientRecord } from "@/lib/clients/types";
@@ -76,6 +76,11 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
         eyebrow="Gestión comercial"
         title="Cotizaciones"
         action={{ label: "Nueva cotización", onClick: () => setIsCreateOpen(true), icon: "plus" }}
+        trailing={
+          <p className="text-sm font-semibold text-muted">
+            {quotes.length} {quotes.length === 1 ? "cotización" : "cotizaciones"}
+          </p>
+        }
       />
 
       <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
@@ -107,12 +112,17 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
         </div>
       </div>
 
-      {filteredQuotes.length === 0 ? (
-        <div className="rounded-[26px] border border-dashed border-border bg-white p-8 text-center shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <FileText className="mx-auto text-primary" size={28} />
-          <h2 className="mt-3 text-xl font-bold tracking-[-0.05em] text-foreground">No hay cotizaciones</h2>
-          <p className="mt-2 text-sm text-muted">Crea una cotización desde un cliente o con el botón Nueva cotización.</p>
-        </div>
+      {quotes.length === 0 ? (
+        <DashboardEmptyState
+          title="No hay cotizaciones registradas"
+          description="Crea una cotización desde un cliente o con el botón Nueva cotización."
+          action={{ label: "Nueva cotización", onClick: () => setIsCreateOpen(true) }}
+        />
+      ) : filteredQuotes.length === 0 ? (
+        <DashboardEmptyState
+          title="Sin resultados"
+          description="No hay cotizaciones con los filtros seleccionados."
+        />
       ) : (
         <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
           <div className="overflow-x-auto">

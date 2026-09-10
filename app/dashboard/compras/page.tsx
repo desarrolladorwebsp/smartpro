@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardDataError } from "@/components/admin/DashboardDataError";
+import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { PurchasesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 import { listOrders } from "@/lib/orders/repository";
@@ -54,11 +55,10 @@ async function PurchasesPageContent() {
     return (
       <div className="space-y-6">
         <PurchasesHeader />
-        <div className="rounded-[26px] border border-dashed border-border bg-white p-8 text-center shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Compras</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-[-0.05em] text-foreground">No hay compras aún</h1>
-          <p className="mt-3 text-sm text-muted">Cuando Mercado Pago confirme un pago, aparecerá aquí la venta registrada.</p>
-        </div>
+        <DashboardEmptyState
+          title="No hay compras registradas"
+          description="Cuando Mercado Pago confirme un pago, aparecerá aquí la venta registrada."
+        />
       </div>
     );
   }

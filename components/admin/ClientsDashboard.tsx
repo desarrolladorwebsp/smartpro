@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Building2, Layers3, StickyNote, User } from "lucide-react";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { ClientInterestFields } from "@/components/admin/ClientInterestFields";
+import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import {
   DashboardFormActions,
   DashboardFormField,
@@ -118,6 +119,7 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [listError, setListError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [catalog, setCatalog] = useState<ClientInterestCatalogService[]>([]);
   const [catalogError, setCatalogError] = useState("");
@@ -143,16 +145,23 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
 
   const fetchClients = async () => {
     setIsLoading(true);
+    setListError("");
     try {
       const response = await fetch("/api/clients", { method: "GET", cache: "no-store" });
-      const data = (await response.json().catch(() => ({ clients: [] as ClientRecord[] }))) as {
+      const data = (await response.json().catch(() => ({}))) as {
         clients?: ClientRecord[];
+        error?: string;
       };
+
+      if (!response.ok) {
+        setListError(data.error ?? "No se pudieron cargar los clientes.");
+        return;
+      }
 
       setClients(Array.isArray(data.clients) ? data.clients : []);
       router.refresh();
     } catch {
-      setClients([]);
+      setListError("No se pudieron cargar los clientes.");
     } finally {
       setIsLoading(false);
     }
@@ -179,6 +188,9 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
       return matchesSearch && matchesStatus;
     });
   }, [clients, search, statusFilter]);
+
+  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== "TODOS";
+  const isEmptyCatalog = !isLoading && !listError && clients.length === 0 && !hasActiveFilters;
 
   function handleFieldChange(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -377,6 +389,11 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
         eyebrow="Gestión comercial"
         title="Clientes"
         action={{ label: "Nuevo cliente", onClick: openCreateModal }}
+        trailing={
+          <p className="text-sm font-semibold text-muted">
+            {clients.length} {clients.length === 1 ? "cliente" : "clientes"}
+          </p>
+        }
       />
 
       <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
@@ -403,13 +420,26 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
         </div>
       </div>
 
+      {listError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {listError}
+        </div>
+      ) : null}
+
       {successMessage && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           {successMessage}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
+      {isEmptyCatalog ? (
+        <DashboardEmptyState
+          title="0 clientes"
+          description="No hay clientes registrados. Crea el primero para comenzar el seguimiento comercial."
+          action={{ label: "Nuevo cliente", onClick: openCreateModal }}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full text-left text-sm text-foreground">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-muted">
@@ -585,7 +615,8 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
             ))
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       {isModalOpen ? (
         <DashboardFormModal
