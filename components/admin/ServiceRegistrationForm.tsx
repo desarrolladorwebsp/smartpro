@@ -119,7 +119,7 @@ export function ServiceRegistrationForm() {
           <input
             type="number"
             min="0"
-            step="1000"
+            step="1"
             value={form.price}
             onChange={(event) => updateField("price", event.target.value)}
             className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-base text-foreground outline-none transition focus:border-primary"

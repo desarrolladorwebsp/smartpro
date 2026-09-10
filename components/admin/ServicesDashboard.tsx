@@ -1310,7 +1310,7 @@ export function ServicesDashboard({ initialTree, initialView = "servicios" }: Se
                       id="plan-price"
                       type="number"
                       min="0"
-                      step="1000"
+                      step="1"
                       value={planForm.price}
                       onChange={(event) => setPlanForm((current) => ({ ...current, price: event.target.value }))}
                       className={dashboardFieldClassName}
