@@ -78,6 +78,7 @@ Desktop.ini
 
 # Uploaded service cover images
 /public/uploads/services/
+/public/uploads/sales/
 
 # Caches
 .cache/

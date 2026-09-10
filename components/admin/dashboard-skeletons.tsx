@@ -182,6 +182,16 @@ export function PurchasesPageSkeleton() {
   );
 }
 
+export function SalesPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <FilterBarSkeleton />
+      <TableSkeleton columns={8} />
+    </div>
+  );
+}
+
 export function ExecutivesPageSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-live="polite">

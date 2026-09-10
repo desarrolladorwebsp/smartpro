@@ -4,63 +4,91 @@ import { useState } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "motion/react";
 
-const CLIENTS = [
+type ClientBrand = {
+  name: string;
+  logo: string;
+  onDark?: boolean;
+};
+
+const CLIENTS: ClientBrand[] = [
   {
-    name: "Cliente 01",
-    logo: "/images/clients/client-01.png",
+    name: "Axessia",
+    logo: "/images/logo/logos-cinta/logo-axessia-white.png",
+    onDark: true,
   },
   {
-    name: "Cliente 02",
-    logo: "/images/clients/client-02.png",
+    name: "DesdeTu7",
+    logo: "/images/logo/logos-cinta/logo-desdetu7.jpg",
   },
   {
-    name: "Cliente 03",
-    logo: "/images/clients/client-03.png",
+    name: "Experto en Salud",
+    logo: "/images/logo/logos-cinta/logo-experto-en-salud.png",
   },
   {
-    name: "Cliente 04",
-    logo: "/images/clients/client-04.png",
+    name: "AppsFly",
+    logo: "/images/logo/logos-cinta/logo_appsfly.png",
   },
   {
-    name: "Cliente 05",
-    logo: "/images/clients/client-05.png",
+    name: "Cotízalo Antes",
+    logo: "/images/logo/logos-cinta/logo-cotizalo-antes.avif",
   },
   {
-    name: "Cliente 06",
-    logo: "/images/clients/client-06.png",
+    name: "López Vidal",
+    logo: "/images/logo/logos-cinta/logo-lopez-vidal2.png",
+    onDark: true,
   },
-] as const;
+  {
+    name: "Kitchen Solutions",
+    logo: "/images/logo/logos-cinta/logo-kitchen-solution.webp",
+    onDark: true,
+  },
+  {
+    name: "Isapres Premium",
+    logo: "/images/logo/logos-cinta/logo-isapres-premium.png",
+  },
+  {
+    name: "Turismo Dabar",
+    logo: "/images/logo/logos-cinta/logo-turismo-dabar.webp",
+  },
+];
 
 function ClientLogo({
   name,
   logo,
+  onDark = false,
 }: {
   name: string;
   logo: string;
+  onDark?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
   return (
     <div
-      className="
+      className={`
         group
         flex h-[72px] w-[150px] shrink-0
         items-center justify-center
         rounded-lg
-        border border-black/[0.06]
-        bg-white
         px-5
         shadow-[0_6px_24px_rgba(16,16,36,0.035)]
         transition-[border-color,box-shadow,transform] duration-300 ease-out
         sm:h-[84px] sm:w-[176px]
         lg:h-[92px] lg:w-[196px]
         hover:-translate-y-0.5
-        hover:border-primary/25
-        hover:shadow-[0_12px_30px_rgba(109,40,217,0.10)]
-      "
+        ${
+          onDark
+            ? "border border-white/10 bg-ink hover:border-primary/40 hover:shadow-[0_12px_30px_rgba(109,40,217,0.18)]"
+            : "border border-black/[0.06] bg-white hover:border-primary/25 hover:shadow-[0_12px_30px_rgba(109,40,217,0.10)]"
+        }
+      `}
     >
       {failed ? (
-        <span className="px-1 text-center text-xs font-medium tracking-wide text-muted">
+        <span
+          className={`px-1 text-center text-xs font-medium tracking-wide ${
+            onDark ? "text-white/80" : "text-muted"
+          }`}
+        >
           {name}
         </span>
       ) : (
@@ -146,6 +174,7 @@ export default function ClientsMarqueeSection() {
                 key={client.name}
                 name={client.name}
                 logo={client.logo}
+                onDark={client.onDark}
               />
             ))}
           </div>
@@ -160,6 +189,7 @@ export default function ClientsMarqueeSection() {
                 key={`duplicate-${client.name}`}
                 name={client.name}
                 logo={client.logo}
+                onDark={client.onDark}
               />
             ))}
           </div>

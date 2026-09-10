@@ -10,6 +10,7 @@ const HEADER_ICONS = {
   cotizaciones: FileText,
   servicios: Package,
   compras: ShoppingBag,
+  ventas: ShoppingBag,
   ejecutivos: UserCog,
   back: ArrowLeft,
   plus: Plus,

@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, adminOnly: false },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones", icon: FileText, adminOnly: false },
   { label: "Servicios", href: "/dashboard/servicios", icon: Package, adminOnly: false },
-  { label: "Compras", href: "/dashboard/compras", icon: ShoppingBag, adminOnly: false },
+  { label: "Ventas", href: "/dashboard/ventas", icon: ShoppingBag, adminOnly: false },
   { label: "Ejecutivos", href: "/dashboard/ejecutivos", icon: UserCog, adminOnly: true },
 ] as const;
 
@@ -32,6 +32,10 @@ const LOGO_SRC = "/images/logo/logo-smartpro-full.png";
 function isNavItemActive(pathname: string, href: string) {
   if (href === "/dashboard") {
     return pathname === "/dashboard";
+  }
+
+  if (href === "/dashboard/ventas") {
+    return pathname === href || pathname.startsWith(`${href}/`) || pathname.startsWith("/dashboard/compras");
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

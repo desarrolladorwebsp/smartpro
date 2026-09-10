@@ -349,6 +349,10 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus): Promis
     include: quoteInclude,
   });
 
+  // Conversión automática a venta: cuando este flujo se active, usar
+  // convertAcceptedQuoteToSale(id, createdByEmail) desde lib/sales.
+  // No registrar pagos en esa conversión.
+
   return toQuoteRecord(updated);
 }
 

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
 import { AnimatePresence, motion } from "motion/react";
 
-import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import PlanCard, { Plan } from "./PlanCard";
 import ServiceCategoryCard from "./ServiceCategoryCard";
@@ -63,6 +63,7 @@ export default function ServicePlansModal({
   }, [isCategoryOverview, selectedCategory, plans]);
 
   const showFilter = categoryCards.length > 0;
+  const showBackToCategories = !isCategoryOverview && categoryCards.length > 0;
   const showPlans = !isCategoryOverview && visiblePlans.length > 0;
   const showCarousel = plans.length > 0;
   const showError = Boolean(error) && !showCarousel;
@@ -159,6 +160,10 @@ export default function ServicePlansModal({
     setActiveCategory(value === "all" ? "all" : value);
     slideIndexRef.current = 0;
     setSlideIndex(0);
+  };
+
+  const handleBackToCategories = () => {
+    handleCategoryChange("all");
   };
 
   useEffect(() => {
@@ -335,16 +340,37 @@ export default function ServicePlansModal({
                   ${showFilter ? "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_minmax(13.75rem,16.5rem)_auto]" : "grid-cols-[minmax(0,1fr)_auto]"}
                 `}
               >
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
-                    {isCategoryOverview ? "Categorías SmartPro" : "Planes SmartPro"}
-                  </p>
-                  <h2
-                    id="plans-modal-title"
-                    className="mt-0.5 truncate text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl"
-                  >
-                    {title}
-                  </h2>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {showBackToCategories ? (
+                    <motion.button
+                      type="button"
+                      aria-label="Volver a categorías"
+                      title="Volver a categorías"
+                      onClick={handleBackToCategories}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.92 }}
+                      className="
+                        flex h-10 w-10 shrink-0 items-center justify-center rounded-full
+                        border border-border bg-white text-muted
+                        transition-all duration-300 hover:border-primary/40 hover:bg-primary/5
+                        hover:text-primary
+                      "
+                    >
+                      <ArrowLeft size={17} strokeWidth={1.8} />
+                    </motion.button>
+                  ) : null}
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
+                      {isCategoryOverview ? "Categorías SmartPro" : "Planes SmartPro"}
+                    </p>
+                    <h2
+                      id="plans-modal-title"
+                      className="mt-0.5 truncate text-lg font-semibold tracking-[-0.03em] text-foreground sm:text-xl"
+                    >
+                      {title}
+                    </h2>
+                  </div>
                 </div>
 
                 {showFilter ? (

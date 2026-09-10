@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test --test-concurrency=1 lib/email/template.test.ts lib/email/executive-invitation.test.ts lib/email/resend.test.ts lib/mercadopago/config.test.ts lib/mercadopago/signature.test.ts lib/mercadopago/status.test.ts lib/mercadopago/sync.test.ts lib/mercadopago/webhook.test.ts lib/orders/service.test.ts lib/orders/checkout.test.ts lib/services/catalog-table.test.ts lib/services/cover-image.test.ts lib/services/public.test.ts lib/services/category-cards.test.ts lib/services/plan-carousel-layout.test.ts lib/services/plan-features.test.ts lib/clients/validation.test.ts lib/clients/interest.test.ts lib/clients/commercial-status.test.ts lib/quotes/numbering.test.ts lib/quotes/status.test.ts lib/quotes/payment-methods.test.ts lib/quotes/dates.test.ts lib/quotes/catalog.test.ts lib/quotes/email.test.ts lib/quotes/pdf.test.ts lib/quotes/fields.test.ts lib/quotes/terms.test.ts",
+    "test": "npx tsx --test --test-concurrency=1 lib/email/template.test.ts lib/email/executive-invitation.test.ts lib/email/resend.test.ts lib/mercadopago/config.test.ts lib/mercadopago/signature.test.ts lib/mercadopago/status.test.ts lib/mercadopago/sync.test.ts lib/mercadopago/webhook.test.ts lib/orders/service.test.ts lib/orders/checkout.test.ts lib/services/catalog-table.test.ts lib/services/cover-image.test.ts lib/services/public.test.ts lib/services/category-cards.test.ts lib/services/plan-carousel-layout.test.ts lib/services/plan-features.test.ts lib/clients/validation.test.ts lib/clients/interest.test.ts lib/clients/commercial-status.test.ts lib/quotes/numbering.test.ts lib/quotes/status.test.ts lib/quotes/payment-methods.test.ts lib/quotes/dates.test.ts lib/quotes/catalog.test.ts lib/quotes/email.test.ts lib/quotes/pdf.test.ts lib/quotes/fields.test.ts lib/quotes/terms.test.ts lib/sales/numbering.test.ts lib/sales/conversion.test.ts lib/sales/receipt.test.ts lib/sales/types.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "seed:services": "npx tsx scripts/seed-services.ts",
@@ -16,6 +16,7 @@
     "db:orders:migrate": "npx tsx scripts/migrate-orders-from-json.ts",
     "db:services:covers": "npx tsx scripts/apply-service-covers-schema.ts",
     "db:quotes:schema": "npx tsx scripts/apply-quotes-schema.ts",
+    "db:sales:schema": "npx tsx scripts/apply-sales-schema.ts",
     "db:clients:interest": "npx tsx scripts/apply-client-interest-schema.ts",
     "db:clients:assignment": "npx tsx scripts/apply-client-assignment-schema.ts"
   },

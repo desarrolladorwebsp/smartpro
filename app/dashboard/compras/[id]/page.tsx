@@ -47,8 +47,8 @@ async function PurchaseDetailContent({ params }: { params: Promise<{ id: string 
       <div className="rounded-[26px] border border-dashed border-border bg-white p-8 text-center shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Compra</p>
         <h1 className="mt-2 text-2xl font-bold tracking-[-0.05em] text-foreground">No se encontró la orden</h1>
-        <Link href="/dashboard/compras" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white">
-          Volver a compras
+        <Link href="/dashboard/ventas" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white">
+          Volver a ventas
         </Link>
       </div>
     );
@@ -60,7 +60,7 @@ async function PurchaseDetailContent({ params }: { params: Promise<{ id: string 
           icon="compras"
           eyebrow="Compra"
           title={`#${order.id}`}
-          action={{ label: "Volver", href: "/dashboard/compras", icon: "back", variant: "secondary" }}
+          action={{ label: "Volver", href: "/dashboard/ventas", icon: "back", variant: "secondary" }}
         />
 
         <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">

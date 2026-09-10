@@ -43,7 +43,7 @@ body {
 }
 
 .clients-marquee-track {
-  animation: clients-marquee-scroll 34s linear infinite;
+  animation: clients-marquee-scroll 48s linear infinite;
   will-change: transform;
 }
 
@@ -59,13 +59,13 @@ body {
 
 @media (min-width: 640px) {
   .clients-marquee-track {
-    animation-duration: 40s;
+    animation-duration: 56s;
   }
 }
 
 @media (min-width: 1024px) {
   .clients-marquee-track {
-    animation-duration: 46s;
+    animation-duration: 64s;
   }
 }
 
