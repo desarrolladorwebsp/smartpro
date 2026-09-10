@@ -40,7 +40,7 @@ const TEAM_MEMBERS = [
   },
   {
     id: 5,
-    name: "Alfredo hurtado",
+    name: "Alfredo Hurtado",
     role: "Desarrollador Full Stack",
     description:
       "Convierte ideas en soluciones digitales robustas, escalables y de alto rendimiento.",
@@ -56,14 +56,7 @@ export default function TeamSection() {
   return (
     <section
       id="nosotros"
-      className="
-        relative
-        overflow-hidden
-        bg-background
-        py-20
-        sm:py-24
-        lg:py-28
-      "
+      className="section-shell bg-background"
     >
       {/* ======================================================
           BACKGROUND DECORATION
@@ -100,21 +93,12 @@ export default function TeamSection() {
         "
       />
 
-      <div
-        className="
-          relative
-          mx-auto
-          max-w-[1600px]
-          px-5
-          sm:px-6
-          lg:px-8
-        "
-      >
+      <div className="section-container max-w-[1600px]">
         {/* ====================================================
             HEADER
         ==================================================== */}
 
-        <div className="mx-auto mb-12 max-w-4xl text-center lg:mb-14">
+        <div className="section-header">
           <motion.p
             initial={{
               opacity: 0,
@@ -126,20 +110,12 @@ export default function TeamSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.5,
+              amount: 0.3,
             }}
             transition={{
               duration: 0.5,
             }}
-            className="
-              mb-4
-              text-xs
-              font-semibold
-              uppercase
-              tracking-[0.34em]
-              text-primary
-              sm:text-sm
-            "
+            className="eyebrow"
           >
             Nuestro equipo
           </motion.p>
@@ -147,7 +123,7 @@ export default function TeamSection() {
           <motion.h2
             initial={{
               opacity: 0,
-              y: 18,
+              y: 16,
             }}
             whileInView={{
               opacity: 1,
@@ -155,34 +131,16 @@ export default function TeamSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.4,
+              amount: 0.3,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.55,
               delay: 0.05,
             }}
-            className="
-              text-balance
-              text-4xl
-              font-bold
-              leading-[1.05]
-              tracking-[-0.04em]
-              text-foreground
-              sm:text-5xl
-              lg:text-[58px]
-            "
+            className="section-title"
           >
             El talento detrás de cada{" "}
-            <span
-              className="
-                bg-gradient-to-r
-                from-primary
-                via-violet-500
-                to-magenta
-                bg-clip-text
-                text-transparent
-              "
-            >
+            <span className="text-gradient-brand">
               gran resultado.
             </span>
           </motion.h2>
@@ -205,17 +163,7 @@ export default function TeamSection() {
               duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           {/* Description */}
@@ -223,7 +171,7 @@ export default function TeamSection() {
           <motion.p
             initial={{
               opacity: 0,
-              y: 12,
+              y: 10,
             }}
             whileInView={{
               opacity: 1,
@@ -233,18 +181,10 @@ export default function TeamSection() {
               once: true,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              max-w-3xl
-              text-pretty
-              text-base
-              leading-7
-              text-muted
-              sm:text-lg
-            "
+            className="section-copy"
           >
             Somos un equipo multidisciplinario de estrategas, creativos y
             especialistas en tecnología que trabajamos para impulsar tu marca y
@@ -259,37 +199,33 @@ export default function TeamSection() {
         <div className="mx-auto max-w-[1320px]">
           <div
             className="
+              no-scrollbar
               flex
               snap-x
               snap-mandatory
               gap-4
               overflow-x-auto
-              pb-3
-              [-ms-overflow-style:none]
-              [scrollbar-width:none]
-              [&::-webkit-scrollbar]:hidden
+              pb-2
+              md:grid
+              md:grid-cols-3
               md:overflow-visible
-              md:flex-nowrap
-              md:justify-start
+              md:pb-0
               lg:gap-5
-              xl:gap-6
+              xl:grid-cols-5
+              xl:gap-5
             "
           >
             {TEAM_MEMBERS.map((member, index) => (
               <div
                 key={member.id}
                 className="
+                  w-[76%]
+                  max-w-[270px]
                   shrink-0
                   snap-start
-                  w-[78%]
-                  max-w-[290px]
-                  sm:w-[46%]
-                  sm:max-w-[300px]
-                  md:w-[calc(20%-0.8rem)]
-                  md:min-w-[220px]
-                  md:max-w-[260px]
-                  lg:w-[calc(20%-0.8rem)]
-                  xl:w-[calc(20%-0.8rem)]
+                  md:w-auto
+                  md:max-w-none
+                  md:min-w-0
                 "
               >
                 <TeamCard member={member} index={index} />
@@ -358,14 +294,13 @@ function TeamCard({ member, index }: TeamCardProps) {
         ease: "easeOut",
       }}
       whileHover={{
-        y: -4,
+        y: -3,
       }}
       className="
         group
         relative
         flex
         h-full
-        min-h-[500px]
         w-full
         flex-col
         overflow-hidden
@@ -374,7 +309,7 @@ function TeamCard({ member, index }: TeamCardProps) {
         border-white/5
         bg-navy
         shadow-[0_10px_28px_rgba(16,16,36,0.10)]
-        transition-all
+        transition-shadow
         duration-500
         hover:shadow-[0_22px_54px_rgba(109,40,217,0.18)]
       "
@@ -386,7 +321,7 @@ function TeamCard({ member, index }: TeamCardProps) {
       <div
         className="
           relative
-          aspect-[4/5]
+          aspect-[3/4]
           overflow-hidden
           bg-navy
         "
@@ -451,10 +386,10 @@ function TeamCard({ member, index }: TeamCardProps) {
           flex-1
           flex-col
           px-4
-          pb-5
+          pb-4
           pt-2
           sm:px-5
-          sm:pb-6
+          sm:pb-5
         "
       >
         {/* Name */}
@@ -487,7 +422,7 @@ function TeamCard({ member, index }: TeamCardProps) {
 
         <div
           className="
-            mt-4
+            mt-3
             h-[2px]
             w-8
             rounded-full
@@ -504,7 +439,7 @@ function TeamCard({ member, index }: TeamCardProps) {
 
         <p
           className="
-            mt-4
+            mt-3
             text-sm
             leading-6
             text-white/60

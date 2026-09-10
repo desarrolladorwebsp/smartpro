@@ -67,3 +67,43 @@ test("sendEmail captura errores del proveedor y no lanza", async () => {
     }
   }
 });
+
+test("sendEmail incluye adjuntos PDF en la petición a Resend", async () => {
+  const previous = process.env.RESEND_API_KEY;
+  const originalFetch = globalThis.fetch;
+  let body: Record<string, unknown> | null = null;
+
+  try {
+    process.env.RESEND_API_KEY = "re_test";
+    globalThis.fetch = async (_input, init) => {
+      body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return new Response("ok", { status: 200 });
+    };
+
+    const result = await sendEmail({
+      to: "cliente@empresa.cl",
+      subject: "Cotización COT-2026-0001 — SmartPro",
+      text: "Adjuntamos la cotización.",
+      html: "<p>Adjuntamos la cotización.</p>",
+      attachments: [
+        {
+          filename: "COT-2026-0001.pdf",
+          content: Buffer.from("%PDF-test"),
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    assert.equal(result.delivered, true);
+    const parsed = body as { attachments?: Array<{ filename?: string; contentType?: string }> } | null;
+    assert.equal(parsed?.attachments?.[0]?.filename, "COT-2026-0001.pdf");
+    assert.equal(parsed?.attachments?.[0]?.contentType, "application/pdf");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previous === undefined) {
+      delete process.env.RESEND_API_KEY;
+    } else {
+      process.env.RESEND_API_KEY = previous;
+    }
+  }
+});

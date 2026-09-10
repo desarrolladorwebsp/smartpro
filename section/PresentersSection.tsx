@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   ChevronLeft,
@@ -66,6 +65,7 @@ export default function PresentersSection() {
 
   const [itemsPerView, setItemsPerView] = useState(3);
   const [carouselPaused, setCarouselPaused] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   /* ==========================================================
      RESPONSIVE
@@ -109,7 +109,14 @@ export default function PresentersSection() {
   }, [maxIndex]);
 
   useEffect(() => {
-    if (carouselPaused || activePresenterId !== null || maxIndex === 0) return;
+    if (
+      carouselPaused ||
+      activePresenterId !== null ||
+      maxIndex === 0 ||
+      shouldReduceMotion
+    ) {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       nextSlide();
@@ -118,7 +125,7 @@ export default function PresentersSection() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [activePresenterId, carouselPaused, maxIndex, nextSlide]);
+  }, [activePresenterId, carouselPaused, maxIndex, nextSlide, shouldReduceMotion]);
 
   /* ==========================================================
      REPRODUCCIÓN
@@ -145,14 +152,7 @@ export default function PresentersSection() {
   return (
     <section
       id="voceros"
-      className="
-        relative
-        overflow-hidden
-        bg-background
-        py-20
-        sm:py-24
-        lg:py-28
-      "
+      className="section-shell bg-background"
     >
       {/* ======================================================
           FONDO DECORATIVO
@@ -189,21 +189,12 @@ export default function PresentersSection() {
         "
       />
 
-      <div
-        className="
-          relative
-          mx-auto
-          max-w-[1400px]
-          px-5
-          sm:px-6
-          lg:px-10
-        "
-      >
+      <div className="section-container max-w-[1400px]">
         {/* ====================================================
             HEADER
         ==================================================== */}
 
-        <div className="mx-auto mb-12 max-w-4xl text-center">
+        <div className="section-header">
           <motion.p
             initial={{
               opacity: 0,
@@ -215,20 +206,12 @@ export default function PresentersSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.5,
+              amount: 0.3,
             }}
             transition={{
               duration: 0.5,
             }}
-            className="
-              mb-4
-              text-xs
-              font-semibold
-              uppercase
-              tracking-[0.34em]
-              text-primary
-              sm:text-sm
-            "
+            className="eyebrow"
           >
             Voceros para tu marca
           </motion.p>
@@ -236,7 +219,7 @@ export default function PresentersSection() {
           <motion.h2
             initial={{
               opacity: 0,
-              y: 18,
+              y: 16,
             }}
             whileInView={{
               opacity: 1,
@@ -244,34 +227,16 @@ export default function PresentersSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.4,
+              amount: 0.3,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.55,
               delay: 0.05,
             }}
-            className="
-              text-balance
-              text-4xl
-              font-bold
-              leading-[1.05]
-              tracking-[-0.04em]
-              text-foreground
-              sm:text-5xl
-              lg:text-[58px]
-            "
+            className="section-title"
           >
             El rostro de{" "}
-            <span
-              className="
-                bg-gradient-to-r
-                from-primary
-                via-violet-500
-                to-magenta
-                bg-clip-text
-                text-transparent
-              "
-            >
+            <span className="text-gradient-brand">
               tu marca
             </span>
             <span className="block">frente a la cámara.</span>
@@ -295,17 +260,7 @@ export default function PresentersSection() {
               duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           {/* Descripción */}
@@ -313,7 +268,7 @@ export default function PresentersSection() {
           <motion.p
             initial={{
               opacity: 0,
-              y: 12,
+              y: 10,
             }}
             whileInView={{
               opacity: 1,
@@ -323,18 +278,10 @@ export default function PresentersSection() {
               once: true,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              max-w-3xl
-              text-pretty
-              text-base
-              leading-7
-              text-muted
-              sm:text-lg
-            "
+            className="section-copy"
           >
             Contamos con presentadores y modelos profesionales para representar
             tu empresa, producto o servicio en videos, comerciales y contenido
@@ -346,7 +293,7 @@ export default function PresentersSection() {
           <motion.div
             initial={{
               opacity: 0,
-              y: 12,
+              y: 10,
             }}
             whileInView={{
               opacity: 1,
@@ -356,33 +303,14 @@ export default function PresentersSection() {
               once: true,
             }}
             transition={{
-              duration: 0.6,
-              delay: 0.22,
+              duration: 0.5,
+              delay: 0.2,
             }}
-            className="mt-7"
+            className="mt-6"
           >
-            <Link
-              href="/voceros"
-              className="
-                group
-                inline-flex
-                min-h-12
-                items-center
-                justify-center
-                gap-3
-                rounded-full
-                bg-primary
-                px-7
-                text-sm
-                font-semibold
-                text-white
-                shadow-[0_10px_30px_rgba(109,40,217,0.20)]
-                transition-all
-                duration-300
-                hover:-translate-y-0.5
-                hover:bg-primary-hover
-                hover:shadow-[0_15px_35px_rgba(109,40,217,0.28)]
-              "
+            <a
+              href="#contacto"
+              className="btn-primary group shadow-[0_10px_30px_rgba(109,40,217,0.20)]"
             >
               Conoce más
               <ArrowRight
@@ -394,7 +322,7 @@ export default function PresentersSection() {
                   group-hover:translate-x-1
                 "
               />
-            </Link>
+            </a>
           </motion.div>
         </div>
 
@@ -437,7 +365,6 @@ export default function PresentersSection() {
               backdrop-blur-md
               transition-all
               duration-300
-              hover:scale-105
               hover:bg-primary
               hover:text-white
               md:flex
@@ -456,7 +383,7 @@ export default function PresentersSection() {
                 x: `-${safeCurrentIndex * (100 / itemsPerView)}%`,
               }}
               transition={{
-                duration: 0.65,
+                duration: shouldReduceMotion ? 0 : 0.55,
                 ease: [0.22, 1, 0.36, 1],
               }}
               className="flex"
@@ -514,7 +441,6 @@ export default function PresentersSection() {
               backdrop-blur-md
               transition-all
               duration-300
-              hover:scale-105
               hover:bg-primary
               hover:text-white
               md:flex
@@ -529,7 +455,7 @@ export default function PresentersSection() {
 
           <div
             className="
-              mt-7
+              mt-5
               flex
               items-center
               justify-center
@@ -587,7 +513,7 @@ export default function PresentersSection() {
           {maxIndex > 0 && (
             <div
               className="
-                mt-8
+                mt-5
                 flex
                 items-center
                 justify-center
@@ -751,15 +677,18 @@ function PresenterVideoCard({
           mx-auto
           aspect-[9/16]
           w-full
-          max-h-[610px]
+          max-h-[min(26rem,68svh)]
+          max-w-[18.5rem]
           overflow-hidden
           rounded-[24px]
           bg-navy
           shadow-[0_12px_35px_rgba(16,16,36,0.09)]
-          transition-all
+          transition-shadow
           duration-500
-          group-hover:
-          shadow-[0_18px_45px_rgba(16,16,36,0.14)]
+          group-hover:shadow-[0_18px_45px_rgba(16,16,36,0.14)]
+          sm:max-h-[min(32rem,70svh)]
+          sm:max-w-none
+          lg:max-h-[460px]
         "
       >
         {!shouldLoadVideo ? (
@@ -807,7 +736,7 @@ function PresenterVideoCard({
                   rounded-full bg-white/95 text-primary shadow-xl
                   backdrop-blur-sm
                   transition-transform duration-300
-                  group-hover:scale-110
+                  group-hover:scale-[1.04]
                 "
               >
                 <Play
@@ -1026,7 +955,7 @@ function PresenterVideoCard({
           INFORMACIÓN
       ====================================================== */}
 
-      <div className="px-1 pt-4">
+      <div className="px-1 pt-3">
         <h3
           className="
             text-lg

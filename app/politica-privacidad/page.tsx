@@ -38,10 +38,10 @@ export default function PoliticaPrivacidadPage() {
   return (
     <>
       <JsonLd data={breadcrumbSchema} />
-      <main className="mx-auto max-w-4xl px-5 py-16 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-4xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
         <div className="mb-8">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">SmartPro</p>
-          <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-foreground">Política de privacidad</h1>
+          <h1 className="mt-3 text-[clamp(1.75rem,1.1rem+2vw,2.5rem)] font-bold tracking-[-0.05em] text-foreground">Política de privacidad</h1>
         </div>
 
         <div className="space-y-6 text-base leading-7 text-muted">

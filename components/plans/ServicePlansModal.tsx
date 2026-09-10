@@ -397,7 +397,7 @@ export default function ServicePlansModal({
             </div>
 
             <div
-              className={`min-h-0 flex-1 overscroll-contain ${isCategoryOverview ? "overflow-y-auto px-4 py-5 sm:px-5 lg:px-6" : "overflow-hidden px-3 py-2 sm:px-4 sm:py-3 lg:px-5"}`}
+              className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${isCategoryOverview ? "px-4 py-5 sm:px-5 lg:px-6" : "px-3 py-2 sm:px-4 sm:py-3 lg:px-5"}`}
               aria-live="polite"
             >
               {showError ? (
@@ -467,7 +467,7 @@ export default function ServicePlansModal({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12 }}
                       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                      className="flex h-full min-h-0 items-stretch gap-3"
+                      className="flex min-h-0 items-stretch gap-3"
                     >
                       {visiblePlans.length > carouselLayout.visibleCount ? (
                         <button
@@ -499,7 +499,7 @@ export default function ServicePlansModal({
                         style={{ gap: carouselLayout.gap }}
                         className="
                           no-scrollbar flex min-w-0 flex-1 snap-x snap-mandatory items-stretch
-                          overflow-x-auto scroll-px-2 touch-pan-x px-2 py-4
+                          overflow-x-auto overflow-y-hidden scroll-px-2 px-2 py-4
                         "
                       >
                         {showPlans

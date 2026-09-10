@@ -101,11 +101,12 @@ export default function HeroSection() {
       <div
         className="
           relative
-          h-[260px]
+          h-[360px]
           w-full
           overflow-hidden
-          sm:h-[300px]
-          md:h-[350px]
+          sm:h-[360px]
+          md:h-[520px]
+          lg:h-[620px]
           xl:h-[700px]
         "
         onMouseEnter={() => setIsPaused(true)}
@@ -243,12 +244,12 @@ export default function HeroSection() {
 
         <div
           className="
-            absolute bottom-5 left-1/2 z-20
-            hidden -translate-x-1/2 items-center
+            absolute bottom-3 left-1/2 z-20
+            flex -translate-x-1/2 items-center
             gap-2 rounded-full
-            bg-ink/25 px-3 py-2
+            bg-ink/25 px-3 py-1.5
             backdrop-blur-md
-            sm:flex
+            sm:px-3 sm:py-2
           "
         >
           {HERO_IMAGES.map((image, index) => (
@@ -258,7 +259,7 @@ export default function HeroSection() {
               aria-label={`Ir a imagen ${index + 1}`}
               aria-current={currentSlide === index ? "true" : undefined}
               onClick={() => goToSlide(index)}
-              className="flex min-h-11 min-w-11 items-center justify-center"
+              className="flex min-h-9 min-w-9 items-center justify-center sm:min-h-11 sm:min-w-11"
             >
               <span
                 className={`
@@ -330,11 +331,11 @@ export default function HeroSection() {
             flex max-w-4xl
             flex-col items-center
             px-5
-            py-10
+            py-8
             text-center
             sm:px-6
-            sm:py-12
-            lg:py-14
+            sm:py-10
+            lg:py-12
           "
         >
           {/* Etiqueta */}
@@ -361,17 +362,7 @@ export default function HeroSection() {
               delay: 0.08,
               ease: "easeOut",
             }}
-            className="
-              max-w-4xl
-              text-balance
-              text-[2rem]
-              font-bold
-              leading-[1.08]
-              tracking-[-0.045em]
-              text-foreground
-              sm:text-5xl
-              lg:text-6xl
-            "
+            className="hero-title max-w-4xl"
           >
             Llevamos tu marca
             <span className="mt-1 block text-gradient-brand">
@@ -421,7 +412,7 @@ export default function HeroSection() {
               duration: 0.6,
               delay: 0.28,
             }}
-            className="mt-8"
+            className="mt-6 sm:mt-7"
           >
             <a
               href="https://calendly.com/agencia-smartpro/online?month=2026-08"

@@ -52,7 +52,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.4 }}
+            viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.5 }}
             className="eyebrow"
           >
@@ -62,7 +62,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.35 }}
+            viewport={{ once: true, amount: 0.25 }}
             transition={{ duration: 0.6, delay: 0.05 }}
             className="section-title"
           >
@@ -167,12 +167,12 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
             catalog.map((service, index) => (
             <motion.article
               key={service.id}
-              initial={{ opacity: 0, y: 28 }}
+              initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{
-                duration: 0.55,
-                delay: index * 0.06,
+                duration: 0.5,
+                delay: Math.min(index * 0.05, 0.2),
                 ease: "easeOut",
               }}
               className="
@@ -249,13 +249,13 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                   className="
                     max-w-[16ch]
                     text-pretty
-                    text-[1.25rem]
+                    text-[1.15rem]
                     font-semibold
                     leading-[1.15]
                     tracking-[-0.035em]
                     text-on-dark
-                    sm:text-[1.4rem]
-                    xl:text-[1.45rem]
+                    sm:text-[1.3rem]
+                    xl:text-[1.35rem]
                   "
                 >
                   {service.name}

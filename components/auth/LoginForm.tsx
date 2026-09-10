@@ -218,7 +218,7 @@ export default function LoginForm() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-foreground">RUT</span>
+                <span className="mb-2 block text-sm font-medium text-foreground">RUT (opcional)</span>
                 <input
                   value={registerForm.rut}
                   onChange={(event) => setRegisterForm((current) => ({ ...current, rut: event.target.value }))}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { motion } from "motion/react";
-import { ArrowRight, Check, Star } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Star } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
 import { parseMoney } from "@/lib/orders/service";
+import { getVisiblePlanFeatures, shouldShowPlanFeaturesToggle } from "@/lib/services/plan-features";
 
 export type Plan = {
   id?: string;
@@ -51,7 +52,11 @@ type PlanCardProps = {
 
 export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
   const { addItem } = useCart();
+  const featuresId = useId();
   const [isAdded, setIsAdded] = useState(false);
+  const [featuresExpanded, setFeaturesExpanded] = useState(false);
+  const visibleFeatures = getVisiblePlanFeatures(plan.features, featuresExpanded);
+  const showFeaturesToggle = shouldShowPlanFeaturesToggle(plan.features.length);
 
   const handleAddToCart = () => {
     const planId =
@@ -98,7 +103,6 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
         relative
         flex
         h-full
-        min-h-0
         w-full
         min-w-0
         flex-col
@@ -185,13 +189,13 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col py-3">
+      <div className="flex flex-1 flex-col py-3">
         {plan.featureGroupTitle ? (
           <p className="mb-2 text-[12px] font-semibold text-foreground">{plan.featureGroupTitle}</p>
         ) : null}
 
-        <ul className="space-y-1.5">
-          {plan.features.map((feature, featureIndex) => (
+        <ul id={featuresId} className="space-y-1.5">
+          {visibleFeatures.map((feature, featureIndex) => (
             <li key={`${plan.name}-${featureIndex}`} className="flex items-start gap-2">
               <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
                 <Check size={10} strokeWidth={2.6} />
@@ -200,6 +204,31 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
             </li>
           ))}
         </ul>
+
+        {showFeaturesToggle ? (
+          <button
+            type="button"
+            aria-expanded={featuresExpanded}
+            aria-controls={featuresId}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setFeaturesExpanded((current) => !current);
+            }}
+            className="
+              mt-2 inline-flex min-h-8 items-center gap-1 self-start rounded-full px-1.5
+              text-[12px] font-semibold text-primary transition-colors duration-200
+              hover:text-primary-hover
+            "
+          >
+            {featuresExpanded ? "Ver menos" : "Ver más"}
+            <ChevronDown
+              size={14}
+              strokeWidth={2.2}
+              className={`pointer-events-none transition-transform duration-200 ${featuresExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        ) : null}
 
         {plan.note ? (
           <p className="mt-3 rounded-lg bg-soft-background px-2.5 py-2 text-[11px] leading-4 text-muted">

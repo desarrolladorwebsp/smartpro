@@ -1,10 +1,22 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
-import { CLIENT_ORIGINS, QUOTE_MOTIVES, type ClientOrigin, type QuoteMotive } from "./contact-options";
-import { type ClientRecord, type ClientStatus } from "./types";
+import { CLIENT_ORIGINS, type ClientOrigin, type QuoteMotive } from "./contact-options";
+import { emptyClientInterest, formatClientInterestLabel, resolveClientInterest } from "./interest";
+import { getCatalogTree } from "../services/repository";
+import { type ClientCommercialStatus, type ClientRecord, type ClientStatus } from "./types";
 
-export { getClientStatusLabel, type ClientRecord, type ClientStatus } from "./types";
+export {
+  getAssignedExecutiveName,
+  getClientCommercialStatusLabel,
+  getClientStatusLabel,
+  parseAssignedExecutiveId,
+  parseClientCommercialStatus,
+  type ClientAssignedExecutive,
+  type ClientCommercialStatus,
+  type ClientRecord,
+  type ClientStatus,
+} from "./types";
 
 export type ClientPayload = {
   companyName?: string;
@@ -23,6 +35,9 @@ export type ClientPayload = {
   website?: string;
   notes?: string;
   status?: ClientStatus;
+  interestServiceId?: string | null;
+  interestSubcategoryId?: string | null;
+  interestPlanId?: string | null;
 };
 
 export type InitialContactRecord = {
@@ -43,7 +58,11 @@ export type InitialContactRecord = {
   observation: string;
 };
 
-export type InitialContactPayload = Omit<InitialContactRecord, "id" | "clientId" | "createdAt" | "executiveEmail" | "type">;
+export type InitialContactPayload = Omit<InitialContactRecord, "id" | "clientId" | "createdAt" | "executiveEmail" | "type"> & {
+  interestServiceId?: string | null;
+  interestSubcategoryId?: string | null;
+  interestPlanId?: string | null;
+};
 
 export type ClientNoteRecord = {
   id: string;
@@ -74,6 +93,20 @@ type ClientRow = {
   website: string;
   notes: string;
   status: ClientStatus;
+  commercialStatus: ClientCommercialStatus;
+  assignedExecutiveId: string | null;
+  assignedExecutive?: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+    email: string;
+  } | null;
+  interestServiceId: string | null;
+  interestServiceName: string;
+  interestSubcategoryId: string | null;
+  interestSubcategoryName: string;
+  interestPlanId: string | null;
+  interestPlanName: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -111,28 +144,6 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function isValidRut(value: string): boolean {
-  const normalized = normalizeRut(value).replace(/\s+/g, "");
-  if (!/^\d{7,8}-?[0-9Kk]$/.test(normalized)) {
-    return false;
-  }
-
-  const digits = normalized.replace("-", "");
-  const body = digits.slice(0, -1);
-  const verifier = digits.slice(-1).toUpperCase();
-  const factors = [3, 2, 7, 6, 5, 4, 3, 2];
-
-  let sum = 0;
-  for (let index = body.length - 1, factorIndex = 0; index >= 0; index -= 1, factorIndex += 1) {
-    sum += Number(body[index]) * factors[factorIndex % factors.length];
-  }
-
-  const expected = 11 - (sum % 11);
-  const actual = expected === 11 ? "0" : expected === 10 ? "K" : String(expected);
-
-  return actual === verifier;
-}
-
 function isPrismaUniqueError(error: unknown, field: string): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -140,6 +151,34 @@ function isPrismaUniqueError(error: unknown, field: string): boolean {
     Array.isArray(error.meta?.target) &&
     error.meta.target.includes(field)
   );
+}
+
+const ASSIGNED_EXECUTIVE_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+} as const;
+
+function toAssignedExecutive(
+  executive:
+    | {
+        id: string;
+        firstName: string;
+        lastName: string | null;
+        email: string;
+      }
+    | null
+    | undefined,
+) {
+  if (!executive) return null;
+
+  return {
+    id: executive.id,
+    firstName: executive.firstName,
+    lastName: executive.lastName ?? "",
+    email: executive.email,
+  };
 }
 
 function toClientRecord(client: ClientRow): ClientRecord {
@@ -158,6 +197,15 @@ function toClientRecord(client: ClientRow): ClientRecord {
     website: client.website,
     notes: client.notes,
     status: client.status,
+    commercialStatus: client.commercialStatus,
+    assignedExecutiveId: client.assignedExecutiveId,
+    assignedExecutive: toAssignedExecutive(client.assignedExecutive),
+    interestServiceId: client.interestServiceId ?? null,
+    interestServiceName: client.interestServiceName ?? "",
+    interestSubcategoryId: client.interestSubcategoryId ?? null,
+    interestSubcategoryName: client.interestSubcategoryName ?? "",
+    interestPlanId: client.interestPlanId ?? null,
+    interestPlanName: client.interestPlanName ?? "",
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
   };
@@ -239,18 +287,57 @@ function normalizeClientPayload(input: ClientPayload): ClientRecord {
     website: normalizeText(input.website ?? "").replace(/^https?:\/\//i, ""),
     notes: normalizeText(input.notes ?? ""),
     status: input.status ?? "ACTIVO",
+    commercialStatus: "PROSPECTO",
+    assignedExecutiveId: null,
+    assignedExecutive: null,
+    interestServiceId: input.interestServiceId ?? null,
+    interestServiceName: "",
+    interestSubcategoryId: input.interestSubcategoryId ?? null,
+    interestSubcategoryName: "",
+    interestPlanId: input.interestPlanId ?? null,
+    interestPlanName: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 }
 
+async function resolveInterestForPayload(input: ClientPayload) {
+  const hasInterestInput =
+    input.interestServiceId !== undefined ||
+    input.interestSubcategoryId !== undefined ||
+    input.interestPlanId !== undefined;
+
+  if (!hasInterestInput) {
+    return null;
+  }
+
+  return resolveClientInterest(await getCatalogTree(), {
+    interestServiceId: input.interestServiceId,
+    interestSubcategoryId: input.interestSubcategoryId,
+    interestPlanId: input.interestPlanId,
+  });
+}
+
+function interestWriteData(interest: ReturnType<typeof emptyClientInterest>) {
+  return {
+    interestServiceId: interest.interestServiceId,
+    interestServiceName: interest.interestServiceName,
+    interestSubcategoryId: interest.interestSubcategoryId,
+    interestSubcategoryName: interest.interestSubcategoryName,
+    interestPlanId: interest.interestPlanId,
+    interestPlanName: interest.interestPlanName,
+  };
+}
+
+function compactClientPayload(input: ClientPayload): ClientPayload {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  ) as ClientPayload;
+}
+
 function validateClientPayload(normalized: ClientRecord) {
   if (!normalized.companyName) {
     throw new Error("La empresa es obligatoria.");
-  }
-
-  if (!normalized.rut || !isValidRut(normalized.rut)) {
-    throw new Error("RUT inválido.");
   }
 
   if (!normalized.contactFirstName || !normalized.contactLastName) {
@@ -264,6 +351,7 @@ function validateClientPayload(normalized: ClientRecord) {
 
 export async function listClients(): Promise<ClientRecord[]> {
   const clients = await getPrisma().client.findMany({
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -271,7 +359,10 @@ export async function listClients(): Promise<ClientRecord[]> {
 }
 
 export async function getClientById(id: string): Promise<ClientRecord | null> {
-  const client = await getPrisma().client.findUnique({ where: { id } });
+  const client = await getPrisma().client.findUnique({
+    where: { id },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
+  });
   return client ? toClientRecord(client) : null;
 }
 
@@ -296,7 +387,10 @@ export async function findClientByRut(rut: string): Promise<ClientRecord | null>
     return null;
   }
 
-  const client = await getPrisma().client.findUnique({ where: { rut: normalized } });
+  const client = await getPrisma().client.findFirst({
+    where: { rut: normalized },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
+  });
   return client ? toClientRecord(client) : null;
 }
 
@@ -307,19 +401,23 @@ export async function findClientByEmail(email: string): Promise<ClientRecord | n
     return null;
   }
 
-  const client = await getPrisma().client.findFirst({ where: { email: normalized } });
+  const client = await getPrisma().client.findFirst({
+    where: { email: normalized },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
+  });
   return client ? toClientRecord(client) : null;
 }
 
 export async function createClientRecord(input: ClientPayload): Promise<ClientRecord> {
   const normalized = normalizeClientPayload(input);
   validateClientPayload(normalized);
+  const interest = (await resolveInterestForPayload(input)) ?? emptyClientInterest();
 
   if (normalized.email && (await findClientByEmail(normalized.email))) {
     throw new Error("El email ya está registrado para otro cliente.");
   }
 
-  if (await findClientByRut(normalized.rut)) {
+  if (normalized.rut && (await findClientByRut(normalized.rut))) {
     throw new Error("El RUT ya está registrado.");
   }
 
@@ -339,7 +437,9 @@ export async function createClientRecord(input: ClientPayload): Promise<ClientRe
         website: normalized.website,
         notes: normalized.notes,
         status: normalized.status,
+        ...interestWriteData(interest),
       },
+      include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
     });
 
     return toClientRecord(created);
@@ -361,11 +461,11 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
 
   const normalized = normalizeClientPayload({
     ...existing,
-    ...input,
+    ...compactClientPayload(input),
   });
   validateClientPayload(normalized);
 
-  const duplicateRut = await findClientByRut(normalized.rut);
+  const duplicateRut = normalized.rut ? await findClientByRut(normalized.rut) : null;
   if (duplicateRut && duplicateRut.id !== id) {
     throw new Error("El RUT ya está registrado.");
   }
@@ -374,6 +474,8 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
   if (duplicateEmail && duplicateEmail.id !== id) {
     throw new Error("El email ya está registrado para otro cliente.");
   }
+
+  const interest = await resolveInterestForPayload(input);
 
   try {
     const updated = await getPrisma().client.update({
@@ -392,7 +494,9 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
         website: normalized.website,
         notes: normalized.notes,
         status: normalized.status,
+        ...(interest ? interestWriteData(interest) : {}),
       },
+      include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
     });
 
     return toClientRecord(updated);
@@ -415,6 +519,61 @@ export async function updateClientStatus(id: string, status: ClientStatus): Prom
   const updated = await getPrisma().client.update({
     where: { id },
     data: { status },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
+  });
+
+  return toClientRecord(updated);
+}
+
+export async function updateClientCommercialStatus(
+  id: string,
+  commercialStatus: ClientCommercialStatus,
+): Promise<ClientRecord> {
+  const current = await getClientById(id);
+
+  if (!current) {
+    throw new Error("El cliente no existe.");
+  }
+
+  const updated = await getPrisma().client.update({
+    where: { id },
+    data: { commercialStatus },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
+  });
+
+  return toClientRecord(updated);
+}
+
+export async function assignClientExecutive(id: string, executiveId: string | null): Promise<ClientRecord> {
+  const current = await getClientById(id);
+
+  if (!current) {
+    throw new Error("El cliente no existe.");
+  }
+
+  if (executiveId && current.assignedExecutiveId === executiveId) {
+    return current;
+  }
+
+  if (executiveId) {
+    const executive = await getPrisma().user.findFirst({
+      where: {
+        id: executiveId,
+        role: { in: ["EXECUTIVE", "ADMIN"] },
+        status: "ACTIVE",
+      },
+      select: ASSIGNED_EXECUTIVE_SELECT,
+    });
+
+    if (!executive) {
+      throw new Error("El ejecutivo no está disponible para asignar.");
+    }
+  }
+
+  const updated = await getPrisma().client.update({
+    where: { id },
+    data: { assignedExecutiveId: executiveId },
+    include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
   });
 
   return toClientRecord(updated);
@@ -470,18 +629,15 @@ export async function registerInitialContact(
   }
 
   const origin = input.origin;
-  const quoteMotive = input.quoteMotive;
   const firstName = normalizeText(input.firstName ?? "");
   const lastName = normalizeText(input.lastName ?? "");
   const companyName = normalizeText(input.companyName ?? "");
   const email = normalizeEmail(input.email ?? "");
+  const interest = await resolveInterestForPayload(input);
+  const quoteMotive = formatClientInterestLabel(interest ?? emptyClientInterest()) || normalizeText(input.quoteMotive ?? "");
 
   if (!CLIENT_ORIGINS.includes(origin)) {
     throw new Error("Selecciona un origen válido.");
-  }
-
-  if (!QUOTE_MOTIVES.includes(quoteMotive)) {
-    throw new Error("Selecciona un motivo de cotización válido.");
   }
 
   if (!firstName || !lastName || !companyName) {
@@ -523,6 +679,7 @@ export async function registerInitialContact(
         phone,
         website,
         status: client.status === "INACTIVO" ? "POTENCIAL" : client.status,
+        ...(interest ? interestWriteData(interest) : {}),
       },
     }),
   ]);

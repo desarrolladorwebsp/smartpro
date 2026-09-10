@@ -42,6 +42,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       website: body.website,
       notes: body.notes,
       status: (body.status as "ACTIVO" | "POTENCIAL" | "INACTIVO") ?? "ACTIVO",
+      interestServiceId: body.interestServiceId,
+      interestSubcategoryId: body.interestSubcategoryId,
+      interestPlanId: body.interestPlanId,
     });
 
     return NextResponse.json({ client }, { status: 200 });

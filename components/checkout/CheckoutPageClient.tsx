@@ -58,7 +58,7 @@ export default function CheckoutPageClient() {
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Resumen de compra</p>
-                <h1 className="mt-2 text-3xl font-bold tracking-[-0.05em] text-foreground sm:text-4xl">Finaliza tu contratación</h1>
+                <h1 className="mt-2 text-[clamp(1.5rem,1.05rem+1.8vw,2rem)] font-bold tracking-[-0.05em] text-foreground">Finaliza tu contratación</h1>
               </div>
               <div className="rounded-full border border-primary/15 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">
                 {items.reduce((sum, item) => sum + item.quantity, 0)} productos

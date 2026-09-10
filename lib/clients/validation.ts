@@ -39,8 +39,8 @@ export function parseClientRegistration(body: {
   const rut = normalizeRut(String(body.rut ?? ""));
   const password = String(body.password ?? "").trim();
 
-  if (!firstName || !lastName || !businessName || !rut || !email || !phone || !password) {
-    return { ok: false, error: "Todos los campos son obligatorios." };
+  if (!firstName || !lastName || !businessName || !email || !phone || !password) {
+    return { ok: false, error: "Completa los campos obligatorios." };
   }
 
   if (!emailPattern.test(email)) {
@@ -53,10 +53,6 @@ export function parseClientRegistration(body: {
 
   if (password.length < 8) {
     return { ok: false, error: "La contraseña debe tener al menos 8 caracteres." };
-  }
-
-  if (!/^\d{7,8}-?[0-9Kk]$/.test(rut.replace(/\s+/g, ""))) {
-    return { ok: false, error: "RUT inválido." };
   }
 
   return {

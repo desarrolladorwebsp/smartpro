@@ -1,8 +1,15 @@
+type EmailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+};
+
 type SendEmailInput = {
   to: string | string[];
   subject: string;
   text: string;
   html?: string;
+  attachments?: EmailAttachment[];
 };
 
 export type SendEmailResult =
@@ -21,6 +28,20 @@ function normalizeRecipients(to: string | string[]): string[] {
   return recipients;
 }
 
+function toResendAttachments(attachments: EmailAttachment[] | undefined) {
+  if (!attachments?.length) {
+    return undefined;
+  }
+
+  return attachments.map((attachment) => ({
+    filename: attachment.filename,
+    content: Buffer.isBuffer(attachment.content)
+      ? attachment.content.toString("base64")
+      : attachment.content,
+    contentType: attachment.contentType,
+  }));
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const subject = input.subject.trim();
   const text = input.text.trim();
@@ -37,11 +58,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   const to = normalizeRecipients(input.to);
   const from = process.env.EMAIL_FROM?.trim() || "SmartPro <no-reply@smartpro.cl>";
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const attachments = toResendAttachments(input.attachments);
 
   if (!resendApiKey) {
     console.info("[smartpro:email] Correo no enviado: RESEND_API_KEY no configurada.", {
       to,
       subject,
+      attachments: attachments?.map((item) => item.filename),
     });
     return { delivered: false, provider: "console" };
   }
@@ -59,6 +82,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         subject,
         text,
         ...(html ? { html } : {}),
+        ...(attachments ? { attachments } : {}),
       }),
     });
 
@@ -76,6 +100,6 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 }
 
-export async function sendPlainTextEmail(input: Omit<SendEmailInput, "html">) {
+export async function sendPlainTextEmail(input: Omit<SendEmailInput, "html" | "attachments">) {
   return sendEmail(input);
 }

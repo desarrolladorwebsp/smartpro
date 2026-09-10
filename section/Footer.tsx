@@ -168,17 +168,17 @@ export default function Footer() {
           mx-auto
           max-w-[1500px]
           px-5
-          py-16
+          py-12
           sm:px-6
-          sm:py-20
+          sm:py-16
           lg:px-8
-          lg:py-24
+          lg:py-20
         "
       >
         <div
           className="
             grid
-            gap-12
+            gap-10
             md:grid-cols-2
             lg:grid-cols-[1.4fr_0.8fr_0.9fr_1fr]
             lg:gap-10
@@ -360,22 +360,21 @@ export default function Footer() {
 
             <nav aria-label="Mapa del sitio" className="mt-6">
               <ul className="space-y-3">
-                {SITE_MAP.map((item) => (
-                  <li key={item.label}>
-                    <Link
-                      href={item.href}
-                      className="
-                        group
-                        inline-flex
-                        items-center
-                        gap-2
-                        text-sm
-                        text-white/60
-                        transition-colors
-                        duration-300
-                        hover:text-white
-                      "
-                    >
+                {SITE_MAP.map((item) => {
+                  const className = `
+                    group
+                    inline-flex
+                    items-center
+                    gap-2
+                    text-sm
+                    text-white/60
+                    transition-colors
+                    duration-300
+                    hover:text-white
+                  `;
+
+                  const content = (
+                    <>
                       <span
                         className="
                           h-1
@@ -388,11 +387,24 @@ export default function Footer() {
                           group-hover:bg-magenta
                         "
                       />
-
                       {item.label}
-                    </Link>
-                  </li>
-                ))}
+                    </>
+                  );
+
+                  return (
+                    <li key={item.label}>
+                      {item.href.startsWith("/#") ? (
+                        <a href={item.href} className={className}>
+                          {content}
+                        </a>
+                      ) : (
+                        <Link href={item.href} className={className}>
+                          {content}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
           </motion.div>

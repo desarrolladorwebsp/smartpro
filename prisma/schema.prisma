@@ -43,6 +43,7 @@ model User {
   invitedInvitations Invitation[] @relation("InvitationInvitedBy")
   acceptedInvitations Invitation[] @relation("InvitationAcceptedBy")
   sessions           Session[]
+  assignedClients    Client[]     @relation("ClientAssignedExecutive")
 
   @@index([email])
   @@index([role])
@@ -90,6 +91,12 @@ enum ClientStatus {
   INACTIVO
 }
 
+enum ClientCommercialStatus {
+  PROSPECTO
+  EN_SEGUIMIENTO
+  CERRADO_PERDIDO
+}
+
 enum OrderStatus {
   pending
   confirmed
@@ -112,7 +119,7 @@ enum PaymentMethod {
 model Client {
   id               String       @id @default(cuid())
   companyName      String
-  rut              String       @unique
+  rut              String       @default("")
   contactFirstName String
   contactLastName  String
   email            String       @default("")
@@ -124,14 +131,33 @@ model Client {
   website          String       @default("")
   notes            String       @default("") @db.Text
   status           ClientStatus @default(ACTIVO)
+  commercialStatus ClientCommercialStatus @default(PROSPECTO)
+  assignedExecutiveId String?
+  assignedExecutive   User?     @relation("ClientAssignedExecutive", fields: [assignedExecutiveId], references: [id], onDelete: SetNull)
+  interestServiceId          String?
+  interestServiceName        String  @default("")
+  interestSubcategoryId      String?
+  interestSubcategoryName    String  @default("")
+  interestPlanId             String?
+  interestPlanName           String  @default("")
+  interestService            ServiceCategory?    @relation("ClientInterestService", fields: [interestServiceId], references: [id], onDelete: SetNull)
+  interestSubcategory        ServiceSubcategory? @relation("ClientInterestSubcategory", fields: [interestSubcategoryId], references: [id], onDelete: SetNull)
+  interestPlan               ServicePlan?        @relation("ClientInterestPlan", fields: [interestPlanId], references: [id], onDelete: SetNull)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
   clientNotes    ClientNote[]
   initialContact InitialContact?
+  quotes         Quote[]
 
   @@index([email])
   @@index([status])
+  @@index([commercialStatus])
+  @@index([assignedExecutiveId])
+  @@index([rut])
+  @@index([interestServiceId])
+  @@index([interestSubcategoryId])
+  @@index([interestPlanId])
 }
 
 model ClientNote {
@@ -182,6 +208,7 @@ model ServiceCategory {
   updatedAt   DateTime      @updatedAt
 
   subcategories ServiceSubcategory[]
+  interestedClients Client[] @relation("ClientInterestService")
 
   @@index([status])
   @@index([sortOrder])
@@ -199,6 +226,7 @@ model ServiceSubcategory {
   updatedAt  DateTime      @updatedAt
 
   plans ServicePlan[]
+  interestedClients Client[] @relation("ClientInterestSubcategory")
 
   @@unique([categoryId, slug])
   @@index([categoryId])
@@ -228,6 +256,8 @@ model ServicePlan {
   updatedAt         DateTime      @updatedAt
 
   items ServicePlanItem[]
+  quoteItems QuoteItem[]
+  interestedClients Client[] @relation("ClientInterestPlan")
 
   @@unique([subcategoryId, slug])
   @@index([subcategoryId])
@@ -294,4 +324,58 @@ model OrderItem {
   total        Decimal @db.Decimal(12, 2)
 
   @@index([orderId])
+}
+
+enum QuoteStatus {
+  DRAFT
+  CREATED
+  SENT
+  ACCEPTED
+  REJECTED
+}
+
+model Quote {
+  id             String      @id @default(cuid())
+  number         String      @unique
+  status         QuoteStatus @default(DRAFT)
+  clientId       String
+  client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdByEmail String
+  notes                   String      @default("") @db.Text
+  validUntil              DateTime?
+  deliveryBusinessDays    Int         @default(15)
+  initialPaymentPercent   Int         @default(50)
+  subtotal                Decimal     @db.Decimal(12, 2)
+  tax            Decimal     @db.Decimal(12, 2)
+  total          Decimal     @db.Decimal(12, 2)
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  items          QuoteItem[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model QuoteItem {
+  id              String       @id @default(cuid())
+  quoteId         String
+  quote           Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  planId          String?
+  plan            ServicePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  planName        String
+  categoryName    String
+  subcategoryName String
+  quantity        Int
+  unitPrice       Decimal      @db.Decimal(12, 2)
+  taxRate         Decimal      @default(0.19) @db.Decimal(5, 4)
+  includedItems   Json
+  subtotal        Decimal      @db.Decimal(12, 2)
+  tax             Decimal      @db.Decimal(12, 2)
+  total           Decimal      @db.Decimal(12, 2)
+  sortOrder       Int          @default(0)
+
+  @@index([quoteId])
+  @@index([planId])
 }

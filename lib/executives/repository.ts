@@ -61,6 +61,21 @@ export async function listExecutives(): Promise<ExecutiveRecord[]> {
   return rows.map(toExecutiveRecord);
 }
 
+export async function listAssignableExecutives(): Promise<ExecutiveRecord[]> {
+  const db = getPrisma();
+
+  const rows = await db.user.findMany({
+    where: {
+      role: { in: ["EXECUTIVE", "ADMIN"] },
+      status: "ACTIVE",
+    },
+    select: EXECUTIVE_SELECT,
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
+
+  return rows.map(toExecutiveRecord);
+}
+
 export async function createExecutive(input: ExecutiveRegistrationInput): Promise<ExecutiveRecord> {
   const db = getPrisma();
 

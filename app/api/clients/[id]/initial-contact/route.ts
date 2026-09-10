@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       id,
       {
         origin: body.origin as InitialContactPayload["origin"],
-        quoteMotive: body.quoteMotive as InitialContactPayload["quoteMotive"],
+        quoteMotive: String(body.quoteMotive ?? ""),
         firstName: String(body.firstName ?? ""),
         lastName: String(body.lastName ?? ""),
         phone: String(body.phone ?? ""),
@@ -22,6 +22,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         website: String(body.website ?? ""),
         socialMedia: String(body.socialMedia ?? ""),
         observation: String(body.observation ?? ""),
+        interestServiceId: body.interestServiceId,
+        interestSubcategoryId: body.interestSubcategoryId,
+        interestPlanId: body.interestPlanId,
       },
       session.email,
     );

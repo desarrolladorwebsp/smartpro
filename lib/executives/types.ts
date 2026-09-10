@@ -22,3 +22,8 @@ export function getExecutiveRoleLabel(role: ExecutiveRole): string {
 
   return labels[role] ?? role;
 }
+
+export function getExecutiveDisplayName(executive: Pick<ExecutiveRecord, "firstName" | "lastName" | "email">): string {
+  const name = `${executive.firstName} ${executive.lastName}`.trim();
+  return name || executive.email;
+}

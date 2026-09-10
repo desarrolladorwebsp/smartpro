@@ -321,9 +321,8 @@ export default function Navbar() {
                   scale: 0.98,
                 }}
                 transition={{
-                  type: "spring",
-                  stiffness: 350,
-                  damping: 22,
+                  duration: 0.25,
+                  ease: "easeOut",
                 }}
                 className="
                   relative flex h-12 w-[54px] items-center justify-center

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "motion/react";
 
@@ -37,43 +38,51 @@ function ClientLogo({
   name: string;
   logo: string;
 }) {
+  const [failed, setFailed] = useState(false);
+
   return (
     <div
       className="
         group
-        flex h-[88px] w-[170px] shrink-0
+        flex h-[72px] w-[150px] shrink-0
         items-center justify-center
         rounded-lg
         border border-black/[0.06]
         bg-white
-        px-6
+        px-5
         shadow-[0_6px_24px_rgba(16,16,36,0.035)]
         transition-[border-color,box-shadow,transform] duration-300 ease-out
-        sm:h-[96px] sm:w-[190px]
-        lg:h-[104px] lg:w-[210px]
+        sm:h-[84px] sm:w-[176px]
+        lg:h-[92px] lg:w-[196px]
         hover:-translate-y-0.5
-        hover:scale-[1.015]
         hover:border-primary/25
         hover:shadow-[0_12px_30px_rgba(109,40,217,0.10)]
       "
     >
-      <div className="relative h-[52px] w-full sm:h-[58px]">
-        <Image
-          src={logo}
-          alt={`Logo de ${name}`}
-          fill
-          sizes="210px"
-          className="
-            object-contain
-            opacity-65
-            grayscale
-            transition-[filter,opacity,transform] duration-300 ease-out
-            group-hover:opacity-100
-            group-hover:grayscale-0
-            group-hover:scale-[1.025]
-          "
-        />
-      </div>
+      {failed ? (
+        <span className="px-1 text-center text-xs font-medium tracking-wide text-muted">
+          {name}
+        </span>
+      ) : (
+        <div className="relative h-[44px] w-full sm:h-[52px]">
+          <Image
+            src={logo}
+            alt={`Logo de ${name}`}
+            fill
+            sizes="196px"
+            onError={() => setFailed(true)}
+            className="
+              object-contain
+              opacity-65
+              grayscale
+              transition-[filter,opacity,transform] duration-300 ease-out
+              group-hover:opacity-100
+              group-hover:grayscale-0
+              group-hover:scale-[1.02]
+            "
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -84,7 +93,7 @@ export default function ClientsMarqueeSection() {
   return (
     <motion.section
       aria-labelledby="clients-title"
-      className="relative overflow-hidden bg-[#F8F7FC] py-16 sm:py-20 lg:py-24"
+      className="relative overflow-hidden bg-[#F8F7FC] py-10 sm:py-12 lg:py-14"
       initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
       whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
@@ -102,6 +111,10 @@ export default function ClientsMarqueeSection() {
       />
 
     
+
+      <h2 id="clients-title" className="sr-only">
+        Marcas que confían en SmartPro
+      </h2>
 
       {/* Carrusel */}
       <div className="clients-marquee relative w-full overflow-hidden">

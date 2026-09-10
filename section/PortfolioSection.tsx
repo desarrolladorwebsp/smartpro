@@ -400,7 +400,7 @@ export default function PortfolioSection() {
             duration: 0.5,
             delay: 0.2,
           }}
-          className="mb-8 md:mb-10"
+          className="mb-6 md:mb-8"
         >
           <div className="relative mx-auto w-full max-w-sm md:hidden">
             <label htmlFor="portfolio-filter" className="sr-only">
@@ -752,10 +752,11 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
           <div>
             <h3
               className="
-                text-xl
+                text-lg
                 font-semibold
                 tracking-[-0.025em]
                 text-foreground
+                sm:text-xl
               "
             >
               {project.title}

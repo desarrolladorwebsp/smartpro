@@ -68,14 +68,7 @@ export default function LocationSection() {
   return (
     <section
       id="ubicacion"
-      className="
-        relative
-        overflow-hidden
-        bg-background
-        py-20
-        sm:py-24
-        lg:py-28
-      "
+      className="section-shell bg-background"
     >
       {/* ======================================================
           DECORACIONES
@@ -112,21 +105,12 @@ export default function LocationSection() {
         "
       />
 
-      <div
-        className="
-          relative
-          mx-auto
-          max-w-[1500px]
-          px-5
-          sm:px-6
-          lg:px-8
-        "
-      >
+      <div className="section-container max-w-[1500px]">
         {/* ====================================================
             HEADER
         ==================================================== */}
 
-        <div className="mx-auto mb-12 max-w-4xl text-center">
+        <div className="section-header">
           <motion.p
             initial={{
               opacity: 0,
@@ -138,20 +122,12 @@ export default function LocationSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.5,
+              amount: 0.3,
             }}
             transition={{
               duration: 0.5,
             }}
-            className="
-              mb-4
-              text-xs
-              font-semibold
-              uppercase
-              tracking-[0.34em]
-              text-primary
-              sm:text-sm
-            "
+            className="eyebrow"
           >
             Dónde estamos
           </motion.p>
@@ -159,7 +135,7 @@ export default function LocationSection() {
           <motion.h2
             initial={{
               opacity: 0,
-              y: 18,
+              y: 16,
             }}
             whileInView={{
               opacity: 1,
@@ -167,34 +143,16 @@ export default function LocationSection() {
             }}
             viewport={{
               once: true,
-              amount: 0.4,
+              amount: 0.3,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.55,
               delay: 0.05,
             }}
-            className="
-              text-balance
-              text-4xl
-              font-bold
-              leading-[1.05]
-              tracking-[-0.04em]
-              text-foreground
-              sm:text-5xl
-              lg:text-[58px]
-            "
+            className="section-title"
           >
             Visítanos en{" "}
-            <span
-              className="
-                bg-gradient-to-r
-                from-primary
-                via-violet-500
-                to-magenta
-                bg-clip-text
-                text-transparent
-              "
-            >
+            <span className="text-gradient-brand">
               nuestras oficinas
             </span>
           </motion.h2>
@@ -217,23 +175,13 @@ export default function LocationSection() {
               duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              my-6
-              h-[3px]
-              w-14
-              origin-center
-              rounded-full
-              bg-gradient-to-r
-              from-primary
-              to-magenta
-            "
+            className="accent-line"
           />
 
           <motion.p
             initial={{
               opacity: 0,
-              y: 12,
+              y: 10,
             }}
             whileInView={{
               opacity: 1,
@@ -243,18 +191,10 @@ export default function LocationSection() {
               once: true,
             }}
             transition={{
-              duration: 0.6,
+              duration: 0.5,
               delay: 0.15,
             }}
-            className="
-              mx-auto
-              max-w-2xl
-              text-pretty
-              text-base
-              leading-7
-              text-muted
-              sm:text-lg
-            "
+            className="section-copy"
           >
             Estamos ubicados en Providencia, Santiago. Fácil acceso y
             conectividad para reunirnos contigo.
@@ -280,11 +220,11 @@ export default function LocationSection() {
           <motion.div
             initial={{
               opacity: 0,
-              x: -24,
+              y: 16,
             }}
             whileInView={{
               opacity: 1,
-              x: 0,
+              y: 0,
             }}
             viewport={{
               once: true,
@@ -299,9 +239,9 @@ export default function LocationSection() {
               border
               border-border
               bg-white
-              p-6
+              p-5
               shadow-[0_12px_40px_rgba(16,16,36,0.08)]
-              sm:p-7
+              sm:p-6
             "
           >
             <div>
@@ -316,7 +256,7 @@ export default function LocationSection() {
                       gap-4
                       ${
                         index < LOCATION_ITEMS.length - 1
-                          ? "border-b border-border pb-6 mb-6"
+                          ? "border-b border-border pb-4 mb-4"
                           : ""
                       }
                     `}
@@ -326,8 +266,8 @@ export default function LocationSection() {
                     <div
                       className="
                         flex
-                        h-12
-                        w-12
+                        h-10
+                        w-10
                         shrink-0
                         items-center
                         justify-center
@@ -407,11 +347,11 @@ export default function LocationSection() {
           <motion.div
             initial={{
               opacity: 0,
-              x: 24,
+              y: 16,
             }}
             whileInView={{
               opacity: 1,
-              x: 0,
+              y: 0,
             }}
             viewport={{
               once: true,
@@ -434,14 +374,15 @@ export default function LocationSection() {
                 relative
                 block
                 h-full
-                min-h-[420px]
+                min-h-[240px]
                 overflow-hidden
                 rounded-[24px]
                 border
                 border-border
                 bg-soft-background
                 shadow-[0_12px_40px_rgba(16,16,36,0.08)]
-                lg:min-h-[520px]
+                sm:min-h-[300px]
+                lg:min-h-[380px]
               "
             >
               {/* MAP IMAGE */}
@@ -539,7 +480,7 @@ export default function LocationSection() {
             delay: 0.18,
           }}
           className="
-            mt-6
+            mt-5
             flex
             items-center
             justify-center

@@ -231,9 +231,9 @@ export default function ContactSection() {
         isolate
         overflow-hidden
         bg-navy
-        py-20
-        sm:py-24
-        lg:py-28
+        py-14
+        sm:py-16
+        lg:py-20
       "
     >
       {/* ======================================================
@@ -305,14 +305,14 @@ export default function ContactSection() {
           mx-auto
           grid
           max-w-[1500px]
-          gap-14
+          gap-10
           px-5
           sm:px-6
           lg:grid-cols-[0.9fr_1.1fr]
           lg:items-center
-          lg:gap-16
+          lg:gap-14
           lg:px-8
-          xl:gap-24
+          xl:gap-16
         "
       >
         {/* ====================================================
@@ -322,11 +322,11 @@ export default function ContactSection() {
         <motion.div
           initial={{
             opacity: 0,
-            x: -24,
+            y: 16,
           }}
           whileInView={{
             opacity: 1,
-            x: 0,
+            y: 0,
           }}
           viewport={{
             once: true,
@@ -341,7 +341,7 @@ export default function ContactSection() {
 
           <div
             className="
-              mb-6
+              mb-4
               flex
               items-center
               gap-4
@@ -373,20 +373,7 @@ export default function ContactSection() {
 
           {/* TITLE */}
 
-          <h2
-            className="
-              max-w-[670px]
-              text-balance
-              text-[42px]
-              font-bold
-              leading-[1.03]
-              tracking-[-0.045em]
-              text-white
-              sm:text-5xl
-              lg:text-[56px]
-              xl:text-[62px]
-            "
-          >
+          <h2 className="section-title-on-dark max-w-[670px]">
             Cuéntanos tu idea
             <span className="block">y hagamos crecer</span>
             <span
@@ -409,7 +396,7 @@ export default function ContactSection() {
 
           <div
             className="
-              my-7
+              my-5
               h-[2px]
               w-10
               rounded-full
@@ -424,10 +411,10 @@ export default function ContactSection() {
           <p
             className="
               max-w-xl
-              text-base
+              text-[0.95rem]
               leading-7
-              text-white/65
-              sm:text-lg
+              text-white/75
+              sm:text-base
             "
           >
             Estamos listos para escuchar tu proyecto, entender tus objetivos y
@@ -438,7 +425,7 @@ export default function ContactSection() {
               SOCIALS
           ================================================== */}
 
-          <div className="mt-10">
+          <div className="mt-8">
             <div
               className="
                 mb-5
@@ -491,7 +478,7 @@ export default function ContactSection() {
 
           <div
             className="
-              mt-8
+              mt-6
               grid
               gap-4
               sm:grid-cols-2
@@ -523,11 +510,11 @@ export default function ContactSection() {
         <motion.div
           initial={{
             opacity: 0,
-            x: 24,
+            y: 16,
           }}
           whileInView={{
             opacity: 1,
-            x: 0,
+            y: 0,
           }}
           viewport={{
             once: true,
@@ -564,11 +551,11 @@ export default function ContactSection() {
               border
               border-primary/35
               bg-navy/70
-              p-6
+              p-5
               shadow-[0_30px_90px_rgba(0,0,0,0.28)]
               backdrop-blur-2xl
-              sm:p-8
-              lg:p-9
+              sm:p-7
+              lg:p-8
             "
           >
             {/* CARD DECORATION */}
@@ -608,11 +595,11 @@ export default function ContactSection() {
             <div className="relative">
               <h3
                 className="
-                  text-2xl
+                  text-xl
                   font-semibold
                   tracking-[-0.03em]
                   text-white
-                  sm:text-[28px]
+                  sm:text-2xl
                 "
               >
                 Cuéntanos sobre tu proyecto

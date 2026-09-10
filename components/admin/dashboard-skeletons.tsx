@@ -138,6 +138,41 @@ export function ServicesPageSkeleton() {
   );
 }
 
+export function QuotesPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <FilterBarSkeleton />
+      <TableSkeleton columns={7} />
+    </div>
+  );
+}
+
+export function QuoteDetailPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <section className="rounded-[26px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
+          <Pulse className="h-6 w-48 rounded-full" />
+          <div className="mt-5 space-y-4">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Pulse key={index} className="h-24 w-full rounded-2xl" />
+            ))}
+          </div>
+        </section>
+        <aside className="space-y-4 rounded-[26px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
+          <Pulse className="h-2.5 w-20 rounded-full" />
+          <Pulse className="h-7 w-40 rounded-full" />
+          <Pulse className="h-28 w-full rounded-2xl" />
+          <Pulse className="h-11 w-full rounded-full" />
+          <Pulse className="h-11 w-full rounded-full" />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export function PurchasesPageSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-live="polite">
@@ -181,47 +216,41 @@ export function ClientDetailPageSkeleton() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Pulse className="h-8 w-20 rounded-full" />
+            <Pulse className="h-10 w-44 rounded-full" />
             <Pulse className="h-10 w-24 rounded-full" />
           </div>
         </div>
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div
-            key={index}
-            className="rounded-[22px] border border-border bg-white p-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)]"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-2">
-                <Pulse className="h-2.5 w-20 rounded-full" />
-                <Pulse className="h-8 w-10 rounded-full" />
-              </div>
-              <Pulse className="h-11 w-11 rounded-2xl" />
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <div className="grid gap-5 xl:grid-cols-[1.6fr_0.9fr]">
+      <div className="grid gap-5 xl:grid-cols-[1.7fr_0.9fr]">
         <section className="rounded-[26px] border border-border bg-white p-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)] sm:p-5">
           <Pulse className="h-2.5 w-24 rounded-full" />
           <Pulse className="mt-3 h-6 w-40 rounded-full" />
-          <div className="mt-5 grid gap-3 lg:grid-cols-3">
-            {Array.from({ length: 9 }, (_, index) => (
-              <Pulse key={index} className="h-16 w-full rounded-[18px]" />
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Pulse key={index} className="h-12 w-full rounded-[14px]" />
             ))}
           </div>
         </section>
-        <aside className="space-y-4 rounded-[26px] border border-border bg-white p-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)] sm:p-5">
-          <Pulse className="h-2.5 w-20 rounded-full" />
-          <Pulse className="h-6 w-40 rounded-full" />
-          {Array.from({ length: 3 }, (_, index) => (
-            <Pulse key={index} className="h-20 w-full rounded-[20px]" />
-          ))}
+        <aside className="space-y-4">
+          <div className="rounded-[26px] border border-border bg-white p-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)] sm:p-5">
+            <Pulse className="h-2.5 w-20 rounded-full" />
+            <Pulse className="mt-3 h-6 w-40 rounded-full" />
+            <Pulse className="mt-4 h-5 w-36 rounded-full" />
+            <Pulse className="mt-4 h-10 w-full rounded-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Pulse className="h-20 w-full rounded-[20px]" />
+            <Pulse className="h-20 w-full rounded-[20px]" />
+          </div>
         </aside>
       </div>
+
+      <section className="rounded-[26px] border border-border bg-white p-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)] sm:p-5">
+        <Pulse className="h-2.5 w-24 rounded-full" />
+        <Pulse className="mt-3 h-6 w-40 rounded-full" />
+        <Pulse className="mt-4 h-28 w-full rounded-2xl" />
+      </section>
     </div>
   );
 }

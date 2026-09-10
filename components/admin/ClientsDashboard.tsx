@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Building2, MapPin, StickyNote, User } from "lucide-react";
+import { Building2, Layers3, StickyNote, User } from "lucide-react";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { ClientInterestFields } from "@/components/admin/ClientInterestFields";
 import {
   DashboardFormActions,
   DashboardFormField,
@@ -14,6 +15,7 @@ import {
   dashboardFieldClassName,
   dashboardTextareaClassName,
 } from "@/components/admin/dashboard-form";
+import type { ClientInterestCatalogService } from "@/lib/clients/interest";
 import { getClientStatusLabel, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
 
 type FormState = {
@@ -23,13 +25,12 @@ type FormState = {
   contactLastName: string;
   email: string;
   phone: string;
-  address: string;
-  commune: string;
-  city: string;
-  region: string;
   website: string;
   notes: string;
   status: ClientStatus;
+  interestServiceId: string;
+  interestSubcategoryId: string;
+  interestPlanId: string;
 };
 
 const emptyForm: FormState = {
@@ -39,13 +40,12 @@ const emptyForm: FormState = {
   contactLastName: "",
   email: "",
   phone: "",
-  address: "",
-  commune: "",
-  city: "",
-  region: "",
   website: "",
   notes: "",
   status: "ACTIVO",
+  interestServiceId: "",
+  interestSubcategoryId: "",
+  interestPlanId: "",
 };
 
 const statusStyles: Record<ClientStatus, string> = {
@@ -119,6 +119,9 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [catalog, setCatalog] = useState<ClientInterestCatalogService[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
   function openClientDetail(clientId: string) {
     router.push(`/dashboard/clientes/${clientId}`);
@@ -167,7 +170,6 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
           `${client.contactFirstName} ${client.contactLastName}`,
           client.email,
           client.phone,
-          client.city,
         ]
           .join(" ")
           .toLowerCase()
@@ -185,6 +187,70 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
     setSuccessMessage("");
   }
 
+  function handleInterestChange(next: {
+    interestServiceId: string;
+    interestSubcategoryId: string;
+    interestPlanId: string;
+  }) {
+    setForm((current) => ({ ...current, ...next }));
+    setSubmitError("");
+    setSuccessMessage("");
+  }
+
+  async function loadCatalog() {
+    setIsLoadingCatalog(true);
+    setCatalogError("");
+
+    try {
+      const response = await fetch("/api/catalog", { cache: "no-store" });
+      const data = (await response.json().catch(() => ({}))) as {
+        tree?: Array<{
+          id?: string;
+          name?: string;
+          subcategories?: Array<{
+            id?: string;
+            name?: string;
+            plans?: Array<{ id?: string; name?: string }>;
+          }>;
+        }>;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "No se pudo cargar el catálogo.");
+      }
+
+      setCatalog(
+        (data.tree ?? []).flatMap((service) => {
+          if (!service.id || !service.name) return [];
+          return [
+            {
+              id: service.id,
+              name: service.name,
+              categories: (service.subcategories ?? []).flatMap((category) => {
+                if (!category.id || !category.name) return [];
+                return [
+                  {
+                    id: category.id,
+                    name: category.name,
+                    plans: (category.plans ?? []).flatMap((plan) =>
+                      plan.id && plan.name ? [{ id: plan.id, name: plan.name }] : [],
+                    ),
+                  },
+                ];
+              }),
+            },
+          ];
+        }),
+      );
+    } catch (error) {
+      setCatalog([]);
+      setCatalogError(error instanceof Error ? error.message : "No se pudo cargar el catálogo.");
+    } finally {
+      setIsLoadingCatalog(false);
+    }
+  }
+
   function openCreateModal() {
     setEditingId(null);
     setForm(emptyForm);
@@ -192,6 +258,7 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
     setSubmitError("");
     setSuccessMessage("");
     setIsModalOpen(true);
+    void loadCatalog();
   }
 
   function openEditModal(client: ClientRecord) {
@@ -203,28 +270,24 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
       contactLastName: client.contactLastName,
       email: client.email,
       phone: client.phone,
-      address: client.address,
-      commune: client.commune,
-      city: client.city,
-      region: client.region,
       website: client.website,
       notes: client.notes,
       status: client.status,
+      interestServiceId: client.interestServiceId ?? "",
+      interestSubcategoryId: client.interestSubcategoryId ?? "",
+      interestPlanId: client.interestPlanId ?? "",
     });
     setErrors({});
     setSubmitError("");
     setSuccessMessage("");
     setIsModalOpen(true);
+    void loadCatalog();
   }
 
   function validateForm(): Partial<Record<keyof FormState, string>> {
     const nextErrors: Partial<Record<keyof FormState, string>> = {};
 
     if (!form.companyName.trim()) nextErrors.companyName = "La empresa es obligatoria.";
-    if (!form.rut.trim()) nextErrors.rut = "El RUT es obligatorio.";
-    else if (!/^\d{7,8}-?[0-9Kk]$/.test(normalizeRut(form.rut).replace(/\s+/g, ""))) {
-      nextErrors.rut = "RUT inválido.";
-    }
     if (!form.contactFirstName.trim()) nextErrors.contactFirstName = "El nombre del contacto es obligatorio.";
     if (!form.contactLastName.trim()) nextErrors.contactLastName = "El apellido del contacto es obligatorio.";
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -249,19 +312,18 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
 
     try {
       const payload = {
-        ...form,
         companyName: form.companyName.trim(),
-        rut: normalizeRut(form.rut),
+        rut: normalizeRut(form.rut) || form.rut.trim(),
         contactFirstName: form.contactFirstName.trim(),
         contactLastName: form.contactLastName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        address: form.address.trim(),
-        commune: form.commune.trim(),
-        city: form.city.trim(),
-        region: form.region.trim(),
         website: form.website.trim(),
         notes: form.notes.trim(),
+        status: form.status,
+        interestServiceId: form.interestServiceId,
+        interestSubcategoryId: form.interestSubcategoryId,
+        interestPlanId: form.interestPlanId,
       };
 
       const response = await fetch("/api/clients", {
@@ -558,14 +620,13 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
                       <option value="INACTIVO">Inactivo</option>
                     </select>
                   </DashboardFormField>
-                  <DashboardFormField label="RUT" htmlFor="client-rut" error={errors.rut}>
+                  <DashboardFormField label="RUT (opcional)" htmlFor="client-rut">
                     <input
                       id="client-rut"
                       value={form.rut}
                       onChange={(event) => handleFieldChange("rut", event.target.value)}
                       className={dashboardFieldClassName}
-                      placeholder="76.123.456-7"
-                      aria-invalid={Boolean(errors.rut)}
+                      placeholder="Opcional"
                     />
                   </DashboardFormField>
                   <DashboardFormField label="Sitio web" htmlFor="client-website" className="sm:col-span-2">
@@ -625,45 +686,18 @@ export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps)
                 </div>
               </DashboardFormSection>
 
-              <DashboardFormSection icon={MapPin} title="Ubicación">
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  <DashboardFormField label="Dirección" htmlFor="client-address" className="lg:col-span-3">
-                    <input
-                      id="client-address"
-                      value={form.address}
-                      onChange={(event) => handleFieldChange("address", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Av. Providencia 1234"
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Comuna" htmlFor="client-commune">
-                    <input
-                      id="client-commune"
-                      value={form.commune}
-                      onChange={(event) => handleFieldChange("commune", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Providencia"
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Ciudad" htmlFor="client-city">
-                    <input
-                      id="client-city"
-                      value={form.city}
-                      onChange={(event) => handleFieldChange("city", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Santiago"
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Región" htmlFor="client-region">
-                    <input
-                      id="client-region"
-                      value={form.region}
-                      onChange={(event) => handleFieldChange("region", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Metropolitana"
-                    />
-                  </DashboardFormField>
-                </div>
+              <DashboardFormSection icon={Layers3} title="Servicio de interés">
+                <ClientInterestFields
+                  catalog={catalog}
+                  isLoading={isLoadingCatalog}
+                  error={catalogError}
+                  value={{
+                    interestServiceId: form.interestServiceId,
+                    interestSubcategoryId: form.interestSubcategoryId,
+                    interestPlanId: form.interestPlanId,
+                  }}
+                  onChange={handleInterestChange}
+                />
               </DashboardFormSection>
 
               <DashboardFormSection icon={StickyNote} title="Notas">

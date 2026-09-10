@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BellRing, CirclePlus, Pencil, StickyNote, X, ZoomIn } from "lucide-react";
+import { BellRing, CirclePlus, FileText, Pencil, StickyNote, UserRoundPlus, X, ZoomIn } from "lucide-react";
 
-import { CLIENT_ORIGINS, QUOTE_MOTIVES, type ClientOrigin, type QuoteMotive } from "@/lib/clients/contact-options";
+import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
+import { ClientInterestFields } from "@/components/admin/ClientInterestFields";
+import { CLIENT_ORIGINS, type ClientOrigin } from "@/lib/clients/contact-options";
+import type { ClientInterestCatalogService } from "@/lib/clients/interest";
 import type { ClientRecord } from "@/lib/clients/types";
 
 type ContactForm = {
@@ -16,8 +19,10 @@ type ContactForm = {
   companyName: string;
   website: string;
   socialMedia: string;
-  quoteMotive: QuoteMotive | "";
   observation: string;
+  interestServiceId: string;
+  interestSubcategoryId: string;
+  interestPlanId: string;
 };
 
 type ContactField = keyof ContactForm;
@@ -37,12 +42,20 @@ function buildForm(client: ClientRecord): ContactForm {
     companyName: client.companyName,
     website: client.website,
     socialMedia: "",
-    quoteMotive: "",
     observation: "",
+    interestServiceId: client.interestServiceId ?? "",
+    interestSubcategoryId: client.interestSubcategoryId ?? "",
+    interestPlanId: client.interestPlanId ?? "",
   };
 }
 
-export function ClientQuickActions({ client }: { client: ClientRecord }) {
+type ClientQuickActionsProps = {
+  client: ClientRecord;
+  onCotizar?: () => void;
+  onAssignExecutive?: () => void;
+};
+
+export function ClientQuickActions({ client, onCotizar, onAssignExecutive }: ClientQuickActionsProps) {
   const router = useRouter();
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -60,6 +73,10 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
   const [noteSubmitError, setNoteSubmitError] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
+  const [catalog, setCatalog] = useState<ClientInterestCatalogService[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,6 +128,54 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
     setSubmitError("");
     setSuccessMessage("");
     setIsOpen(true);
+
+    setIsLoadingCatalog(true);
+    setCatalogError("");
+    void fetch("/api/catalog", { cache: "no-store" })
+      .then(async (response) => {
+        const data = (await response.json().catch(() => ({}))) as {
+          tree?: Array<{
+            id?: string;
+            name?: string;
+            subcategories?: Array<{
+              id?: string;
+              name?: string;
+              plans?: Array<{ id?: string; name?: string }>;
+            }>;
+          }>;
+          error?: string;
+        };
+        if (!response.ok) throw new Error(data.error ?? "No se pudo cargar el catálogo.");
+        setCatalog(
+          (data.tree ?? []).flatMap((service) =>
+            service.id && service.name
+              ? [
+                  {
+                    id: service.id,
+                    name: service.name,
+                    categories: (service.subcategories ?? []).flatMap((category) =>
+                      category.id && category.name
+                        ? [
+                            {
+                              id: category.id,
+                              name: category.name,
+                              plans: (category.plans ?? []).flatMap((plan) =>
+                                plan.id && plan.name ? [{ id: plan.id, name: plan.name }] : [],
+                              ),
+                            },
+                          ]
+                        : [],
+                    ),
+                  },
+                ]
+              : [],
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        setCatalogError(error instanceof Error ? error.message : "No se pudo cargar el catálogo.");
+      })
+      .finally(() => setIsLoadingCatalog(false));
   }
 
   function updateField(field: ContactField, value: string) {
@@ -139,7 +204,6 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
     if (!form.firstName.trim()) nextErrors.firstName = "El nombre es obligatorio.";
     if (!form.lastName.trim()) nextErrors.lastName = "El apellido es obligatorio.";
     if (!form.companyName.trim()) nextErrors.companyName = "El nombre de la empresa es obligatorio.";
-    if (!form.quoteMotive) nextErrors.quoteMotive = "Selecciona el motivo de cotización.";
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       nextErrors.email = "Ingresa un correo válido.";
     }
@@ -237,7 +301,7 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
           </p>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <button
             ref={openButtonRef}
             type="button"
@@ -248,6 +312,28 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
               <CirclePlus size={17} />
             </span>
             <span className="text-sm font-semibold text-foreground">Contacto inicial</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onCotizar}
+            className="group flex items-center gap-3 rounded-[20px] border border-primary/20 bg-gradient-to-r from-primary/5 to-magenta/5 p-3 text-left transition hover:border-primary/40 hover:shadow-[0_10px_24px_rgba(109,40,217,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-magenta text-white">
+              <FileText size={17} />
+            </span>
+            <span className="text-sm font-semibold text-foreground">Cotizar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onAssignExecutive}
+            className="group flex items-center gap-3 rounded-[20px] border border-primary/20 bg-gradient-to-r from-primary/5 to-magenta/5 p-3 text-left transition hover:border-primary/40 hover:shadow-[0_10px_24px_rgba(109,40,217,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-magenta text-white">
+              <UserRoundPlus size={17} />
+            </span>
+            <span className="text-sm font-semibold text-foreground">Asignar ejecutivo</span>
           </button>
 
           {otherActions.map(({ label, icon: Icon }) => (
@@ -266,6 +352,8 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
           ))}
         </div>
       </section>
+
+      {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" role="presentation">
@@ -305,12 +393,24 @@ export function ClientQuickActions({ client }: { client: ClientRecord }) {
                     {CLIENT_ORIGINS.map((origin) => <option key={origin} value={origin}>{origin}</option>)}
                   </select>
                 </Field>
-                <Field label="Motivo de la cotización" error={errors.quoteMotive} required>
-                  <select value={form.quoteMotive} onChange={(event) => updateField("quoteMotive", event.target.value)} className="dashboard-field">
-                    <option value="">Selecciona un motivo</option>
-                    {QUOTE_MOTIVES.map((motive) => <option key={motive} value={motive}>{motive}</option>)}
-                  </select>
-                </Field>
+                <div className="md:col-span-2">
+                  <p className="mb-1.5 text-sm font-semibold text-foreground">Servicio, categoría o plan</p>
+                  <ClientInterestFields
+                    catalog={catalog}
+                    isLoading={isLoadingCatalog}
+                    error={catalogError || errors.interestServiceId}
+                    value={{
+                      interestServiceId: form.interestServiceId,
+                      interestSubcategoryId: form.interestSubcategoryId,
+                      interestPlanId: form.interestPlanId,
+                    }}
+                    onChange={(next) => {
+                      setForm((current) => ({ ...current, ...next }));
+                      setErrors((current) => ({ ...current, interestServiceId: undefined }));
+                      setSubmitError("");
+                    }}
+                  />
+                </div>
                 <Field label="Nombre" error={errors.firstName} required>
                   <input value={form.firstName} onChange={(event) => updateField("firstName", event.target.value)} className="dashboard-field" />
                 </Field>
