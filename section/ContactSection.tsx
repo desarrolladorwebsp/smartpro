@@ -376,18 +376,7 @@ export default function ContactSection() {
           <h2 className="section-title-on-dark max-w-[670px]">
             Cuéntanos tu idea
             <span className="block">y hagamos crecer</span>
-            <span
-              className="
-                mt-1
-                block
-                bg-gradient-to-r
-                from-primary
-                via-violet-400
-                to-magenta
-                bg-clip-text
-                text-transparent
-              "
-            >
+            <span className="mt-1 block text-gradient-brand">
               tu negocio juntos.
             </span>
           </h2>

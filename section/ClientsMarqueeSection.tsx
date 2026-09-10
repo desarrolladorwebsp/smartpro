@@ -13,8 +13,7 @@ type ClientBrand = {
 const CLIENTS: ClientBrand[] = [
   {
     name: "Axessia",
-    logo: "/images/logo/logos-cinta/logo-axessia-white.png",
-    onDark: true,
+    logo: "/images/logo/logos-cinta/logo-axessia.png",
   },
   {
     name: "DesdeTu7",
@@ -34,13 +33,11 @@ const CLIENTS: ClientBrand[] = [
   },
   {
     name: "López Vidal",
-    logo: "/images/logo/logos-cinta/logo-lopez-vidal2.png",
-    onDark: true,
+    logo: "/images/logo/logos-cinta/logo-lopez-y-vidal.png",
   },
   {
     name: "Kitchen Solutions",
-    logo: "/images/logo/logos-cinta/logo-kitchen-solution.webp",
-    onDark: true,
+    logo: "/images/logo/logos-cinta/logo-kitchen-solution.png",
   },
   {
     name: "Isapres Premium",

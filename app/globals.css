@@ -94,15 +94,15 @@ body {
   }
 
   .hero-title {
-    @apply text-balance text-[clamp(1.75rem,1rem+3.2vw,3.15rem)] font-bold leading-[1.08] tracking-[-0.045em] text-foreground;
+    @apply overflow-visible text-balance text-[clamp(1.75rem,1rem+3.2vw,3.15rem)] font-bold leading-[1.2] tracking-[-0.04em] text-foreground;
   }
 
   .section-title {
-    @apply text-balance text-[clamp(1.625rem,0.95rem+2.6vw,2.5rem)] font-bold leading-[1.12] tracking-[-0.04em] text-foreground;
+    @apply overflow-visible text-balance text-[clamp(1.625rem,0.95rem+2.6vw,2.5rem)] font-bold leading-[1.22] tracking-[-0.035em] text-foreground;
   }
 
   .section-title-on-dark {
-    @apply text-balance text-[clamp(1.7rem,1rem+2.6vw,2.65rem)] font-bold leading-[1.1] tracking-[-0.045em] text-white;
+    @apply overflow-visible text-balance text-[clamp(1.7rem,1rem+2.6vw,2.65rem)] font-bold leading-[1.22] tracking-[-0.04em] text-white;
   }
 
   .section-copy {
@@ -110,11 +110,13 @@ body {
   }
 
   .accent-line {
-    @apply mx-auto my-4 h-0.5 w-14 origin-center rounded-full bg-brand-gradient sm:my-5;
+    @apply mx-auto mb-4 mt-5 h-0.5 w-14 origin-center rounded-full bg-brand-gradient sm:mb-5 sm:mt-6;
   }
 
   .text-gradient-brand {
-    @apply bg-brand-gradient bg-clip-text text-transparent;
+    @apply bg-brand-gradient bg-clip-text pb-[0.2em] text-transparent;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 
   .card-frame {

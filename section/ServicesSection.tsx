@@ -251,7 +251,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                     text-pretty
                     text-[1.15rem]
                     font-semibold
-                    leading-[1.15]
+                    leading-[1.25]
                     tracking-[-0.035em]
                     text-on-dark
                     sm:text-[1.3rem]
