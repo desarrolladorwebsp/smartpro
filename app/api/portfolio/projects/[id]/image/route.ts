@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
-import { savePortfolioImageUpload } from "@/lib/portfolio/image";
-import { clearPortfolioProjectImage, setPortfolioProjectImage } from "@/lib/portfolio/repository";
+import { clearPortfolioProjectImage, persistPortfolioProjectImage } from "@/lib/portfolio/repository";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,8 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Debes enviar una imagen." }, { status: 400 });
     }
 
-    const image = await savePortfolioImageUpload(id, file);
-    const project = await setPortfolioProjectImage(id, image);
+    const project = await persistPortfolioProjectImage(id, file);
     return NextResponse.json({ project }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo subir la imagen.";

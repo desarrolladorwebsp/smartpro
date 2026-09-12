@@ -6,7 +6,13 @@ import {
   WEB_DEVELOPMENT_CATEGORY_SLUG,
   type PublicPortfolioCategory,
 } from "./constants";
-import { removeManagedPortfolioImageFile } from "./image";
+import {
+  getPortfolioMediaPath,
+  preparePortfolioImageUpload,
+  removeManagedPortfolioImageFile,
+  withPortfolioImageCache,
+} from "./image";
+import { ensurePortfolioProjectTable, withPortfolioTable } from "./schema";
 import type {
   PortfolioCategorySummary,
   PortfolioProjectInput,
@@ -14,12 +20,11 @@ import type {
   PortfolioProjectRecord,
   PortfolioSubcategoryOption,
 } from "./types";
-import { withPortfolioTable } from "./schema";
 import { assertCanPublish, buildPortfolioSlug, parsePortfolioTags } from "./validation";
 
 const ENABLED_CATEGORY_SLUGS = new Set([WEB_DEVELOPMENT_CATEGORY_SLUG]);
 
-type ProjectWithRelations = PortfolioProject & {
+type ProjectWithRelations = Omit<PortfolioProject, "imageBytes"> & {
   category: Pick<ServiceCategory, "id" | "name" | "slug">;
   subcategory: Pick<ServiceSubcategory, "id" | "name" | "slug">;
 };
@@ -62,7 +67,7 @@ function mapProject(row: ProjectWithRelations): PortfolioProjectRecord {
     title: row.title,
     slug: row.slug,
     summary: row.summary,
-    image: row.image,
+    image: withPortfolioImageCache(row.image, row.updatedAt),
     url: row.url,
     tags: mapTags(row.tags),
     status: row.status,
@@ -75,6 +80,11 @@ function mapProject(row: ProjectWithRelations): PortfolioProjectRecord {
 const projectInclude = {
   category: { select: { id: true, name: true, slug: true } },
   subcategory: { select: { id: true, name: true, slug: true } },
+} as const;
+
+const projectRead = {
+  include: projectInclude,
+  omit: { imageBytes: true },
 } as const;
 
 export async function listPortfolioCategories(): Promise<PortfolioCategorySummary[]> {
@@ -172,7 +182,7 @@ export async function listPortfolioProjects(filters: PortfolioProjectListFilters
           }
         : {}),
     },
-    include: projectInclude,
+    ...projectRead,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
 
@@ -185,7 +195,7 @@ export async function getPortfolioProject(id: string): Promise<PortfolioProjectR
   const prisma = getPrisma();
   const row = await prisma.portfolioProject.findUnique({
     where: { id },
-    include: projectInclude,
+    ...projectRead,
   });
 
   if (!row) {
@@ -271,7 +281,7 @@ export async function createPortfolioProject(input: PortfolioProjectInput): Prom
       status,
       sortOrder: input.sortOrder ?? 0,
     },
-    include: projectInclude,
+    ...projectRead,
   });
 
   return mapProject(row);
@@ -307,10 +317,48 @@ export async function updatePortfolioProject(id: string, input: PortfolioProject
       status: nextStatus,
       sortOrder: input.sortOrder ?? current.sortOrder,
     },
-    include: projectInclude,
+    ...projectRead,
   });
 
   return mapProject(row);
+}
+
+export async function persistPortfolioProjectImage(id: string, file: File): Promise<PortfolioProjectRecord> {
+  return withPortfolioTable(async () => {
+    await getPortfolioProject(id);
+    const prepared = await preparePortfolioImageUpload(file);
+    await ensurePortfolioProjectTable();
+
+    const row = await getPrisma().portfolioProject.update({
+      where: { id },
+      data: {
+        image: getPortfolioMediaPath(id),
+        imageMime: prepared.mimeType,
+        imageBytes: new Uint8Array(prepared.bytes),
+      },
+      ...projectRead,
+    });
+
+    return mapProject(row);
+  });
+}
+
+export async function getPortfolioImageMedia(id: string) {
+  return withPortfolioTable(async () => {
+    const row = await getPrisma().portfolioProject.findUnique({
+      where: { id },
+      select: { image: true, imageMime: true, imageBytes: true },
+    });
+
+    if (!row?.imageBytes || row.imageBytes.length === 0) {
+      return null;
+    }
+
+    return {
+      mimeType: row.imageMime || "application/octet-stream",
+      bytes: Buffer.from(row.imageBytes),
+    };
+  });
 }
 
 export async function setPortfolioProjectImage(id: string, image: string): Promise<PortfolioProjectRecord> {
@@ -323,8 +371,12 @@ export async function setPortfolioProjectImage(id: string, image: string): Promi
 
   const row = await prisma.portfolioProject.update({
     where: { id },
-    data: { image },
-    include: projectInclude,
+    data: {
+      image,
+      imageMime: "",
+      imageBytes: null,
+    },
+    ...projectRead,
   });
 
   return mapProject(row);
@@ -342,8 +394,8 @@ export async function clearPortfolioProjectImage(id: string): Promise<PortfolioP
   const prisma = getPrisma();
   const row = await prisma.portfolioProject.update({
     where: { id },
-    data: { image: "" },
-    include: projectInclude,
+    data: { image: "", imageMime: "", imageBytes: null },
+    ...projectRead,
   });
 
   return mapProject(row);
@@ -364,7 +416,7 @@ export async function setPortfolioProjectStatus(id: string, status: PortfolioPro
   const row = await prisma.portfolioProject.update({
     where: { id },
     data: { status },
-    include: projectInclude,
+    ...projectRead,
   });
 
   return mapProject(row);

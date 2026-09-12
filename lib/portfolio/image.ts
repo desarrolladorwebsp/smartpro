@@ -8,6 +8,7 @@ import {
 } from "./constants";
 
 export const PORTFOLIO_IMAGE_UPLOAD_DIR = "/uploads/portfolio";
+export const PORTFOLIO_IMAGE_MEDIA_PREFIX = "/api/portfolio/media";
 
 const ALLOWED_MIME_TYPES: Record<(typeof PORTFOLIO_IMAGE_MIME_TYPES)[number], "jpg" | "png" | "webp"> = {
   "image/jpeg": "jpg",
@@ -15,17 +16,32 @@ const ALLOWED_MIME_TYPES: Record<(typeof PORTFOLIO_IMAGE_MIME_TYPES)[number], "j
   "image/webp": "webp",
 };
 
-function getUploadAbsoluteDir() {
-  return path.join(process.cwd(), "public", "uploads", "portfolio");
+function normalizePortfolioImagePath(image: string | null | undefined): string {
+  return String(image ?? "").trim().split("?")[0];
+}
+
+export function getPortfolioMediaPath(projectId: string): string {
+  return `${PORTFOLIO_IMAGE_MEDIA_PREFIX}/${projectId}`;
 }
 
 export function isManagedPortfolioImagePath(image: string | null | undefined): boolean {
-  const normalized = String(image ?? "").trim();
-  return normalized.startsWith(`${PORTFOLIO_IMAGE_UPLOAD_DIR}/`);
+  const normalized = normalizePortfolioImagePath(image);
+  return (
+    normalized.startsWith(`${PORTFOLIO_IMAGE_MEDIA_PREFIX}/`) ||
+    normalized.startsWith(`${PORTFOLIO_IMAGE_UPLOAD_DIR}/`)
+  );
+}
+
+export function withPortfolioImageCache(image: string, updatedAt: Date): string {
+  if (!isManagedPortfolioImagePath(image)) {
+    return image;
+  }
+
+  return `${normalizePortfolioImagePath(image)}?v=${updatedAt.getTime()}`;
 }
 
 export function getManagedPortfolioImageAbsolutePath(image: string): string {
-  return path.join(process.cwd(), "public", image.replace(/^\//, ""));
+  return path.join(process.cwd(), "public", normalizePortfolioImagePath(image).replace(/^\//, ""));
 }
 
 export function validatePortfolioImageUpload(file: Pick<File, "size" | "type">) {
@@ -111,25 +127,21 @@ export function assertPortfolioImageAspect(buffer: Buffer) {
   }
 }
 
-export async function savePortfolioImageUpload(projectId: string, file: File): Promise<string> {
+export async function preparePortfolioImageUpload(file: File): Promise<{ mimeType: string; bytes: Buffer }> {
   validatePortfolioImageUpload(file);
   const buffer = Buffer.from(await file.arrayBuffer());
   assertMagicBytes(buffer, file.type);
   assertPortfolioImageAspect(buffer);
 
-  await fs.mkdir(getUploadAbsoluteDir(), { recursive: true });
-
-  const extension = ALLOWED_MIME_TYPES[file.type as (typeof PORTFOLIO_IMAGE_MIME_TYPES)[number]];
-  const fileName = `${projectId}.${extension}`;
-  await fs.writeFile(path.join(getUploadAbsoluteDir(), fileName), buffer);
-
-  return `${PORTFOLIO_IMAGE_UPLOAD_DIR}/${fileName}`;
+  return { mimeType: file.type, bytes: buffer };
 }
 
 export async function removeManagedPortfolioImageFile(image: string | null | undefined) {
-  if (!isManagedPortfolioImagePath(image)) {
+  const normalized = normalizePortfolioImagePath(image);
+
+  if (!normalized.startsWith(`${PORTFOLIO_IMAGE_UPLOAD_DIR}/`)) {
     return;
   }
 
-  await fs.unlink(getManagedPortfolioImageAbsolutePath(String(image))).catch(() => undefined);
+  await fs.unlink(getManagedPortfolioImageAbsolutePath(normalized)).catch(() => undefined);
 }

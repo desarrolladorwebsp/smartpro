@@ -399,7 +399,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
                         <div className="flex items-center gap-3">
                           <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">
                             {project.image ? (
-                              <Image src={project.image} alt="" fill className="object-cover" sizes="64px" />
+                              <Image src={project.image} alt="" fill className="object-cover" sizes="64px" unoptimized={project.image.startsWith("/api/")} />
                             ) : null}
                           </div>
                           <div className="min-w-0">
@@ -441,7 +441,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
                 <article key={project.id} className="rounded-[20px] border border-border bg-soft-background p-4">
                   <div className="flex gap-3">
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
-                      {project.image ? <Image src={project.image} alt="" fill className="object-cover" sizes="80px" /> : null}
+                      {project.image ? <Image src={project.image} alt="" fill className="object-cover" sizes="80px" unoptimized={project.image.startsWith("/api/")} /> : null}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-foreground">{project.title}</p>
@@ -571,7 +571,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={previewSrc} alt="Vista previa" className="h-full w-full object-cover" />
                       ) : (
-                        <Image src={previewSrc} alt="Vista previa" fill className="object-cover" sizes="480px" />
+                        <Image src={previewSrc} alt="Vista previa" fill className="object-cover" sizes="480px" unoptimized={previewSrc.startsWith("/api/")} />
                       )
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs font-medium uppercase tracking-[0.16em] text-muted">

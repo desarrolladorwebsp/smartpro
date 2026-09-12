@@ -11,6 +11,8 @@ export const CREATE_PORTFOLIO_PROJECT_TABLE_SQL = `
     \`slug\` VARCHAR(191) NOT NULL,
     \`summary\` TEXT NOT NULL,
     \`image\` VARCHAR(191) NOT NULL DEFAULT '',
+    \`imageMime\` VARCHAR(64) NOT NULL DEFAULT '',
+    \`imageBytes\` MEDIUMBLOB NULL,
     \`url\` VARCHAR(191) NOT NULL DEFAULT '',
     \`tags\` JSON NOT NULL DEFAULT (JSON_ARRAY()),
     \`status\` ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED') NOT NULL DEFAULT 'DRAFT',
@@ -38,7 +40,12 @@ export function isMissingPortfolioTableError(error: unknown): boolean {
   const code = "code" in error ? String((error as { code?: string }).code ?? "") : "";
   const message = error instanceof Error ? error.message : String(error);
 
-  return code === "P2021" || /table `?PortfolioProject`? does not exist/i.test(message);
+  return (
+    code === "P2021" ||
+    code === "P2022" ||
+    /table `?PortfolioProject`? does not exist/i.test(message) ||
+    /column `?image(Bytes|Mime)`?/i.test(message)
+  );
 }
 
 export function isPortfolioConnectionError(error: unknown): boolean {
@@ -47,6 +54,23 @@ export function isPortfolioConnectionError(error: unknown): boolean {
   }
 
   return /no hay conexión a la base de datos/i.test(error.message);
+}
+
+async function columnExists(prisma: PrismaClient, table: string, column: string) {
+  const columns = (await prisma.$queryRawUnsafe(`SHOW COLUMNS FROM \`${table}\``)) as Array<{ Field: string }>;
+  return columns.some((entry) => entry.Field === column);
+}
+
+async function ensurePortfolioImageColumns(prisma: PrismaClient) {
+  if (!(await columnExists(prisma, "PortfolioProject", "imageMime"))) {
+    await prisma.$executeRawUnsafe(
+      "ALTER TABLE `PortfolioProject` ADD COLUMN `imageMime` VARCHAR(64) NOT NULL DEFAULT ''",
+    );
+  }
+
+  if (!(await columnExists(prisma, "PortfolioProject", "imageBytes"))) {
+    await prisma.$executeRawUnsafe("ALTER TABLE `PortfolioProject` ADD COLUMN `imageBytes` MEDIUMBLOB NULL");
+  }
 }
 
 export async function ensurePortfolioProjectTable(client?: PrismaClient | null): Promise<void> {
@@ -62,7 +86,11 @@ export async function ensurePortfolioProjectTable(client?: PrismaClient | null):
     return;
   }
 
-  const pending = prisma.$executeRawUnsafe(CREATE_PORTFOLIO_PROJECT_TABLE_SQL).then(() => undefined);
+  const pending = (async () => {
+    await prisma.$executeRawUnsafe(CREATE_PORTFOLIO_PROJECT_TABLE_SQL);
+    await ensurePortfolioImageColumns(prisma);
+  })();
+
   ensurePromises.set(prisma, pending);
 
   try {

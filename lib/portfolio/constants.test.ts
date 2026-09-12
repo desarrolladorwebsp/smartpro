@@ -7,7 +7,7 @@ import {
   PUBLIC_PORTFOLIO_FILTERS,
   slugifyPortfolioValue,
 } from "./constants";
-import { isManagedPortfolioImagePath } from "./image";
+import { isManagedPortfolioImagePath, withPortfolioImageCache } from "./image";
 import { parsePortfolioProjectInput, parsePortfolioTags, parsePortfolioUrl } from "./validation";
 
 describe("portfolio filters", () => {
@@ -62,7 +62,13 @@ describe("portfolio images", () => {
 
   it("only treats managed upload paths as deletable", () => {
     assert.equal(isManagedPortfolioImagePath("/uploads/portfolio/abc.webp"), true);
+    assert.equal(isManagedPortfolioImagePath("/api/portfolio/media/abc123"), true);
+    assert.equal(isManagedPortfolioImagePath("/api/portfolio/media/abc123?v=1"), true);
     assert.equal(isManagedPortfolioImagePath("/images/portfolio/real-stock.png"), false);
+    assert.equal(
+      withPortfolioImageCache("/api/portfolio/media/abc123", new Date(1_700_000_000_000)),
+      "/api/portfolio/media/abc123?v=1700000000000",
+    );
   });
 
   it("slugifies titles", () => {

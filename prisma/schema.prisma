@@ -347,6 +347,8 @@ model PortfolioProject {
   slug          String
   summary       String                 @default("") @db.Text
   image         String                 @default("")
+  imageMime     String                 @default("")
+  imageBytes    Bytes?                 @db.MediumBlob
   url           String                 @default("")
   tags          Json                   @default("[]")
   status        PortfolioProjectStatus @default(DRAFT)
