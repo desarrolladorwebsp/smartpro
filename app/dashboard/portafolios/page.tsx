@@ -5,6 +5,7 @@ import { PortfolioServicesDashboard } from "@/components/admin/PortfolioServices
 import { PortfolioPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 import { listPortfolioCategories } from "@/lib/portfolio/repository";
+import { isPortfolioConnectionError } from "@/lib/portfolio/schema";
 import type { PortfolioCategorySummary } from "@/lib/portfolio/types";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +23,16 @@ async function PortfoliosPageContent() {
 
   let categories: PortfolioCategorySummary[] = [];
   let loadError = false;
+  let errorMessage: string | undefined;
 
   try {
     categories = await listPortfolioCategories();
   } catch (error) {
     console.error("[smartpro:dashboard:portafolios]", error);
     loadError = true;
+    errorMessage = isPortfolioConnectionError(error)
+      ? "No se pudo conectar a la base de datos."
+      : "No se pudo cargar el portafolio desde MySQL.";
   }
 
   if (loadError) {
@@ -36,6 +41,7 @@ async function PortfoliosPageContent() {
         icon="portafolios"
         eyebrow="Sitio público"
         title="Portafolios"
+        message={errorMessage}
       />
     );
   }

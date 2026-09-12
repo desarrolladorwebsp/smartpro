@@ -1,65 +1,92 @@
-import { prisma } from "../lib/db";
-import { seedWebDevelopmentPortfolio } from "../lib/portfolio/seed";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-async function exec(sql: string) {
-  if (!prisma) {
-    throw new Error("Prisma client is not available.");
+import { PrismaClient } from "@prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+
+import { ensurePortfolioProjectTable } from "../lib/portfolio/schema";
+
+for (const file of [".env.local", ".env"]) {
+  try {
+    const contents = readFileSync(path.join(process.cwd(), file), "utf8");
+    for (const line of contents.split(/\r?\n/)) {
+      if (!line || line.startsWith("#") || !line.includes("=")) continue;
+      const separator = line.indexOf("=");
+      const key = line.slice(0, separator).trim();
+      const value = line
+        .slice(separator + 1)
+        .trim()
+        .replace(/^["']|["']$/g, "");
+      if (!(key in process.env)) process.env[key] = value;
+    }
+  } catch {
+    // optional
   }
-
-  await prisma.$executeRawUnsafe(sql);
 }
 
-async function tableExists(table: string) {
-  if (!prisma) return false;
-  const rows = (await prisma.$queryRawUnsafe("SHOW TABLES")) as Array<Record<string, string>>;
+function createClient(database: string) {
+  const host = process.env.DB_HOST?.trim();
+  const user = process.env.DB_USER?.trim();
+  const password = process.env.DB_PASSWORD ?? "";
+  const port = process.env.DB_PORT || "3306";
+
+  if (!host || !user || !database) {
+    throw new Error("Faltan DB_HOST, DB_USER o el nombre de la base.");
+  }
+
+  const url = new URL("mariadb://localhost");
+  url.username = user;
+  url.password = password;
+  url.hostname = host;
+  url.port = String(port);
+  url.pathname = `/${database}`;
+  url.searchParams.set("allowPublicKeyRetrieval", "true");
+  url.searchParams.set("connectTimeout", "30000");
+  url.searchParams.set("connectionLimit", "1");
+
+  return new PrismaClient({ adapter: new PrismaMariaDb(url.toString()), log: ["error"] });
+}
+
+async function tableExists(client: PrismaClient, table: string) {
+  const rows = (await client.$queryRawUnsafe("SHOW TABLES")) as Array<Record<string, string>>;
   return rows.some((row) => Object.values(row)[0] === table);
 }
 
 async function main() {
-  if (!prisma) {
-    throw new Error("Prisma client is not available.");
+  const database = process.env.TARGET_DB || process.env.DB_NAME;
+  if (!database) {
+    throw new Error("Define TARGET_DB o DB_NAME.");
   }
 
-  if (!(await tableExists("ServiceCategory")) || !(await tableExists("ServiceSubcategory"))) {
-    throw new Error("Se requieren ServiceCategory y ServiceSubcategory antes de crear el portafolio.");
-  }
+  const prisma = createClient(database);
 
-  if (!(await tableExists("PortfolioProject"))) {
-    await exec(`
-      CREATE TABLE \`PortfolioProject\` (
-        \`id\` VARCHAR(191) NOT NULL,
-        \`categoryId\` VARCHAR(191) NOT NULL,
-        \`subcategoryId\` VARCHAR(191) NOT NULL,
-        \`title\` VARCHAR(191) NOT NULL,
-        \`slug\` VARCHAR(191) NOT NULL,
-        \`summary\` TEXT NOT NULL,
-        \`image\` VARCHAR(191) NOT NULL DEFAULT '',
-        \`url\` VARCHAR(191) NOT NULL DEFAULT '',
-        \`tags\` JSON NOT NULL DEFAULT (JSON_ARRAY()),
-        \`status\` ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED') NOT NULL DEFAULT 'DRAFT',
-        \`sortOrder\` INTEGER NOT NULL DEFAULT 0,
-        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-        PRIMARY KEY (\`id\`),
-        UNIQUE INDEX \`PortfolioProject_categoryId_slug_key\` (\`categoryId\`, \`slug\`),
-        INDEX \`PortfolioProject_categoryId_status_sortOrder_idx\` (\`categoryId\`, \`status\`, \`sortOrder\`),
-        INDEX \`PortfolioProject_subcategoryId_idx\` (\`subcategoryId\`),
-        CONSTRAINT \`PortfolioProject_categoryId_fkey\`
-          FOREIGN KEY (\`categoryId\`) REFERENCES \`ServiceCategory\`(\`id\`) ON DELETE CASCADE ON UPDATE CASCADE,
-        CONSTRAINT \`PortfolioProject_subcategoryId_fkey\`
-          FOREIGN KEY (\`subcategoryId\`) REFERENCES \`ServiceSubcategory\`(\`id\`) ON DELETE RESTRICT ON UPDATE CASCADE
-      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-    `);
-    console.log("Created PortfolioProject table");
-  }
+  try {
+    if (!(await tableExists(prisma, "ServiceCategory")) || !(await tableExists(prisma, "ServiceSubcategory"))) {
+      throw new Error("Se requieren ServiceCategory y ServiceSubcategory antes de crear el portafolio.");
+    }
 
-  const seeded = await seedWebDevelopmentPortfolio();
-  console.log(`Portfolio seed: ${seeded.created} creados, ${seeded.updated} actualizados.`);
-  console.log("Portfolio schema applied.");
-  process.exit(0);
+    await ensurePortfolioProjectTable(prisma);
+    const exists = await tableExists(prisma, "PortfolioProject");
+    if (!exists) {
+      throw new Error(`PortfolioProject no quedó creada en ${database}.`);
+    }
+
+    const count = await prisma.portfolioProject.count();
+    console.log(
+      JSON.stringify({
+        database,
+        table: "PortfolioProject",
+        applied: true,
+        dropped: false,
+        count,
+      }),
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 void main().catch((error) => {
-  console.error(error);
+  console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });

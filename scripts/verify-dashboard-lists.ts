@@ -1,3 +1,5 @@
+export {};
+
 process.env.DB_NAME = "smartpro_db";
 
 async function main() {

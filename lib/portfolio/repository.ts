@@ -14,6 +14,7 @@ import type {
   PortfolioProjectRecord,
   PortfolioSubcategoryOption,
 } from "./types";
+import { withPortfolioTable } from "./schema";
 import { assertCanPublish, buildPortfolioSlug, parsePortfolioTags } from "./validation";
 
 const ENABLED_CATEGORY_SLUGS = new Set([WEB_DEVELOPMENT_CATEGORY_SLUG]);
@@ -77,6 +78,7 @@ const projectInclude = {
 } as const;
 
 export async function listPortfolioCategories(): Promise<PortfolioCategorySummary[]> {
+  return withPortfolioTable(async () => {
   const prisma = getPrisma();
   const categories = await prisma.serviceCategory.findMany({
     where: { slug: { in: [...ENABLED_CATEGORY_SLUGS] } },
@@ -133,6 +135,7 @@ export async function listPortfolioCategories(): Promise<PortfolioCategorySummar
       subcategories,
     };
   });
+  });
 }
 
 export async function getPortfolioCategoryBySlug(slug: string) {
@@ -147,6 +150,7 @@ export async function getPortfolioCategoryBySlug(slug: string) {
 }
 
 export async function listPortfolioProjects(filters: PortfolioProjectListFilters = {}): Promise<PortfolioProjectRecord[]> {
+  return withPortfolioTable(async () => {
   const prisma = getPrisma();
   const categorySlug = filters.categorySlug || WEB_DEVELOPMENT_CATEGORY_SLUG;
   const query = String(filters.query ?? "").trim();
@@ -173,9 +177,11 @@ export async function listPortfolioProjects(filters: PortfolioProjectListFilters
   });
 
   return rows.map(mapProject);
+  });
 }
 
 export async function getPortfolioProject(id: string): Promise<PortfolioProjectRecord> {
+  return withPortfolioTable(async () => {
   const prisma = getPrisma();
   const row = await prisma.portfolioProject.findUnique({
     where: { id },
@@ -187,6 +193,7 @@ export async function getPortfolioProject(id: string): Promise<PortfolioProjectR
   }
 
   return mapProject(row);
+  });
 }
 
 async function resolveUniqueSlug(categoryId: string, title: string, excludeId?: string) {
@@ -229,6 +236,7 @@ async function resolveSubcategory(categoryId: string, subcategoryId: string) {
 }
 
 export async function createPortfolioProject(input: PortfolioProjectInput): Promise<PortfolioProjectRecord> {
+  return withPortfolioTable(async () => {
   const prisma = getPrisma();
   const categorySlug = input.categorySlug || WEB_DEVELOPMENT_CATEGORY_SLUG;
   const category = await prisma.serviceCategory.findUnique({ where: { slug: categorySlug } });
@@ -267,6 +275,7 @@ export async function createPortfolioProject(input: PortfolioProjectInput): Prom
   });
 
   return mapProject(row);
+  });
 }
 
 export async function updatePortfolioProject(id: string, input: PortfolioProjectInput): Promise<PortfolioProjectRecord> {

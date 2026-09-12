@@ -372,8 +372,12 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
       <section className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
         {filteredProjects.length === 0 ? (
           <div className="p-10 text-center">
-            <p className="text-sm font-semibold text-foreground">No hay proyectos en esta vista</p>
-            <p className="mt-2 text-sm text-muted">Crea el primero o ajusta los filtros.</p>
+            <p className="text-sm font-semibold text-foreground">
+              {projects.length === 0 ? "Sin proyectos todavía" : "No hay proyectos en esta vista"}
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              {projects.length === 0 ? "Crea el primero con el botón Nuevo proyecto." : "Ajusta los filtros o crea un proyecto."}
+            </p>
           </div>
         ) : (
           <>
