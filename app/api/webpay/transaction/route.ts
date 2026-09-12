@@ -1,81 +1,47 @@
 import { NextResponse } from "next/server";
 
-import { buildOrderTotals, generateOrderId, parseMoney, sanitizeCartItem, type CartItemDraft } from "@/lib/orders/service";
-import { createOrderRecord } from "@/lib/orders/repository";
-import { getAppBaseUrl, getWebpayTransaction } from "@/lib/webpay";
+import { CheckoutValidationError, buildServerCheckoutOrder } from "@/lib/orders/checkout";
+import { createOrderRecord, updateOrderRecord } from "@/lib/orders/repository";
+import { generateOrderId } from "@/lib/orders/service";
+import { getWebpayReturnUrl, getWebpayTransaction, isAllowedWebpayRedirectUrl, toWebpayAmount } from "@/lib/webpay";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const customer = body?.customer ?? {};
-    const items = Array.isArray(body?.items) ? body.items : [];
-
-    const name = String(customer.name ?? "").trim();
-    const email = String(customer.email ?? "").trim();
-    const phone = String(customer.phone ?? "").trim();
-    const company = customer.company ? String(customer.company).trim() : undefined;
-
-    if (!name || !email || !phone) {
-      return NextResponse.json({ error: "Faltan datos obligatorios del cliente." }, { status: 400 });
-    }
-
-    if (!items.length) {
-      return NextResponse.json({ error: "La orden debe incluir al menos un producto." }, { status: 400 });
-    }
-
-    const normalizedItems: CartItemDraft[] = items
-      .map((item: Partial<CartItemDraft> & { unitPrice?: number | string }) => {
-        const sanitized = sanitizeCartItem({
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          quantity: item.quantity,
-          unitPrice: typeof item.unitPrice === "string" ? parseMoney(item.unitPrice) : Number(item.unitPrice ?? 0),
-          priceDisplay: item.priceDisplay,
-          taxRate: item.taxRate,
-          source: item.source,
-        });
-
-        if (!sanitized) {
-          return null;
-        }
-
-        return {
-          ...sanitized,
-          quantity: Math.max(1, Number(sanitized.quantity) || 1),
-        };
-      })
-      .filter(Boolean) as CartItemDraft[];
-
-    if (!normalizedItems.length) {
-      return NextResponse.json({ error: "Los productos no son válidos." }, { status: 400 });
-    }
-
-    const totals = buildOrderTotals(normalizedItems);
+    const payload = (await request.json()) as unknown;
+    const checkout = await buildServerCheckoutOrder(payload as Parameters<typeof buildServerCheckoutOrder>[0]);
     const orderId = generateOrderId();
     const sessionId = `${orderId}-session`;
-    const returnUrl = `${getAppBaseUrl()}/api/webpay/return?orderId=${encodeURIComponent(orderId)}`;
+    const amount = toWebpayAmount(checkout.total);
 
     const order = await createOrderRecord({
       id: orderId,
-      customer: { name, email, phone, company },
-      items: normalizedItems,
-      subtotal: totals.subtotal,
-      tax: totals.tax,
-      total: totals.total,
+      customer: checkout.customer,
+      items: checkout.items,
+      subtotal: checkout.subtotal,
+      tax: checkout.tax,
+      total: checkout.total,
       paymentStatus: "pending",
       orderStatus: "pending",
-      paymentMethod: "transbank",
       status: "pending",
+      paymentMethod: "transbank",
     });
 
     try {
       const webpay = getWebpayTransaction();
-      const response = await webpay.create(orderId, sessionId, Math.round(totals.total), returnUrl);
+      const response = await webpay.create(orderId, sessionId, amount, getWebpayReturnUrl());
+
+      if (!response?.token || !response?.url || !isAllowedWebpayRedirectUrl(response.url)) {
+        throw new Error("Webpay no devolvió una URL de redirección válida.");
+      }
+
+      const updated = await updateOrderRecord(order.id, { webpayToken: response.token });
 
       return NextResponse.json({
         success: true,
-        order,
+        order: updated ?? order,
         webpay: {
           token: response.token,
           url: response.url,
@@ -83,20 +49,20 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error("[smartpro:webpay:create] Error en Webpay", error);
-      const { updateOrderStatus } = await import("@/lib/orders/repository");
-      await updateOrderStatus(orderId, {
+      await updateOrderRecord(order.id, {
         paymentStatus: "failed",
         orderStatus: "cancelled",
         status: "cancelled",
       });
-      return NextResponse.json({ error: "No se pudo iniciar el pago con Webpay." }, { status: 500 });
+      return NextResponse.json({ error: "No se pudo iniciar el pago con Webpay." }, { status: 502 });
     }
   } catch (error) {
-    console.error("[smartpro:webpay:create] Error creando la transacción", error);
-    return NextResponse.json({ error: "No se pudo iniciar la compra." }, { status: 500 });
-  }
-}
+    if (error instanceof CheckoutValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
-export async function GET() {
-  return NextResponse.json({ ok: true });
+    console.error("[smartpro:webpay:create] Error creando la transacción", error);
+    const message = error instanceof Error ? error.message : "No se pudo iniciar la compra.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

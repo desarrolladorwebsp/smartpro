@@ -98,11 +98,7 @@ function ClientLogo({
             onError={() => setFailed(true)}
             className="
               object-contain
-              opacity-65
-              grayscale
-              transition-[filter,opacity,transform] duration-300 ease-out
-              group-hover:opacity-100
-              group-hover:grayscale-0
+              transition-transform duration-300 ease-out
               group-hover:scale-[1.02]
             "
           />

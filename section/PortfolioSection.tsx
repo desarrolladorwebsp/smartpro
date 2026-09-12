@@ -12,106 +12,16 @@ import { motion } from "motion/react";
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
+import { PUBLIC_PORTFOLIO_FILTERS, type PublicPortfolioFilter } from "@/lib/portfolio/constants";
+import type { PublicPortfolioProject } from "@/lib/portfolio/types";
 
-/* ============================================================
-   TIPOS
-============================================================ */
-
-type PortfolioCategory =
-  | "Todos"
-  | "Sitios Web"
-  | "Landing Page"
-  | "E-commerce"
-  | "Sistemas";
-
-type PortfolioItem = {
-  id: number;
-  title: string;
-  category: Exclude<PortfolioCategory, "Todos">;
-  image: string;
-  url: string;
-  tags: string[];
+type PortfolioSectionProps = {
+  projects: PublicPortfolioProject[];
 };
 
-/* ============================================================
-   FILTROS
-============================================================ */
-
-const FILTERS: PortfolioCategory[] = [
-  "Todos",
-  "Sitios Web",
-  "Landing Page",
-  "E-commerce",
-  "Sistemas",
-];
-
-function isPortfolioCategory(value: string): value is PortfolioCategory {
-  return (FILTERS as readonly string[]).includes(value);
+function isPortfolioFilter(value: string): value is PublicPortfolioFilter {
+  return (PUBLIC_PORTFOLIO_FILTERS as readonly string[]).includes(value);
 }
-
-/* ============================================================
-   PROYECTOS
-============================================================ */
-
-const PORTFOLIO_ITEMS: PortfolioItem[] = [
-  {
-    id: 1,
-    title: "Isapres Premium",
-    category: "Landing Page",
-    image: "/images/portfolio/isapres-premium.png",
-    url: "https://www.isaprespremium.cl",
-    tags: ["Landing Page", "Responsive", "Conversión"],
-  },
-  {
-    id: 2,
-    title: "Tu Promesa",
-    category: "Landing Page",
-    image: "/images/portfolio/tu-promesa.png",
-    url: "https://www.tupromesa.cl",
-    tags: ["Landing Page", "UI/UX", "Legal"],
-  },
-  {
-    id: 3,
-    title: "RealStock",
-    category: "E-commerce",
-    image: "/images/portfolio/real-stock.png",
-    url: "https://www.realstock.cl",
-    tags: ["E-commerce", "UI/UX", "Catálogo"],
-  },
-  {
-    id: 4,
-    title: "SAAS Appsfly",
-    category: "Sistemas",
-    image: "/images/portfolio/saas-appsfly.png",
-    url: "https://www.appsfly.app",
-    tags: ["Sistema", "Dashboard", "Automatización", "SAAS"],
-  },
-  {
-    id: 5,
-    title: "Turismo Dabar",
-    category: "Landing Page",
-    image: "/images/portfolio/turismo-dabar.png",
-    url: "https://turismodabar.cl",
-    tags: ["Website", "Next.js", "Responsive"],
-  },
-  {
-    id: 6,
-    title: "Axessia",
-    category: "Sistemas",
-    image: "/images/portfolio/axessia-01.png",
-    url: "https://axessia.cl",
-    tags: ["Website", "Next.js", "Responsive"],
-  },
-  {
-    id: 8,
-    title: "CRM Isapres Premium",
-    category: "Sistemas",
-    image: "/images/portfolio/crm-isapres-premium.png",
-    url: "https://www.isaprespremium.cl",
-    tags: ["CRM", "Next.js", "Responsive"],
-  },
-
-];
 
 const SCROLL_EDGE_PX = 8;
 
@@ -147,21 +57,19 @@ function getCarouselScrollState(node: HTMLElement) {
    PORTFOLIO SECTION
 ============================================================ */
 
-export default function PortfolioSection() {
-  const [activeFilter, setActiveFilter] = useState<PortfolioCategory>("Todos");
+export default function PortfolioSection({ projects }: PortfolioSectionProps) {
+  const [activeFilter, setActiveFilter] = useState<PublicPortfolioFilter>("Todos");
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
   const portfolioTrackRef = useRef<HTMLDivElement | null>(null);
 
   const filteredProjects = useMemo(() => {
     if (activeFilter === "Todos") {
-      return PORTFOLIO_ITEMS;
+      return projects;
     }
 
-    return PORTFOLIO_ITEMS.filter(
-      (project) => project.category === activeFilter,
-    );
-  }, [activeFilter]);
+    return projects.filter((project) => project.category === activeFilter);
+  }, [activeFilter, projects]);
 
   const syncCarouselState = useCallback(() => {
     const node = portfolioTrackRef.current;
@@ -189,7 +97,7 @@ export default function PortfolioSection() {
     });
   }, []);
 
-  const handleFilterChange = (filter: PortfolioCategory) => {
+  const handleFilterChange = (filter: PublicPortfolioFilter) => {
     setActiveFilter(filter);
   };
 
@@ -413,7 +321,7 @@ export default function PortfolioSection() {
               onChange={(event) => {
                 const nextFilter = event.target.value;
 
-                if (isPortfolioCategory(nextFilter)) {
+                if (isPortfolioFilter(nextFilter)) {
                   handleFilterChange(nextFilter);
                 }
               }}
@@ -436,7 +344,7 @@ export default function PortfolioSection() {
                 focus:border-primary/50
               "
             >
-              {FILTERS.map((filter) => (
+              {PUBLIC_PORTFOLIO_FILTERS.map((filter) => (
                 <option key={filter} value={filter}>
                   {filter}
                 </option>
@@ -449,7 +357,7 @@ export default function PortfolioSection() {
           </div>
 
           <div className="hidden flex-wrap items-center justify-center gap-2.5 md:flex">
-            {FILTERS.map((filter) => {
+            {PUBLIC_PORTFOLIO_FILTERS.map((filter) => {
               const isActive = activeFilter === filter;
 
               return (
@@ -604,7 +512,7 @@ export default function PortfolioSection() {
    PORTFOLIO CARD
 ============================================================ */
 
-function PortfolioCard({ project }: { project: PortfolioItem }) {
+function PortfolioCard({ project }: { project: PublicPortfolioProject }) {
   const isExternal = project.url.startsWith("http");
 
   return (
@@ -685,7 +593,7 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
       <div
         className="
           relative
-          aspect-[16/10]
+          aspect-[5/4]
           overflow-hidden
           bg-soft-background
         "
@@ -772,6 +680,9 @@ function PortfolioCard({ project }: { project: PortfolioItem }) {
             >
               {project.category}
             </p>
+            {project.summary ? (
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">{project.summary}</p>
+            ) : null}
           </div>
 
           {project.url !== "#" && (

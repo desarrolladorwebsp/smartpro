@@ -211,6 +211,7 @@ model ServiceCategory {
 
   subcategories ServiceSubcategory[]
   interestedClients Client[] @relation("ClientInterestService")
+  portfolioProjects PortfolioProject[]
 
   @@index([status])
   @@index([sortOrder])
@@ -229,6 +230,7 @@ model ServiceSubcategory {
 
   plans ServicePlan[]
   interestedClients Client[] @relation("ClientInterestSubcategory")
+  portfolioProjects PortfolioProject[]
 
   @@unique([categoryId, slug])
   @@index([categoryId])
@@ -299,6 +301,7 @@ model Order {
   paymentMethod           PaymentMethod @default(transbank)
   preferenceId            String?       @unique
   mercadopagoPaymentId    String?       @unique
+  webpayToken             String?       @unique
   processedPaymentKeys    Json          @default("[]")
   notificationEmailSentAt DateTime?
   items                   OrderItem[]
@@ -326,6 +329,34 @@ model OrderItem {
   total        Decimal @db.Decimal(12, 2)
 
   @@index([orderId])
+}
+
+enum PortfolioProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model PortfolioProject {
+  id            String                 @id @default(cuid())
+  categoryId    String
+  category      ServiceCategory        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategoryId String
+  subcategory   ServiceSubcategory     @relation(fields: [subcategoryId], references: [id], onDelete: Restrict)
+  title         String
+  slug          String
+  summary       String                 @default("") @db.Text
+  image         String                 @default("")
+  url           String                 @default("")
+  tags          Json                   @default("[]")
+  status        PortfolioProjectStatus @default(DRAFT)
+  sortOrder     Int                    @default(0)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([categoryId, slug])
+  @@index([categoryId, status, sortOrder])
+  @@index([subcategoryId])
 }
 
 enum QuoteStatus {

@@ -50,6 +50,10 @@ async function ensureOrderColumns() {
       column: "notificationEmailSentAt",
       sql: "ALTER TABLE `Order` ADD COLUMN `notificationEmailSentAt` DATETIME(3) NULL",
     },
+    {
+      column: "webpayToken",
+      sql: "ALTER TABLE `Order` ADD COLUMN `webpayToken` VARCHAR(191) NULL",
+    },
   ];
 
   for (const addition of additions) {
@@ -68,6 +72,11 @@ async function ensureOrderColumns() {
     exec("CREATE UNIQUE INDEX `Order_mercadopagoPaymentId_key` ON `Order`(`mercadopagoPaymentId`)").catch(
       () => undefined,
     ),
+  );
+  await exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS `Order_webpayToken_key` ON `Order`(`webpayToken`)",
+  ).catch(() =>
+    exec("CREATE UNIQUE INDEX `Order_webpayToken_key` ON `Order`(`webpayToken`)").catch(() => undefined),
   );
   await exec("CREATE INDEX IF NOT EXISTS `Order_createdAt_idx` ON `Order`(`createdAt`)").catch(() =>
     exec("CREATE INDEX `Order_createdAt_idx` ON `Order`(`createdAt`)").catch(() => undefined),
@@ -98,9 +107,11 @@ async function main() {
       \`mercadopagoPaymentId\` VARCHAR(191) NULL,
       \`processedPaymentKeys\` JSON NOT NULL DEFAULT (JSON_ARRAY()),
       \`notificationEmailSentAt\` DATETIME(3) NULL,
+      \`webpayToken\` VARCHAR(191) NULL,
       PRIMARY KEY (\`id\`),
       UNIQUE INDEX \`Order_preferenceId_key\` (\`preferenceId\`),
       UNIQUE INDEX \`Order_mercadopagoPaymentId_key\` (\`mercadopagoPaymentId\`),
+      UNIQUE INDEX \`Order_webpayToken_key\` (\`webpayToken\`),
       INDEX \`Order_customerEmail_idx\` (\`customerEmail\`),
       INDEX \`Order_orderStatus_idx\` (\`orderStatus\`),
       INDEX \`Order_paymentStatus_idx\` (\`paymentStatus\`),

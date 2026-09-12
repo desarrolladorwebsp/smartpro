@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Bell, CalendarDays, FileText, LayoutDashboard, Package, Plus, ShoppingBag, Users, UserCog, ArrowLeft } from "lucide-react";
+import { Bell, CalendarDays, FileText, Images, LayoutDashboard, Package, Plus, ShoppingBag, Users, UserCog, ArrowLeft } from "lucide-react";
 
 const HEADER_ICONS = {
   dashboard: LayoutDashboard,
@@ -12,6 +12,7 @@ const HEADER_ICONS = {
   compras: ShoppingBag,
   ventas: ShoppingBag,
   ejecutivos: UserCog,
+  portafolios: Images,
   back: ArrowLeft,
   plus: Plus,
 } as const;

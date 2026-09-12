@@ -110,7 +110,9 @@ async function PurchaseDetailContent({ params }: { params: Promise<{ id: string 
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Pago</p>
               <p className="mt-2 text-base font-semibold text-foreground">{order.paymentStatus === "paid" ? "Aprobado" : order.paymentStatus}</p>
-              <p className="text-sm text-muted">Método: {order.paymentMethod === "mercadopago" ? "Mercado Pago" : order.paymentMethod}</p>
+              <p className="text-sm text-muted">
+                Método: {order.paymentMethod === "mercadopago" ? "Mercado Pago" : order.paymentMethod === "transbank" ? "Webpay" : order.paymentMethod}
+              </p>
             </div>
           </aside>
         </div>

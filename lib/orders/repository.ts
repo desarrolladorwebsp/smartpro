@@ -22,6 +22,7 @@ export type CustomerOrder = {
   paymentMethod: "simulated" | "transbank" | "mercadopago";
   preferenceId?: string;
   mercadopagoPaymentId?: string;
+  webpayToken?: string;
   processedPaymentKeys?: string[];
   notificationEmailSentAt?: string;
 };
@@ -135,6 +136,7 @@ function rowToCustomerOrder(row: OrderWithItems): CustomerOrder {
     paymentMethod: row.paymentMethod,
     preferenceId: row.preferenceId ?? undefined,
     mercadopagoPaymentId: row.mercadopagoPaymentId ?? undefined,
+    webpayToken: row.webpayToken ?? undefined,
     processedPaymentKeys: parseProcessedPaymentKeys(row.processedPaymentKeys),
     notificationEmailSentAt: row.notificationEmailSentAt?.toISOString(),
   };
@@ -176,6 +178,20 @@ export async function findOrderByMercadoPagoPaymentId(paymentId: string): Promis
   return row ? rowToCustomerOrder(row) : null;
 }
 
+export async function findOrderByWebpayToken(token: string): Promise<CustomerOrder | null> {
+  const normalized = token.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const row = await getPrisma().order.findUnique({
+    where: { webpayToken: normalized },
+    include: ORDER_INCLUDE,
+  });
+
+  return row ? rowToCustomerOrder(row) : null;
+}
+
 export async function createOrderRecord(
   orderInput: Omit<CustomerOrder, "id" | "createdAt" | "status" | "orderStatus"> & {
     id?: string;
@@ -207,6 +223,7 @@ export async function createOrderRecord(
       paymentMethod: normalizePaymentMethod(orderInput.paymentMethod),
       preferenceId: orderInput.preferenceId ?? null,
       mercadopagoPaymentId: orderInput.mercadopagoPaymentId ?? null,
+      webpayToken: orderInput.webpayToken ?? null,
       processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
       notificationEmailSentAt: orderInput.notificationEmailSentAt
         ? new Date(orderInput.notificationEmailSentAt)
@@ -245,6 +262,7 @@ export async function updateOrderRecord(
     preferenceId: updates.preferenceId === undefined ? existing.preferenceId : updates.preferenceId,
     mercadopagoPaymentId:
       updates.mercadopagoPaymentId === undefined ? existing.mercadopagoPaymentId : updates.mercadopagoPaymentId,
+    webpayToken: updates.webpayToken === undefined ? existing.webpayToken : updates.webpayToken,
     processedPaymentKeys: updates.processedPaymentKeys ?? parseProcessedPaymentKeys(existing.processedPaymentKeys),
     notificationEmailSentAt:
       updates.notificationEmailSentAt === undefined

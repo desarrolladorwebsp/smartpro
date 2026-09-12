@@ -18,7 +18,7 @@ export default function CheckoutResultClient() {
     },
     pending: {
       title: "Pago pendiente",
-      message: "Mercado Pago todavía está procesando tu pago. Te confirmaremos cuando se acredite.",
+      message: "El pago todavía está en proceso. Te confirmaremos cuando se acredite.",
       tone: "border-sky-200 bg-sky-50 text-sky-700",
       action: "Volver al inicio",
       href: "/",

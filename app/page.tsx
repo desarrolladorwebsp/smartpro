@@ -13,6 +13,8 @@ import PresentersSection from "@/section/PresentersSection";
 import ServicesSection from "@/section/ServicesSection";
 import TeamSection from "@/section/TeamSection";
 import { hasDatabaseConnection } from "@/lib/db";
+import { getPublicPortfolioProjects } from "@/lib/portfolio/public";
+import type { PublicPortfolioProject } from "@/lib/portfolio/types";
 import { getPublicServicesForHome } from "@/lib/services/public";
 import type { PublicServiceView } from "@/lib/services/public";
 
@@ -107,13 +109,20 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let catalog: PublicServiceView[] = [];
+  let portfolioProjects: PublicPortfolioProject[] = [];
 
-  try {
-    if (hasDatabaseConnection()) {
+  if (hasDatabaseConnection()) {
+    try {
       catalog = await getPublicServicesForHome();
+    } catch (error) {
+      console.error("[smartpro:home:catalog]", error);
     }
-  } catch (error) {
-    console.error("[smartpro:home:catalog]", error);
+
+    try {
+      portfolioProjects = await getPublicPortfolioProjects();
+    } catch (error) {
+      console.error("[smartpro:home:portfolio]", error);
+    }
   }
 
   return (
@@ -126,7 +135,7 @@ export default async function Home() {
           <HeroSection />
           <ServicesSection catalog={catalog} />
           <ClientsMarqueeSection />
-          <PortfolioSection />
+          <PortfolioSection projects={portfolioProjects} />
           <PresentersSection />
           <TeamSection />
           <ContactSection />

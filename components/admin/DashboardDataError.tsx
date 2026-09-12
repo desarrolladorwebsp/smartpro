@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 
 type DashboardDataErrorProps = {
-  icon?: "dashboard" | "clientes" | "cotizaciones" | "servicios" | "compras" | "ventas" | "ejecutivos";
+  icon?: "dashboard" | "clientes" | "cotizaciones" | "servicios" | "compras" | "ventas" | "ejecutivos" | "portafolios";
   eyebrow: string;
   title: string;
   message?: string;

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   FileText,
+  Images,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, adminOnly: false },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones", icon: FileText, adminOnly: false },
   { label: "Servicios", href: "/dashboard/servicios", icon: Package, adminOnly: false },
+  { label: "Portafolios", href: "/dashboard/portafolios", icon: Images, adminOnly: false },
   { label: "Ventas", href: "/dashboard/ventas", icon: ShoppingBag, adminOnly: false },
   { label: "Ejecutivos", href: "/dashboard/ejecutivos", icon: UserCog, adminOnly: true },
 ] as const;

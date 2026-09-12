@@ -1,49 +1,84 @@
 import { NextResponse } from "next/server";
 
-import { getOrderRecord, updateOrderStatus } from "@/lib/orders/repository";
-import { getWebpayTransaction } from "@/lib/webpay";
+import { getAppUrl } from "@/lib/app-url";
+import {
+  applyWebpayCommit,
+  applyWebpayInterrupted,
+  checkoutResultFromWebpayKind,
+  checkoutResultStatus,
+  classifyWebpayReturn,
+  getWebpayTransaction,
+  isWebpayApproved,
+  readWebpayReturnParams,
+  toWebpayCommitSnapshot,
+} from "@/lib/webpay";
 
-export async function GET(request: Request) {
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function resultUrl(status: string, orderId?: string | null) {
+  const url = new URL("/checkout/result", `${getAppUrl()}/`);
+  url.searchParams.set("status", status);
+  if (orderId) {
+    url.searchParams.set("orderId", orderId);
+  }
+  return url;
+}
+
+async function handleReturn(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const tokenWs = searchParams.get("token_ws");
-    const orderId = searchParams.get("orderId");
+    const params = await readWebpayReturnParams(request);
+    const classified = classifyWebpayReturn(params);
 
-    if (!tokenWs) {
-      const redirectUrl = orderId ? `/checkout/result?status=cancelled&orderId=${encodeURIComponent(orderId)}` : "/checkout/result?status=cancelled";
-      return NextResponse.redirect(new URL(redirectUrl, request.url));
-    }
-
-    const tx = getWebpayTransaction();
-    const response = await tx.commit(tokenWs);
-    const order = orderId ? await getOrderRecord(orderId) : null;
-
-    if (!order) {
-      return NextResponse.redirect(new URL(`/checkout/result?status=failed&token=${encodeURIComponent(tokenWs)}`, request.url));
-    }
-
-    const isApproved = response?.response_code === 0;
-
-    if (isApproved) {
-      await updateOrderStatus(order.id, {
-        paymentStatus: "paid",
-        orderStatus: "confirmed",
-        status: "confirmed",
-        paymentMethod: "transbank",
+    if (classified.kind !== "commit") {
+      const result = await applyWebpayInterrupted({
+        kind: classified.kind,
+        token: classified.token,
+        buyOrder: classified.buyOrder,
       });
-      return NextResponse.redirect(new URL(`/checkout/result?status=approved&orderId=${encodeURIComponent(order.id)}`, request.url));
+      const status = result.order
+        ? checkoutResultStatus(result.order.paymentStatus)
+        : checkoutResultFromWebpayKind(classified.kind, false);
+      return NextResponse.redirect(resultUrl(status, result.order?.id ?? classified.buyOrder));
     }
 
-    await updateOrderStatus(order.id, {
-      paymentStatus: "failed",
-      orderStatus: "cancelled",
-      status: "cancelled",
-      paymentMethod: "transbank",
-    });
+    const webpay = getWebpayTransaction();
+    let snapshot;
 
-    return NextResponse.redirect(new URL(`/checkout/result?status=failed&orderId=${encodeURIComponent(order.id)}`, request.url));
+    try {
+      snapshot = toWebpayCommitSnapshot(classified.token, await webpay.commit(classified.token));
+    } catch (error) {
+      console.error("[smartpro:webpay:return] commit falló, consultando status", error);
+      try {
+        snapshot = toWebpayCommitSnapshot(classified.token, await webpay.status(classified.token));
+      } catch (statusError) {
+        console.error("[smartpro:webpay:return] status también falló", statusError);
+        const result = await applyWebpayInterrupted({
+          kind: "error",
+          token: classified.token,
+          buyOrder: classified.buyOrder,
+        });
+        return NextResponse.redirect(resultUrl("failed", result.order?.id ?? classified.buyOrder));
+      }
+    }
+
+    const result = await applyWebpayCommit(snapshot);
+    const approved = isWebpayApproved(snapshot);
+    const status = result.order
+      ? checkoutResultStatus(result.order.paymentStatus)
+      : checkoutResultFromWebpayKind("commit", approved);
+
+    return NextResponse.redirect(resultUrl(status, result.order?.id ?? snapshot.buy_order));
   } catch (error) {
     console.error("[smartpro:webpay:return] Error en retorno de Webpay", error);
-    return NextResponse.redirect(new URL("/checkout/result?status=failed", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
+    return NextResponse.redirect(resultUrl("failed"));
   }
+}
+
+export async function GET(request: Request) {
+  return handleReturn(request);
+}
+
+export async function POST(request: Request) {
+  return handleReturn(request);
 }

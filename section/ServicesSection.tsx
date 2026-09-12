@@ -155,7 +155,6 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
             md:gap-5
             md:overflow-visible
             lg:grid-cols-3
-            xl:grid-cols-4
           "
         >
           {catalog.length === 0 ? (
@@ -198,7 +197,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                 alt={service.name}
                 fill
                 className="object-cover object-center transition-all duration-700 ease-out group-hover:scale-[1.045]"
-                sizes="(max-width: 767px) 78vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw"
+                sizes="(max-width: 767px) 78vw, (max-width: 1023px) 50vw, 33vw"
                 containerClassName="absolute inset-0"
               />
 

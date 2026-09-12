@@ -1,8 +1,15 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
+import {
+  getTeamCarouselLayout,
+  getTeamPageStarts,
+  type TeamCarouselLayout,
+} from "@/lib/team/carousel-layout";
 
 /* ============================================================
    TEAM DATA
@@ -12,7 +19,7 @@ const TEAM_MEMBERS = [
   {
     id: 1,
     name: "Andrea Vidal",
-    role: "Gerente General",
+    role: "Directora ejecutiva",
     description:
       "Estratega comercial con enfoque en automatización, captación y crecimiento digital.",
     image: "/images/team/andrea-vidal.png",
@@ -46,13 +53,131 @@ const TEAM_MEMBERS = [
     description: "Encargado de la producción de videos y fotografía para redes sociales y campañas publicitarias.",
     image: "/images/team/javier-sanhueza.png",
   },
+  {
+    id: 6,
+    name: "Ariana de la Fuente",
+    role: "Ejecutiva Comercial",
+    description: "Encargada del diseño grafico y creacion de estrategias publicitarias",
+    image: "/images/team/ariana-de-la-fuente.png",
+  },
+  {
+    id: 7,
+    name: "Catalina Saravia",
+    role: "Audiovisual",
+    description: "Encargada de la producción de videos y fotografía para redes sociales y campañas publicitarias.",
+    image: "/images/team/catalina_saravia.png",
+  },
+  {
+    id: 8,
+    name: "Isabel Uribe",
+    role: "Office Manager",
+    description: "Encargada de la gestión administrativa y operativa de la empresa.",
+    image: "/images/team/isabel-uribe.png",
+  },
 ] as const;
+
+const INITIAL_LAYOUT = getTeamCarouselLayout(0);
 
 /* ============================================================
    TEAM SECTION
 ============================================================ */
 
 export default function TeamSection() {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const dragStartX = useRef<number | null>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  const [layout, setLayout] = useState<TeamCarouselLayout>(INITIAL_LAYOUT);
+  const [pageIndex, setPageIndex] = useState(0);
+
+  const pageStarts = useMemo(
+    () => getTeamPageStarts(TEAM_MEMBERS.length, layout.visibleCount),
+    [layout.visibleCount],
+  );
+  const lastPageIndex = Math.max(0, pageStarts.length - 1);
+  const activePageIndex = Math.min(pageIndex, lastPageIndex);
+  const canScrollPrev = activePageIndex > 0;
+  const canScrollNext = activePageIndex < lastPageIndex;
+  const showControls = lastPageIndex > 0;
+  const visibleStart = pageStarts[activePageIndex] ?? 0;
+  const visibleMembers = TEAM_MEMBERS.slice(
+    visibleStart,
+    visibleStart + layout.visibleCount,
+  );
+  const trackOffset = visibleStart * (layout.cardWidth + layout.gap);
+
+  const goToPage = useCallback(
+    (nextPageIndex: number) => {
+      setPageIndex(Math.min(Math.max(nextPageIndex, 0), lastPageIndex));
+    },
+    [lastPageIndex],
+  );
+
+  useEffect(() => {
+    setPageIndex((current) => Math.min(current, lastPageIndex));
+  }, [lastPageIndex]);
+
+  useEffect(() => {
+    const node = viewportRef.current;
+    if (!node) return;
+
+    const measure = () => {
+      const nextLayout = getTeamCarouselLayout(node.clientWidth);
+
+      setLayout((current) => {
+        if (
+          current.visibleCount === nextLayout.visibleCount &&
+          current.cardWidth === nextLayout.cardWidth &&
+          current.gap === nextLayout.gap
+        ) {
+          return current;
+        }
+
+        return nextLayout;
+      });
+    };
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    measure();
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleTrackKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goToPage(activePageIndex - 1);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goToPage(activePageIndex + 1);
+    }
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    dragStartX.current = event.clientX;
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragStartX.current == null) return;
+
+    const delta = event.clientX - dragStartX.current;
+    dragStartX.current = null;
+
+    if (Math.abs(delta) < 48) return;
+
+    if (delta < 0) {
+      goToPage(activePageIndex + 1);
+      return;
+    }
+
+    goToPage(activePageIndex - 1);
+  };
+
   return (
     <section
       id="nosotros"
@@ -145,8 +270,6 @@ export default function TeamSection() {
             </span>
           </motion.h2>
 
-          {/* Línea */}
-
           <motion.div
             initial={{
               opacity: 0,
@@ -165,52 +288,188 @@ export default function TeamSection() {
             }}
             className="accent-line"
           />
-
-          {/* Description */}
-
-          
         </div>
 
         {/* ====================================================
             TEAM CAROUSEL
         ==================================================== */}
 
-        <div className="mx-auto max-w-[1320px]">
+        <div
+          className="relative mx-auto max-w-[1320px] md:px-14"
+          role="region"
+          aria-roledescription="carrusel"
+          aria-label="Equipo SmartPro"
+        >
+          <p className="sr-only" aria-live="polite">
+            Vista {activePageIndex + 1} de {pageStarts.length}.{" "}
+            {visibleMembers.length === 1
+              ? visibleMembers[0]?.name
+              : `${visibleMembers[0]?.name} a ${visibleMembers.at(-1)?.name}`}
+            .
+          </p>
+
+          {showControls ? (
+            <button
+              type="button"
+              aria-label="Mostrar ejecutivos anteriores"
+              aria-controls="team-carousel"
+              aria-disabled={!canScrollPrev}
+              disabled={!canScrollPrev}
+              onClick={() => goToPage(activePageIndex - 1)}
+              className="
+                absolute
+                left-0
+                top-[42%]
+                z-20
+                hidden
+                h-12
+                w-12
+                -translate-y-1/2
+                items-center
+                justify-center
+                rounded-full
+                border
+                border-primary/10
+                bg-white/95
+                text-primary
+                shadow-[0_8px_28px_rgba(16,16,36,0.10)]
+                backdrop-blur-md
+                transition-all
+                duration-300
+                hover:bg-primary
+                hover:text-white
+                md:flex
+                disabled:pointer-events-none
+                disabled:opacity-35
+              "
+            >
+              <ChevronLeft size={23} strokeWidth={2} />
+            </button>
+          ) : null}
+
           <div
+            ref={viewportRef}
+            id="team-carousel"
+            tabIndex={0}
+            onKeyDown={handleTrackKeyDown}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={() => {
+              dragStartX.current = null;
+            }}
             className="
-              no-scrollbar
-              flex
-              snap-x
-              snap-mandatory
-              gap-4
-              overflow-x-auto
-              pb-2
-              md:grid
-              md:grid-cols-3
-              md:overflow-visible
-              md:pb-0
-              lg:gap-5
-              xl:grid-cols-5
-              xl:gap-5
+              overflow-hidden
+              outline-none
+              touch-pan-y
+              focus-visible:ring-2
+              focus-visible:ring-primary/40
+              focus-visible:ring-offset-2
             "
           >
-            {TEAM_MEMBERS.map((member, index) => (
-              <div
-                key={member.id}
-                className="
-                  w-[76%]
-                  max-w-[270px]
-                  shrink-0
-                  snap-start
-                  md:w-auto
-                  md:max-w-none
-                  md:min-w-0
-                "
-              >
-                <TeamCard member={member} index={index} />
-              </div>
-            ))}
+            <motion.div
+              animate={{ x: -trackOffset }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.55,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              style={{ gap: layout.gap }}
+              className="flex flex-nowrap items-stretch"
+            >
+              {TEAM_MEMBERS.map((member, index) => (
+                <div
+                  key={member.id}
+                  data-team-slide
+                  style={{
+                    width: layout.cardWidth,
+                    flex: `0 0 ${layout.cardWidth}px`,
+                  }}
+                  className="min-w-0"
+                >
+                  <TeamCard member={member} index={index} />
+                </div>
+              ))}
+            </motion.div>
           </div>
+
+          {showControls ? (
+            <button
+              type="button"
+              aria-label="Mostrar siguientes ejecutivos"
+              aria-controls="team-carousel"
+              aria-disabled={!canScrollNext}
+              disabled={!canScrollNext}
+              onClick={() => goToPage(activePageIndex + 1)}
+              className="
+                absolute
+                right-0
+                top-[42%]
+                z-20
+                hidden
+                h-12
+                w-12
+                -translate-y-1/2
+                items-center
+                justify-center
+                rounded-full
+                border
+                border-primary/10
+                bg-white/95
+                text-primary
+                shadow-[0_8px_28px_rgba(16,16,36,0.10)]
+                backdrop-blur-md
+                transition-all
+                duration-300
+                hover:bg-primary
+                hover:text-white
+                md:flex
+                disabled:pointer-events-none
+                disabled:opacity-35
+              "
+            >
+              <ChevronRight size={23} strokeWidth={2} />
+            </button>
+          ) : null}
+
+          {showControls ? (
+            <div
+              className="mt-6 flex items-center justify-center gap-2"
+              role="tablist"
+              aria-label="Vistas del equipo"
+            >
+              {pageStarts.map((_, index) => {
+                const isActive = activePageIndex === index;
+
+                return (
+                  <button
+                    key={`team-page-${index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`Ir a la vista ${index + 1} de ${pageStarts.length}`}
+                    aria-controls="team-carousel"
+                    onClick={() => goToPage(index)}
+                    className="flex h-8 items-center justify-center px-1"
+                  >
+                    <span
+                      className={`
+                        block
+                        h-2
+                        rounded-full
+                        transition-all
+                        duration-300
+                        ${
+                          isActive
+                            ? "w-7 bg-primary"
+                            : "w-2 bg-primary/20 hover:bg-primary/40"
+                        }
+                      `}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -269,7 +528,7 @@ function TeamCard({ member, index }: TeamCardProps) {
       }}
       transition={{
         duration: 0.5,
-        delay: index * 0.05,
+        delay: Math.min(index * 0.05, 0.2),
         ease: "easeOut",
       }}
       whileHover={{
@@ -293,10 +552,6 @@ function TeamCard({ member, index }: TeamCardProps) {
         hover:shadow-[0_22px_54px_rgba(109,40,217,0.18)]
       "
     >
-      {/* ======================================================
-          PHOTO
-      ====================================================== */}
-
       <div
         className="
           relative
@@ -311,11 +566,9 @@ function TeamCard({ member, index }: TeamCardProps) {
           alt={`${member.name} - ${member.role}`}
           fill
           className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 17vw"
+          sizes="(max-width: 639px) 82vw, (max-width: 767px) 50vw, (max-width: 1023px) 33vw, (max-width: 1279px) 25vw, 20vw"
           containerClassName="absolute inset-0"
         />
-
-        {/* Top overlay */}
 
         <div
           aria-hidden="true"
@@ -329,8 +582,6 @@ function TeamCard({ member, index }: TeamCardProps) {
             to-transparent
           "
         />
-
-        {/* Purple ambient light */}
 
         <div
           aria-hidden="true"
@@ -353,10 +604,6 @@ function TeamCard({ member, index }: TeamCardProps) {
         />
       </div>
 
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
-
       <div
         className="
           relative
@@ -371,8 +618,6 @@ function TeamCard({ member, index }: TeamCardProps) {
           sm:pb-5
         "
       >
-        {/* Name */}
-
         <h3
           className="
             text-[18px]
@@ -384,8 +629,6 @@ function TeamCard({ member, index }: TeamCardProps) {
           {member.name}
         </h3>
 
-        {/* Role */}
-
         <p
           className="
             mt-1
@@ -396,8 +639,6 @@ function TeamCard({ member, index }: TeamCardProps) {
         >
           {member.role}
         </p>
-
-        {/* Accent line */}
 
         <div
           className="
@@ -414,8 +655,6 @@ function TeamCard({ member, index }: TeamCardProps) {
           "
         />
 
-        {/* Description */}
-
         <p
           className="
             mt-3
@@ -426,8 +665,6 @@ function TeamCard({ member, index }: TeamCardProps) {
         >
           {member.description}
         </p>
-
-        {/* Decorative bottom glow */}
 
         <div
           aria-hidden="true"

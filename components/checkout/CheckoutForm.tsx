@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 
 import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 
 import { useCart } from "@/components/cart/CartProvider";
 import { formatCurrency } from "@/lib/orders/service";
+import { isAllowedWebpayRedirectUrl } from "@/lib/webpay/redirect";
 
 type CheckoutState = {
   name: string;
@@ -13,6 +15,8 @@ type CheckoutState = {
   phone: string;
   company: string;
 };
+
+type PaymentMethodOption = "mercadopago" | "webpay";
 
 const initialState: CheckoutState = {
   name: "",
@@ -23,10 +27,27 @@ const initialState: CheckoutState = {
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function redirectToWebpay(url: string, token: string) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = url;
+  form.acceptCharset = "UTF-8";
+
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "token_ws";
+  input.value = token;
+  form.appendChild(input);
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
 export default function CheckoutForm() {
   const { items, subtotal, tax, total } = useCart();
   const [form, setForm] = useState<CheckoutState>(initialState);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutState, string>>>({});
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodOption>("mercadopago");
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -53,6 +74,70 @@ export default function CheckoutForm() {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const checkoutPayload = () => ({
+    customer: {
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      company: form.company,
+    },
+    items: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      priceDisplay: item.priceDisplay,
+      taxRate: item.taxRate,
+    })),
+  });
+
+  const handleMercadoPago = async () => {
+    const response = await fetch("/api/mercadopago/preference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkoutPayload()),
+    });
+
+    const payload = (await response.json()) as {
+      error?: string;
+      order?: { id?: string };
+      mercadopago?: { checkoutUrl?: string };
+    };
+
+    if (!response.ok || !payload.order?.id || !payload.mercadopago?.checkoutUrl) {
+      throw new Error(payload.error ?? "No se pudo iniciar el pago con Mercado Pago.");
+    }
+
+    setSuccess(`Orden ${payload.order.id} creada. Redirigiendo a Mercado Pago...`);
+    window.location.href = payload.mercadopago.checkoutUrl;
+  };
+
+  const handleWebpay = async () => {
+    const response = await fetch("/api/webpay/transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkoutPayload()),
+    });
+
+    const payload = (await response.json()) as {
+      error?: string;
+      order?: { id?: string };
+      webpay?: { token?: string; url?: string };
+    };
+
+    if (!response.ok || !payload.order?.id || !payload.webpay?.token || !payload.webpay?.url) {
+      throw new Error(payload.error ?? "No se pudo iniciar el pago con Webpay.");
+    }
+
+    if (!isAllowedWebpayRedirectUrl(payload.webpay.url)) {
+      throw new Error("Webpay no devolvió una URL de redirección válida.");
+    }
+
+    setSuccess(`Orden ${payload.order.id} creada. Redirigiendo a Webpay...`);
+    redirectToWebpay(payload.webpay.url, payload.webpay.token);
+  };
+
   const handleSubmit = async () => {
     if (!validate()) return;
     if (!items.length) {
@@ -65,46 +150,23 @@ export default function CheckoutForm() {
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/mercadopago/preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: {
-            name: form.name,
-            email: form.email,
-            phone: form.phone,
-            company: form.company,
-          },
-          items: items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            priceDisplay: item.priceDisplay,
-            taxRate: item.taxRate,
-          })),
-        }),
-      });
-
-      const payload = (await response.json()) as {
-        error?: string;
-        order?: { id?: string; total?: number; customer?: { email?: string } };
-        mercadopago?: { checkoutUrl?: string; preferenceId?: string };
-      };
-
-      if (!response.ok || !payload.order?.id || !payload.mercadopago?.checkoutUrl) {
-        throw new Error(payload.error ?? "No se pudo iniciar el pago con Mercado Pago.");
+      if (paymentMethod === "webpay") {
+        await handleWebpay();
+        return;
       }
 
-      setSuccess(`Orden creada correctamente: ${payload.order.id}. Redirigiendo a Mercado Pago...`);
-      window.location.href = payload.mercadopago.checkoutUrl;
+      await handleMercadoPago();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "No se pudo iniciar el pago con Mercado Pago.");
-    } finally {
+      setSubmitError(error instanceof Error ? error.message : "No se pudo iniciar el pago.");
       setProcessing(false);
     }
   };
+
+  const payLabel = processing
+    ? "Procesando orden..."
+    : paymentMethod === "webpay"
+      ? "Pagar con Webpay"
+      : "Pagar con Mercado Pago";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -172,14 +234,52 @@ export default function CheckoutForm() {
           </div>
         </div>
 
+        <fieldset className="mt-6">
+          <legend className="text-sm font-semibold text-foreground">Método de pago</legend>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                paymentMethod === "mercadopago" ? "border-primary bg-primary/5" : "border-border bg-soft-background"
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="mercadopago"
+                checked={paymentMethod === "mercadopago"}
+                onChange={() => setPaymentMethod("mercadopago")}
+                className="accent-primary"
+              />
+              <Image src="/images/logo/logo-mercado-pago.png" alt="" width={92} height={28} className="h-7 w-auto object-contain" />
+              <span className="text-sm font-medium text-foreground">Mercado Pago</span>
+            </label>
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                paymentMethod === "webpay" ? "border-primary bg-primary/5" : "border-border bg-soft-background"
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="webpay"
+                checked={paymentMethod === "webpay"}
+                onChange={() => setPaymentMethod("webpay")}
+                className="accent-primary"
+              />
+              <Image src="/images/logo/webpay-plus.png" alt="" width={92} height={28} className="h-7 w-auto object-contain" />
+              <span className="text-sm font-medium text-foreground">Webpay</span>
+            </label>
+          </div>
+        </fieldset>
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             disabled={processing || !items.length}
             className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-6 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(109,40,217,0.2)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {processing ? "Procesando orden..." : "Pagar con Mercado Pago"}
+            {payLabel}
           </button>
         </div>
 

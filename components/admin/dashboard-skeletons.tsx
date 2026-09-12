@@ -288,3 +288,13 @@ export function PurchaseDetailPageSkeleton() {
     </div>
   );
 }
+
+export function PortfolioPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <FilterBarSkeleton />
+      <TableSkeleton columns={6} rows={6} />
+    </div>
+  );
+}
