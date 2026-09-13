@@ -54,10 +54,10 @@ describe("portfolio validation", () => {
 });
 
 describe("portfolio images", () => {
-  it("accepts 5:4 and rejects other ratios", () => {
-    assert.equal(isAllowedPortfolioAspect(1280, 1024), true);
-    assert.equal(isAllowedPortfolioAspect(1600, 1280), true);
-    assert.equal(isAllowedPortfolioAspect(1600, 900), false);
+  it("accepts 5:3 and rejects other ratios", () => {
+    assert.equal(isAllowedPortfolioAspect(1500, 900), true);
+    assert.equal(isAllowedPortfolioAspect(1600, 960), true);
+    assert.equal(isAllowedPortfolioAspect(1280, 1024), false);
     assert.equal(isAllowedPortfolioAspect(0, 4), false);
   });
 

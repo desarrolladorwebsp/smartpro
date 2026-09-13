@@ -123,7 +123,7 @@ export function assertPortfolioImageAspect(buffer: Buffer) {
   }
 
   if (!isAllowedPortfolioAspect(dimensions.width, dimensions.height)) {
-    throw new Error("La imagen debe tener proporción 5:4 (ancho × alto).");
+    throw new Error("La imagen debe tener proporción 5:3 (ancho × alto).");
   }
 }
 

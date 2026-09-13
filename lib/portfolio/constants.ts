@@ -2,7 +2,7 @@ export const WEB_DEVELOPMENT_CATEGORY_SLUG = "desarrollo-web";
 
 export const PORTFOLIO_IMAGE_ASPECT = {
   width: 5,
-  height: 4,
+  height: 3,
   tolerance: 0.08,
 } as const;
 

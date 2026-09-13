@@ -593,7 +593,7 @@ function PortfolioCard({ project }: { project: PublicPortfolioProject }) {
       <div
         className="
           relative
-          aspect-[5/4]
+          aspect-[5/3]
           overflow-hidden
           bg-soft-background
         "

@@ -4,7 +4,6 @@ import path from "node:path";
 import type { PrismaClient } from "@prisma/client";
 
 import { WEB_DEVELOPMENT_CATEGORY_SLUG } from "./constants";
-import { getPortfolioMediaPath } from "./image";
 import { ensurePortfolioProjectTable } from "./schema";
 import { buildPortfolioSlug } from "./validation";
 
@@ -170,6 +169,10 @@ const SEED_PROJECTS: SeedProject[] = [
   },
 ];
 
+function publicPortfolioImage(fileName: string) {
+  return `/images/portfolio/${fileName}`;
+}
+
 function portfolioImagePath(fileName: string) {
   return path.join(process.cwd(), "public", "images", "portfolio", fileName);
 }
@@ -289,7 +292,7 @@ export async function seedWebDevelopmentPortfolio(prisma: PrismaClient) {
           tags: [...project.tags],
           status: already.status === "ARCHIVED" ? "ARCHIVED" : "PUBLISHED",
           sortOrder: project.sortOrder,
-          image: getPortfolioMediaPath(already.id),
+          image: publicPortfolioImage(project.sourceFile),
           imageMime: "image/png",
           imageBytes: bytes,
         },
@@ -298,27 +301,20 @@ export async function seedWebDevelopmentPortfolio(prisma: PrismaClient) {
       continue;
     }
 
-    const row = await prisma.portfolioProject.create({
+    await prisma.portfolioProject.create({
       data: {
         categoryId: categoryWithSubs.id,
         subcategoryId: subcategory.id,
         title: project.title,
         slug: await resolveUniqueSlug(prisma, categoryWithSubs.id, project.title),
         summary: project.summary,
-        image: "",
+        image: publicPortfolioImage(project.sourceFile),
+        imageMime: "image/png",
+        imageBytes: bytes,
         url: project.url,
         tags: [...project.tags],
         status: "PUBLISHED",
         sortOrder: project.sortOrder,
-      },
-    });
-
-    await prisma.portfolioProject.update({
-      where: { id: row.id },
-      data: {
-        image: getPortfolioMediaPath(row.id),
-        imageMime: "image/png",
-        imageBytes: bytes,
       },
     });
 

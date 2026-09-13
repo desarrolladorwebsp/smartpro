@@ -66,6 +66,7 @@ export function SmartImage({
           {...props}
           src={src}
           alt={alt}
+          fill={fill}
           unoptimized={src.startsWith("/api/") || props.unoptimized}
           loading={props.priority ? undefined : props.loading ?? "lazy"}
           onLoad={(event) => {

@@ -174,7 +174,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
 
       const size = await readImageSize(file);
       if (!isAllowedPortfolioAspect(size.width, size.height)) {
-        setSubmitError(`La imagen mide ${size.width}×${size.height}px. Usa proporción 5:4.`);
+        setSubmitError(`La imagen mide ${size.width}×${size.height}px. Usa proporción 5:3.`);
         return;
       }
       setPendingImage(file);
@@ -397,7 +397,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
                     <tr key={project.id} className="border-t border-border">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                          <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
                             {project.image ? (
                               <Image src={project.image} alt="" fill className="object-cover" sizes="64px" unoptimized={project.image.startsWith("/api/")} />
                             ) : null}
@@ -440,7 +440,7 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
               {filteredProjects.map((project) => (
                 <article key={project.id} className="rounded-[20px] border border-border bg-soft-background p-4">
                   <div className="flex gap-3">
-                    <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
+                    <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
                       {project.image ? <Image src={project.image} alt="" fill className="object-cover" sizes="80px" unoptimized={project.image.startsWith("/api/")} /> : null}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -562,9 +562,9 @@ export function PortfolioProjectsDashboard({ category, initialProjects }: Portfo
                 </DashboardFormField>
               </DashboardFormSection>
 
-              <DashboardFormSection icon={ImageIcon} title="Imagen principal 5:4">
+              <DashboardFormSection icon={ImageIcon} title="Imagen principal 5:3">
                 <div className="space-y-3">
-                  <div className="relative aspect-[5/4] overflow-hidden rounded-2xl border border-border bg-slate-100">
+                  <div className="relative aspect-[5/3] overflow-hidden rounded-2xl border border-border bg-slate-100">
                     {previewSrc ? (
                       previewSrc.startsWith("blob:") ? (
                         // Blob previews cannot go through the Next.js image optimizer.
