@@ -84,7 +84,7 @@ export function assertCanPublish(input: { image: string; url: string; publicCate
   }
 
   if (!input.publicCategory) {
-    throw new Error("La subcategoría no corresponde a Desarrollo Web (Sitio Web, Landing Page o E-commerce).");
+    throw new Error("La subcategoría no corresponde a Desarrollo Web (Sitio Web, Landing Page, Sistema o E-commerce).");
   }
 }
 

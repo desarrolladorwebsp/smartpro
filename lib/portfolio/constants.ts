@@ -10,7 +10,7 @@ export const PORTFOLIO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const PORTFOLIO_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export const PUBLIC_PORTFOLIO_FILTERS = ["Todos", "Sitio Web", "Landing Page", "E-commerce"] as const;
+export const PUBLIC_PORTFOLIO_FILTERS = ["Todos", "Sitio Web", "Landing Page", "Sistema", "E-commerce"] as const;
 
 export type PublicPortfolioFilter = (typeof PUBLIC_PORTFOLIO_FILTERS)[number];
 export type PublicPortfolioCategory = Exclude<PublicPortfolioFilter, "Todos">;
@@ -18,6 +18,7 @@ export type PublicPortfolioCategory = Exclude<PublicPortfolioFilter, "Todos">;
 export const WEB_PORTFOLIO_SUBCATEGORY_ALIASES: Record<PublicPortfolioCategory, readonly string[]> = {
   "Sitio Web": ["sitio-web", "sitios-web", "website", "websites"],
   "Landing Page": ["landing-page", "landing"],
+  Sistema: ["sistema", "sistemas", "system", "systems"],
   "E-commerce": ["e-commerce", "ecommerce"],
 };
 

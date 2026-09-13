@@ -29,7 +29,7 @@ export function PortfolioServicesDashboard({ categories }: PortfolioServicesDash
 
       <p className="max-w-3xl text-sm text-muted">
         Administra los proyectos que se muestran en la sección pública. Por ahora está habilitado Desarrollo Web:
-        Sitio Web, Landing Page y E-commerce.
+        Sitio Web, Landing Page, Sistema y E-commerce.
       </p>
 
       {categories.length === 0 ? (

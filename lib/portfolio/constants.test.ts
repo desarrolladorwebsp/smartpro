@@ -16,11 +16,12 @@ describe("portfolio filters", () => {
     assert.equal(getPublicPortfolioCategory("sitio-web"), "Sitio Web");
     assert.equal(getPublicPortfolioCategory("landing-page"), "Landing Page");
     assert.equal(getPublicPortfolioCategory("ecommerce"), "E-commerce");
-    assert.equal(getPublicPortfolioCategory("sistemas"), null);
+    assert.equal(getPublicPortfolioCategory("sistemas"), "Sistema");
+    assert.equal(getPublicPortfolioCategory("sistema"), "Sistema");
   });
 
   it("keeps the public filter list for Desarrollo Web", () => {
-    assert.deepEqual([...PUBLIC_PORTFOLIO_FILTERS], ["Todos", "Sitio Web", "Landing Page", "E-commerce"]);
+    assert.deepEqual([...PUBLIC_PORTFOLIO_FILTERS], ["Todos", "Sitio Web", "Landing Page", "Sistema", "E-commerce"]);
   });
 });
 

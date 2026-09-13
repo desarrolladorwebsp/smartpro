@@ -24,7 +24,7 @@ import { assertCanPublish, buildPortfolioSlug, parsePortfolioTags } from "./vali
 
 const ENABLED_CATEGORY_SLUGS = new Set([WEB_DEVELOPMENT_CATEGORY_SLUG]);
 
-type ProjectWithRelations = Omit<PortfolioProject, "imageBytes"> & {
+type ProjectWithRelations = Omit<PortfolioProject, "imageBytes" | "imageMime"> & {
   category: Pick<ServiceCategory, "id" | "name" | "slug">;
   subcategory: Pick<ServiceSubcategory, "id" | "name" | "slug">;
 };
@@ -77,14 +77,24 @@ function mapProject(row: ProjectWithRelations): PortfolioProjectRecord {
   };
 }
 
-const projectInclude = {
-  category: { select: { id: true, name: true, slug: true } },
-  subcategory: { select: { id: true, name: true, slug: true } },
-} as const;
-
 const projectRead = {
-  include: projectInclude,
-  omit: { imageBytes: true },
+  select: {
+    id: true,
+    categoryId: true,
+    subcategoryId: true,
+    title: true,
+    slug: true,
+    summary: true,
+    image: true,
+    url: true,
+    tags: true,
+    status: true,
+    sortOrder: true,
+    createdAt: true,
+    updatedAt: true,
+    category: { select: { id: true, name: true, slug: true } },
+    subcategory: { select: { id: true, name: true, slug: true } },
+  },
 } as const;
 
 export async function listPortfolioCategories(): Promise<PortfolioCategorySummary[]> {
@@ -239,7 +249,7 @@ async function resolveSubcategory(categoryId: string, subcategoryId: string) {
   }
 
   if (!publicLabelFor(subcategory)) {
-    throw new Error("Solo se pueden registrar proyectos de Sitio Web, Landing Page o E-commerce.");
+    throw new Error("Solo se pueden registrar proyectos de Sitio Web, Landing Page, Sistema o E-commerce.");
   }
 
   return subcategory;
