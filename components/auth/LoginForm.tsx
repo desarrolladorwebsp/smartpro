@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, UserRound } from "lucide-react";
+import { ArrowRight, Briefcase, Check, Eye, EyeOff, Lock, Mail, UserPlus, UserRound } from "lucide-react";
 
 const REMEMBERED_EMAIL_KEY = "smartpro-login-email";
 
@@ -12,13 +12,11 @@ const roleOptions = {
   cliente: {
     label: "Cliente",
     title: "Iniciar sesión",
-    description: "Accede a tu cuenta para continuar",
     placeholder: "tu@correo.cl",
   },
   ejecutivo: {
-    label: "Ejecutivo",
+    label: "Usuario interno",
     title: "Iniciar sesión",
-    description: "Accede a tu cuenta para continuar",
     placeholder: "contacto@smartpro.cl",
   },
 } as const;
@@ -63,23 +61,58 @@ function LoginAtmosphere({ children }: { children: React.ReactNode }) {
 
 function BrandMark() {
   return (
-    <div className="mb-5 text-center sm:mb-6">
-      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.05rem] bg-white shadow-[0_12px_40px_rgba(109,40,217,0.35)]">
-        <Image
-          src="/images/logo/logo-smartpro-02.png"
-          alt="Smart Pro"
-          width={64}
-          height={64}
-          priority
-          className="h-12 w-12 object-contain"
-        />
-      </div>
-      <p className="text-[1.65rem] font-bold leading-none tracking-[-0.04em]">
-        Smart <span className="bg-brand-gradient bg-clip-text text-transparent">Pro</span>
-      </p>
-      <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.22em] text-white/45">
-        Marketing · Tecnología · Producción Audiovisual
-      </p>
+    <div className="mb-4 flex justify-center sm:mb-5">
+      <Image
+        src="/images/logo/logo-smartpro-full.png"
+        alt="SmartPro"
+        width={280}
+        height={93}
+        priority
+        className="h-auto w-[168px] object-contain sm:w-[188px]"
+      />
+    </div>
+  );
+}
+
+function RoleSwitch({
+  selectedRole,
+  onSelect,
+}: {
+  selectedRole: RoleKey;
+  onSelect: (role: RoleKey) => void;
+}) {
+  return (
+    <div
+      className="grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1"
+      role="tablist"
+      aria-label="Tipo de acceso"
+    >
+      {(
+        [
+          { role: "cliente", icon: UserRound },
+          { role: "ejecutivo", icon: Briefcase },
+        ] as const
+      ).map(({ role, icon: Icon }) => {
+        const selected = selectedRole === role;
+
+        return (
+          <button
+            key={role}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onSelect(role)}
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition ${
+              selected
+                ? "bg-white text-[#12122a] shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
+                : "text-white/50 hover:bg-white/[0.06] hover:text-white/85"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {roleOptions[role].label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -117,13 +150,9 @@ function LoginFooter() {
   );
 }
 
-export default function LoginForm() {
+export default function LoginForm({ initialRole }: { initialRole: RoleKey }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialRole = (searchParams.get("role") as RoleKey | null) ?? null;
-  const [selectedRole, setSelectedRole] = useState<RoleKey>(
-    initialRole && roleOptions[initialRole] ? initialRole : "cliente",
-  );
+  const [selectedRole, setSelectedRole] = useState<RoleKey>(initialRole);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState(emptyRegisterForm);
@@ -134,13 +163,6 @@ export default function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
 
   const activeRole = useMemo(() => roleOptions[selectedRole], [selectedRole]);
-
-  useEffect(() => {
-    const nextRole = searchParams.get("role") as RoleKey | null;
-    if (nextRole && roleOptions[nextRole]) {
-      setSelectedRole(nextRole);
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     try {
@@ -160,7 +182,7 @@ export default function LoginForm() {
     setError("");
     setSuccess("");
     setShowPassword(false);
-    router.push(`/login?role=${role}`);
+    router.replace(`/login?role=${role}`, { scroll: false });
   };
 
   const persistRememberedEmail = (email: string) => {
@@ -263,7 +285,7 @@ export default function LoginForm() {
 
         <div
           className={`w-full rounded-[26px] border border-white/10 bg-[rgb(16_16_40_/_0.62)] p-5 shadow-[0_0_0_1px_rgba(139,92,246,0.12),0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-7 ${
-            mode === "register" ? "max-w-xl" : "max-w-[24.5rem]"
+            mode === "register" ? "max-w-xl" : "max-w-[26rem]"
           }`}
         >
           {mode === "register" && selectedRole === "cliente" ? (
@@ -383,11 +405,12 @@ export default function LoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="text-center">
                 <h1 className="text-[1.5rem] font-semibold tracking-[-0.04em] text-white">{activeRole.title}</h1>
-                <p className="mt-1 text-sm text-white/50">{activeRole.description}</p>
               </div>
 
+              <RoleSwitch selectedRole={selectedRole} onSelect={handleRoleSelect} />
+
               <label className="block">
-                <span className={fieldLabelClassName}>Email</span>
+                <span className={fieldLabelClassName}>Correo electrónico</span>
                 <span className="relative block">
                   <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                   <input
@@ -434,16 +457,7 @@ export default function LoginForm() {
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(236,22,140,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSubmitting ? "Iniciando sesión..." : "Iniciar sesión"}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-              <div className="flex items-center justify-between gap-3 pt-0.5">
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   role="checkbox"
@@ -470,44 +484,22 @@ export default function LoginForm() {
                 </a>
               </div>
 
-              <div className="relative py-1">
-                <div className="h-px bg-white/10" />
-                <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
-              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(236,22,140,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSubmitting ? "Iniciando sesión..." : "Ingresar"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
 
               {selectedRole === "cliente" ? (
-                <button
-                  type="button"
-                  onClick={() => handleRoleSelect("ejecutivo")}
-                  className="flex min-h-11 w-full items-center justify-between rounded-full border border-white/15 bg-white/[0.04] px-3.5 text-sm font-medium text-white/90 transition hover:border-white/25 hover:bg-white/[0.08]"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                      <UserRound className="h-4 w-4 text-white/70" />
-                    </span>
-                    Ingresar como Ejecutivo
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-white/40" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleRoleSelect("cliente")}
-                  className="flex min-h-11 w-full items-center justify-between rounded-full border border-white/15 bg-white/[0.04] px-3.5 text-sm font-medium text-white/90 transition hover:border-white/25 hover:bg-white/[0.08]"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                      <UserRound className="h-4 w-4 text-white/70" />
-                    </span>
-                    Ingresar como Cliente
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-white/40" />
-                </button>
-              )}
+                <>
+                  <div className="relative py-1">
+                    <div className="h-px bg-white/10" />
+                    <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
+                  </div>
 
-              {selectedRole === "cliente" && (
-                <p className="pt-1 text-center text-sm text-white/45">
-                  ¿No tienes cuenta?{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -515,12 +507,13 @@ export default function LoginForm() {
                       setError("");
                       setSuccess("");
                     }}
-                    className="font-semibold text-[#c4b5fd] transition hover:text-white"
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3.5 text-sm font-medium text-white/90 transition hover:border-white/25 hover:bg-white/[0.08]"
                   >
-                    Regístrate como cliente
+                    <UserPlus className="h-4 w-4 text-white/70" />
+                    Registrarme como cliente
                   </button>
-                </p>
-              )}
+                </>
+              ) : null}
             </form>
           )}
         </div>

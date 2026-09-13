@@ -32,18 +32,18 @@ const PAYMENT_METHODS = [
 
 const CONTACT_INFO = [
   {
-    id: "address",
+    id: "address-santiago",
     icon: MapPin,
     label: "Santa Elena 941 B, Santiago",
     href: "https://www.google.com/maps/search/?api=1&query=Santa+Elena+941+B+Santiago+Chile",
     external: true,
   },
   {
-    id: "postal-code",
+    id: "address-nunoa",
     icon: MapPin,
-    label: "Código Postal: 7500000",
-    href: null,
-    external: false,
+    label: "Vicuña Mackenna 920, of. 726, Ñuñoa",
+    href: "https://www.google.com/maps/search/?api=1&query=Vicuna+Mackenna+920+Nunoa+Chile",
+    external: true,
   },
   {
     id: "email",
@@ -273,6 +273,7 @@ export default function Footer() {
             <div className="mt-7 space-y-4">
               {CONTACT_INFO.map((item) => {
                 const Icon = item.icon;
+                const itemKey = item.id;
 
                 const content = (
                   <>
@@ -316,7 +317,7 @@ export default function Footer() {
                 if (!item.href) {
                   return (
                     <div
-                      key={item.id}
+                      key={itemKey}
                       className="
                         flex
                         items-start
@@ -330,7 +331,7 @@ export default function Footer() {
 
                 return (
                   <a
-                    key={item.id}
+                    key={itemKey}
                     href={item.href}
                     target={item.external ? "_blank" : undefined}
                     rel={item.external ? "noopener noreferrer" : undefined}

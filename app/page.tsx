@@ -38,13 +38,22 @@ const organizationSchema = {
   telephone: "+56949773707",
   email: "contacto@smartpro.cl",
   areaServed: "CL",
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "Santa Elena 941 B",
-    addressLocality: "Santiago",
-    addressRegion: "Región Metropolitana",
-    addressCountry: "CL",
-  },
+  address: [
+    {
+      "@type": "PostalAddress",
+      streetAddress: "Santa Elena 941 B",
+      addressLocality: "Santiago",
+      addressRegion: "Región Metropolitana",
+      addressCountry: "CL",
+    },
+    {
+      "@type": "PostalAddress",
+      streetAddress: "Vicuña Mackenna 920, of. 726",
+      addressLocality: "Ñuñoa",
+      addressRegion: "Región Metropolitana",
+      addressCountry: "CL",
+    },
+  ],
   sameAs: [
     "https://www.instagram.com/smartpro.chile/",
     "https://www.facebook.com/profile.php?id=61568563559545",

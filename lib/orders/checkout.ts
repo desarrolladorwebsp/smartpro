@@ -30,7 +30,7 @@ export class CheckoutValidationError extends Error {
   }
 }
 
-function normalizeCustomer(input: CheckoutPayload["customer"]): CheckoutCustomer {
+export function normalizeCustomer(input: CheckoutPayload["customer"]): CheckoutCustomer {
   const name = String(input?.name ?? "").trim();
   const email = String(input?.email ?? "").trim().toLowerCase();
   const phone = String(input?.phone ?? "").trim();

@@ -96,13 +96,13 @@ export default function CartDrawer({ open, onClose }: { open: boolean; onClose: 
 
             {items.length > 0 && (
               <div className="border-t border-border bg-white/80 p-5 backdrop-blur-xl">
-                <CartSummary subtotal={subtotal} tax={tax} total={total} itemCount={itemCount} onCheckout={onClose} />
+                <CartSummary subtotal={subtotal} tax={tax} total={total} itemCount={itemCount} />
                 <div className="mt-3 flex gap-3">
                   <button type="button" onClick={clearCart} className="flex-1 rounded-full border border-border bg-soft-background px-4 py-2.5 text-sm font-medium text-foreground">
                     Vaciar
                   </button>
                   <Link href="/checkout" onClick={onClose} className="flex-1 rounded-full bg-gradient-to-r from-primary to-magenta px-4 py-2.5 text-center text-sm font-semibold text-white">
-                    Checkout
+                    Ir a pagar
                   </Link>
                 </div>
               </div>

@@ -539,7 +539,17 @@ export default function ServicePlansModal({
                                 }}
                                 className="isolate flex h-auto min-w-0 snap-start flex-col"
                               >
-                                <PlanCard plan={plan} index={index} onAdded={setAddedPlanName} />
+                                <PlanCard
+                                  plan={plan}
+                                  index={index}
+                                  onAdded={setAddedPlanName}
+                                  onInquire={(target) => {
+                                    handleClose();
+                                    window.location.assign(
+                                      target.link || `/?servicio=${encodeURIComponent(target.name)}#contacto`,
+                                    );
+                                  }}
+                                />
                               </div>
                             ))
                           : (

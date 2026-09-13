@@ -1,6 +1,9 @@
 import type { Plan } from "@/components/plans/PlanCard";
 
+import { parseMoney } from "../orders/service";
 import type { ServicePlanRecord } from "./types";
+
+export const INQUIRY_PRICE_LABEL = "Consultar";
 
 export function formatPlanPrice(value: number): string {
   return new Intl.NumberFormat("es-CL", {
@@ -10,7 +13,24 @@ export function formatPlanPrice(value: number): string {
   }).format(value);
 }
 
+export function isInquiryPricedAmount(price: number): boolean {
+  return !Number.isFinite(price) || price <= 0;
+}
+
+export function getPlanInquiryHref(planName: string): string {
+  return `/?servicio=${encodeURIComponent(planName)}#contacto`;
+}
+
+export function isInquiryPlan(plan: Pick<Plan, "price" | "link">): boolean {
+  const label = String(plan.price ?? "").trim().toLowerCase();
+  if (label === INQUIRY_PRICE_LABEL.toLowerCase()) return true;
+  if (plan.link && /#contacto/i.test(plan.link)) return true;
+  return isInquiryPricedAmount(parseMoney(plan.price));
+}
+
 export function mapServicePlanToPlan(plan: ServicePlanRecord): Plan {
+  const inquiry = isInquiryPricedAmount(plan.price);
+
   return {
     id: plan.id,
     category: plan.categoryName,
@@ -18,9 +38,9 @@ export function mapServicePlanToPlan(plan: ServicePlanRecord): Plan {
     badge: plan.badge || null,
     icon: plan.icon || null,
     name: plan.name,
-    oldPrice: plan.pricePrefix || null,
-    price: formatPlanPrice(plan.price),
-    tax: plan.taxLabel || null,
+    oldPrice: inquiry ? null : plan.pricePrefix || null,
+    price: inquiry ? INQUIRY_PRICE_LABEL : formatPlanPrice(plan.price),
+    tax: inquiry ? null : plan.taxLabel || null,
     taxRate: plan.taxRate,
     summary: plan.summary || null,
     featureGroupTitle: plan.featureGroupTitle || null,
@@ -30,7 +50,7 @@ export function mapServicePlanToPlan(plan: ServicePlanRecord): Plan {
       .map((item) => item.label),
     note: plan.note || null,
     highlighted: plan.highlighted,
-    link: plan.externalLink || undefined,
+    link: inquiry ? plan.externalLink || getPlanInquiryHref(plan.name) : plan.externalLink || undefined,
   };
 }
 

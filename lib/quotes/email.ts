@@ -2,6 +2,7 @@ import { getAppUrl } from "../app-url";
 import { sendEmail } from "../email/resend";
 import { renderCorporateEmail } from "../email/template";
 import { formatCurrency } from "../orders/service";
+import { buildQuotePaymentUrls } from "./access";
 import { SMARTPRO_COMPANY } from "./company";
 import { buildQuotePdf } from "./pdf";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
@@ -20,6 +21,8 @@ function formatDate(value: string | null): string {
 
 export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
   const greetingName = quote.clientName || quote.clientCompany || "equipo";
+  const paymentUrls = buildQuotePaymentUrls(quote.id, appUrl);
+  const viewUrl = paymentUrls?.viewUrl ?? appUrl.replace(/\/$/, "");
 
   return renderCorporateEmail({
     title: `Cotización ${quote.number} — SmartPro`,
@@ -44,8 +47,8 @@ export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
     notices: ["Este correo incluye la cotización en PDF como archivo adjunto."],
     closing: "Quedamos atentos para resolver cualquier consulta y coordinar el siguiente paso.",
     cta: {
-      href: `${appUrl.replace(/\/$/, "")}`,
-      label: "Visitar SmartPro",
+      href: viewUrl,
+      label: paymentUrls ? "Ver cotización y pagar" : "Visitar SmartPro",
     },
     appUrl,
   });

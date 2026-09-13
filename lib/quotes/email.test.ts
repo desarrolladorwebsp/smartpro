@@ -46,14 +46,24 @@ const quote: QuoteRecord = {
 };
 
 test("buildQuoteEmail reutiliza la plantilla corporativa y el número de cotización", () => {
-  const { html, text } = buildQuoteEmail(quote, "https://smartpro.cl");
+  const previousSecret = process.env.ADMIN_SESSION_SECRET;
+  process.env.ADMIN_SESSION_SECRET = "email-quote-secret";
 
-  assert.match(html, /Cotización COT-2026-0001/);
-  assert.match(html, /logo-smartpro-01\.png/);
-  assert.match(html, /#6D28D9/);
-  assert.match(html, /Equipo SmartPro/);
-  assert.match(html, /Empresa Demo SpA/);
-  assert.doesNotMatch(html, /localhost/);
-  assert.match(text, /COT-2026-0001/);
-  assert.match(text, /https:\/\/smartpro\.cl/);
+  try {
+    const { html, text } = buildQuoteEmail(quote, "https://smartpro.cl");
+
+    assert.match(html, /Cotización COT-2026-0001/);
+    assert.match(html, /logo-smartpro-01\.png/);
+    assert.match(html, /#6D28D9/);
+    assert.match(html, /Equipo SmartPro/);
+    assert.match(html, /Empresa Demo SpA/);
+    assert.match(html, /Ver cotización y pagar/);
+    assert.match(html, /\/cotizacion\//);
+    assert.doesNotMatch(html, /localhost/);
+    assert.match(text, /COT-2026-0001/);
+    assert.match(text, /https:\/\/smartpro\.cl/);
+  } finally {
+    if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
+    else process.env.ADMIN_SESSION_SECRET = previousSecret;
+  }
 });

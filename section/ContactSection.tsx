@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import {
   CheckCircle2,
@@ -109,6 +109,21 @@ export default function ContactSection() {
   const [errors, setErrors] = useState<FormErrors>({});
 
   const [status, setStatus] = useState<FormStatus>("idle");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const servicio = params.get("servicio")?.trim();
+    if (!servicio) return;
+
+    setFormData((current) => {
+      if (current.message.trim()) return current;
+
+      return {
+        ...current,
+        message: `Hola, quiero cotizar el servicio ${servicio}.`,
+      };
+    });
+  }, []);
 
   /* ==========================================================
      FORM CHANGE

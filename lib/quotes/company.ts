@@ -20,7 +20,10 @@ export const SMARTPRO_BANK = {
   email: "contacto@smartpro.cl",
 } as const;
 
-export const SMARTPRO_OFFICES = ["Santa Elena 941B", "Vicuña Mackenna 920", "Santiago, Chile"] as const;
+export const SMARTPRO_OFFICES = [
+  "Santa Elena 941 B, Santiago",
+  "Vicuña Mackenna 920, of. 726, Ñuñoa",
+] as const;
 
 export const QUOTE_DEFAULT_VALIDITY_DAYS = 15;
 export const QUOTE_DEFAULT_DELIVERY_DAYS = 15;

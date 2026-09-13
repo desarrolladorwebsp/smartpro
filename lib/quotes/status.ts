@@ -20,6 +20,17 @@ export function canSendQuote(status: QuoteStatus): boolean {
   return status === "SENT" || TRANSITIONS[status].includes("SENT");
 }
 
+export function canPayQuote(status: QuoteStatus): boolean {
+  return status === "CREATED" || status === "SENT" || status === "ACCEPTED";
+}
+
+export function isQuoteExpired(validUntil: string | null, now = new Date()): boolean {
+  if (!validUntil) return false;
+  const date = new Date(validUntil);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getTime() < now.getTime();
+}
+
 export function assertQuoteStatusTransition(from: QuoteStatus, to: QuoteStatus) {
   if (!canTransitionQuoteStatus(from, to)) {
     throw new Error("Ese cambio de estado no está permitido.");

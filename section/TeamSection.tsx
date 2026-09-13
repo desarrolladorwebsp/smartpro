@@ -65,7 +65,7 @@ const TEAM_MEMBERS = [
     name: "Catalina Saravia",
     role: "Audiovisual",
     description: "Encargada de la producción de videos y fotografía para redes sociales y campañas publicitarias.",
-    image: "/images/team/catalina_saravia.png",
+    image: "/images/team/catalina-saravia.png",
   },
   {
     id: 8,

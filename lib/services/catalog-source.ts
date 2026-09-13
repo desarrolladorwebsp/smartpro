@@ -2,10 +2,12 @@
 import * as plansData from "../../public/js/plans.js";
 import { parseMoney } from "../orders/service";
 import { slugify } from "./repository";
+import { getSistemasCatalogSource } from "./sistemas-catalog";
 
 export type CatalogSourceItem = {
   categoryName: string;
   categorySlug: string;
+  categoryDescription?: string;
   categoryOrder: number;
   subcategoryName: string;
   subcategorySlug: string;
@@ -150,5 +152,5 @@ export function getCatalogSource(): CatalogSourceItem[] {
     });
   });
 
-  return items;
+  return [...items, ...getSistemasCatalogSource()];
 }

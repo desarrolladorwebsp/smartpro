@@ -14,6 +14,10 @@ test("resolveServiceCoverImage usa la imagen de BD o el fallback por slug", () =
     resolveServiceCoverImage("", "registro-de-marcas", 0),
     "/images/services/service-08.jpeg",
   );
+  assert.equal(
+    resolveServiceCoverImage("", "desarrollo-sistemas", 0),
+    "/images/services/service-04.png",
+  );
   assert.equal(getDefaultServiceCoverImage("otro-slug", 2), "/images/services/service-03.png");
 });
 

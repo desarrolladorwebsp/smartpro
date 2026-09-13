@@ -3,14 +3,9 @@
 import { motion, useReducedMotion } from "motion/react";
 import { FaWhatsapp } from "react-icons/fa6";
 
-const WHATSAPP_NUMBER = "56949773707";
+import { getWhatsAppUrl, WHATSAPP_MESSAGES } from "@/lib/contact/whatsapp";
 
-const WHATSAPP_MESSAGE =
-  "Hola SmartPro, quiero recibir más información sobre sus servicios.";
-
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-  WHATSAPP_MESSAGE
-)}`;
+const WHATSAPP_URL = getWhatsAppUrl(WHATSAPP_MESSAGES.general);
 
 export default function WhatsAppFloatingButton() {
   const shouldReduceMotion = useReducedMotion();

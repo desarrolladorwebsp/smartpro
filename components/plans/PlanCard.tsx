@@ -7,6 +7,7 @@ import { ArrowRight, Check, ChevronDown, Star } from "lucide-react";
 
 import { useCart } from "@/components/cart/CartProvider";
 import { parseMoney } from "@/lib/orders/service";
+import { isInquiryPlan } from "@/lib/services/map-to-plan";
 import { getVisiblePlanFeatures, shouldShowPlanFeaturesToggle } from "@/lib/services/plan-features";
 
 export type Plan = {
@@ -48,15 +49,27 @@ type PlanCardProps = {
   plan: Plan;
   index: number;
   onAdded?: (planName: string) => void;
+  onInquire?: (plan: Plan) => void;
 };
 
-export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
+export default function PlanCard({ plan, index, onAdded, onInquire }: PlanCardProps) {
   const { addItem } = useCart();
   const featuresId = useId();
   const [isAdded, setIsAdded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const visibleFeatures = getVisiblePlanFeatures(plan.features, featuresExpanded);
   const showFeaturesToggle = shouldShowPlanFeaturesToggle(plan.features.length);
+  const inquiry = isInquiryPlan(plan);
+
+  const handleInquire = () => {
+    if (onInquire) {
+      onInquire(plan);
+      return;
+    }
+
+    const href = plan.link || `/?servicio=${encodeURIComponent(plan.name)}#contacto`;
+    window.location.assign(href);
+  };
 
   const handleAddToCart = () => {
     const planId =
@@ -239,7 +252,7 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
 
       <motion.button
         type="button"
-        onClick={handleAddToCart}
+        onClick={inquiry ? handleInquire : handleAddToCart}
         whileTap={{ scale: 0.985 }}
         className={`
           group/button
@@ -269,6 +282,15 @@ export default function PlanCard({ plan, index, onAdded }: PlanCardProps) {
           <>
             <Check size={14} />
             Agregado
+          </>
+        ) : inquiry ? (
+          <>
+            Consultar
+            <ArrowRight
+              size={14}
+              strokeWidth={2}
+              className="transition-transform duration-300 group-hover/button:translate-x-0.5"
+            />
           </>
         ) : (
           <>

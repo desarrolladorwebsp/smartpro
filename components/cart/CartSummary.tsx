@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import { formatCurrency } from "@/lib/orders/service";
 
 type CartSummaryProps = {
@@ -9,10 +7,9 @@ type CartSummaryProps = {
   tax: number;
   total: number;
   itemCount: number;
-  onCheckout?: () => void;
 };
 
-export default function CartSummary({ subtotal, tax, total, itemCount, onCheckout }: CartSummaryProps) {
+export default function CartSummary({ subtotal, tax, total, itemCount }: CartSummaryProps) {
   return (
     <div className="rounded-[1.5rem] border border-primary/10 bg-gradient-to-br from-white to-soft-background p-5 shadow-[0_18px_48px_rgba(109,40,217,0.08)]">
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">Resumen</p>
@@ -35,25 +32,6 @@ export default function CartSummary({ subtotal, tax, total, itemCount, onCheckou
             <span>{formatCurrency(total)}</span>
           </div>
         </div>
-      </div>
-
-      <div className="mt-5">
-        {onCheckout ? (
-          <button
-            type="button"
-            onClick={onCheckout}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(109,40,217,0.2)] transition-all hover:brightness-105"
-          >
-            Continuar al checkout
-          </button>
-        ) : (
-          <Link
-            href="/checkout"
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(109,40,217,0.2)] transition-all hover:brightness-105"
-          >
-            Continuar al checkout
-          </Link>
-        )}
       </div>
     </div>
   );

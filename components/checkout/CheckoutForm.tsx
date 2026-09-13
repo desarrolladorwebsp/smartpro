@@ -4,9 +4,20 @@ import { useMemo, useState } from "react";
 
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
+import { X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
 
 import { useCart } from "@/components/cart/CartProvider";
+import PaymentErrorDialog from "@/components/checkout/PaymentErrorDialog";
+import { getCheckoutPaymentWhatsAppUrl } from "@/lib/contact/whatsapp";
 import { formatCurrency } from "@/lib/orders/service";
+import {
+  PAYMENT_REQUEST_TIMEOUT_MS,
+  PUBLIC_PAYMENT_STATUS_COPY,
+  readResponseJson,
+  resolvePublicPaymentFailure,
+} from "@/lib/payments/public-messages";
+import { redirectToWebpay } from "@/lib/webpay/client-redirect";
 import { isAllowedWebpayRedirectUrl } from "@/lib/webpay/redirect";
 
 type CheckoutState = {
@@ -18,6 +29,11 @@ type CheckoutState = {
 
 type PaymentMethodOption = "mercadopago" | "webpay";
 
+type PaymentErrorState = {
+  message: string;
+  debug?: string;
+};
+
 const initialState: CheckoutState = {
   name: "",
   email: "",
@@ -27,22 +43,6 @@ const initialState: CheckoutState = {
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function redirectToWebpay(url: string, token: string) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = url;
-  form.acceptCharset = "UTF-8";
-
-  const input = document.createElement("input");
-  input.type = "hidden";
-  input.name = "token_ws";
-  input.value = token;
-  form.appendChild(input);
-
-  document.body.appendChild(form);
-  form.submit();
-}
-
 export default function CheckoutForm() {
   const { items, subtotal, tax, total } = useCart();
   const [form, setForm] = useState<CheckoutState>(initialState);
@@ -50,7 +50,8 @@ export default function CheckoutForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodOption>("mercadopago");
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<PaymentErrorState | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   const orderSummary = useMemo(
     () =>
@@ -92,25 +93,33 @@ export default function CheckoutForm() {
     })),
   });
 
+  const showPaymentError = (caught: unknown, status?: number, apiError?: string | null) => {
+    const resolved = resolvePublicPaymentFailure({ status, apiError, caught });
+    setPaymentError(resolved);
+    setErrorDialogOpen(true);
+    setProcessing(false);
+  };
+
   const handleMercadoPago = async () => {
     const response = await fetch("/api/mercadopago/preference", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(checkoutPayload()),
+      signal: AbortSignal.timeout(PAYMENT_REQUEST_TIMEOUT_MS),
     });
 
-    const payload = (await response.json()) as {
-      error?: string;
-      order?: { id?: string };
-      mercadopago?: { checkoutUrl?: string };
-    };
+    const payload = await readResponseJson(response);
+    const order = payload.order as { id?: string } | undefined;
+    const mercadopago = payload.mercadopago as { checkoutUrl?: string } | undefined;
+    const apiError = typeof payload.error === "string" ? payload.error : null;
 
-    if (!response.ok || !payload.order?.id || !payload.mercadopago?.checkoutUrl) {
-      throw new Error(payload.error ?? "No se pudo iniciar el pago con Mercado Pago.");
+    if (!response.ok || !order?.id || !mercadopago?.checkoutUrl) {
+      showPaymentError(null, response.status, apiError);
+      return;
     }
 
-    setSuccess(`Orden ${payload.order.id} creada. Redirigiendo a Mercado Pago...`);
-    window.location.href = payload.mercadopago.checkoutUrl;
+    setSuccess(PUBLIC_PAYMENT_STATUS_COPY.redirecting);
+    window.location.href = mercadopago.checkoutUrl;
   };
 
   const handleWebpay = async () => {
@@ -118,35 +127,39 @@ export default function CheckoutForm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(checkoutPayload()),
+      signal: AbortSignal.timeout(PAYMENT_REQUEST_TIMEOUT_MS),
     });
 
-    const payload = (await response.json()) as {
-      error?: string;
-      order?: { id?: string };
-      webpay?: { token?: string; url?: string };
-    };
+    const payload = await readResponseJson(response);
+    const order = payload.order as { id?: string } | undefined;
+    const webpay = payload.webpay as { token?: string; url?: string } | undefined;
+    const apiError = typeof payload.error === "string" ? payload.error : null;
 
-    if (!response.ok || !payload.order?.id || !payload.webpay?.token || !payload.webpay?.url) {
-      throw new Error(payload.error ?? "No se pudo iniciar el pago con Webpay.");
+    if (!response.ok || !order?.id || !webpay?.token || !webpay?.url) {
+      showPaymentError(null, response.status, apiError);
+      return;
     }
 
-    if (!isAllowedWebpayRedirectUrl(payload.webpay.url)) {
-      throw new Error("Webpay no devolvió una URL de redirección válida.");
+    if (!isAllowedWebpayRedirectUrl(webpay.url)) {
+      showPaymentError(new Error("Webpay no devolvió una URL de redirección válida."));
+      return;
     }
 
-    setSuccess(`Orden ${payload.order.id} creada. Redirigiendo a Webpay...`);
-    redirectToWebpay(payload.webpay.url, payload.webpay.token);
+    setSuccess(PUBLIC_PAYMENT_STATUS_COPY.redirecting);
+    redirectToWebpay(webpay.url, webpay.token);
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
     if (!items.length) {
-      setSubmitError("Debes agregar al menos un producto antes de continuar.");
+      setPaymentError({ message: "Debes agregar al menos un producto antes de continuar." });
+      setErrorDialogOpen(false);
       return;
     }
 
     setProcessing(true);
-    setSubmitError(null);
+    setPaymentError(null);
+    setErrorDialogOpen(false);
     setSuccess(null);
 
     try {
@@ -157,19 +170,21 @@ export default function CheckoutForm() {
 
       await handleMercadoPago();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "No se pudo iniciar el pago.");
-      setProcessing(false);
+      showPaymentError(error);
     }
   };
 
   const payLabel = processing
-    ? "Procesando orden..."
+    ? PUBLIC_PAYMENT_STATUS_COPY.processing
     : paymentMethod === "webpay"
       ? "Pagar con Webpay"
       : "Pagar con Mercado Pago";
 
+  const whatsappHref = getCheckoutPaymentWhatsAppUrl();
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+    <>
+      <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
       <div className="rounded-[2rem] border border-border bg-white p-5 shadow-[0_18px_48px_rgba(16,16,36,0.04)] sm:p-7">
         <div className="mb-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Checkout</p>
@@ -234,7 +249,7 @@ export default function CheckoutForm() {
           </div>
         </div>
 
-        <fieldset className="mt-6">
+        <fieldset className="mt-6" disabled={processing}>
           <legend className="text-sm font-semibold text-foreground">Método de pago</legend>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label
@@ -284,14 +299,58 @@ export default function CheckoutForm() {
         </div>
 
         <AnimatePresence>
-          {submitError && (
-            <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {submitError}
-            </motion.p>
+          {paymentError && !errorDialogOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mt-4 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4"
+              role="alert"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {items.length ? PUBLIC_PAYMENT_STATUS_COPY.failed : "Revisa tu carrito"}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-muted">{paymentError.message}</p>
+                  {paymentError.debug ? (
+                    <p className="mt-2 text-xs text-muted">
+                      <span className="font-semibold text-foreground">Detalle técnico (desarrollo): </span>
+                      {paymentError.debug}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentError(null)}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted transition hover:text-foreground"
+                  aria-label="Cerrar mensaje"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+                  {items.length ? (
+                    <a
+                      href={whatsappHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white"
+                    >
+                      <FaWhatsapp size={16} aria-hidden="true" />
+                      Contactar por WhatsApp
+                    </a>
+                  ) : null}
+            </motion.div>
           )}
 
           {success && (
-            <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mt-4 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-foreground"
+              role="status"
+            >
               {success}
             </motion.p>
           )}
@@ -317,6 +376,13 @@ export default function CheckoutForm() {
           </div>
         </div>
       </aside>
-    </div>
+      </div>
+      <PaymentErrorDialog
+        open={errorDialogOpen}
+        message={paymentError?.message}
+        debug={paymentError?.debug}
+        onClose={() => setErrorDialogOpen(false)}
+      />
+    </>
   );
 }

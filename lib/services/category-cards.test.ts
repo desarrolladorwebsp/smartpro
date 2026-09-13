@@ -80,3 +80,20 @@ test("buildServiceCategoryCards no inventa audiencia si la nota no es de públic
   assert.equal(cards[0]?.audience, null);
   assert.equal(cards[0]?.description, "1 plan desde $100.000");
 });
+
+test("buildServiceCategoryCards no muestra precio cuando el plan es a cotizar", () => {
+  const cards = buildServiceCategoryCards(
+    [{ id: "crm", name: "CRM", slug: "crm" }],
+    [
+      plan({
+        name: "CRM comercial",
+        subcategory: "CRM",
+        price: "Consultar",
+        summary: "CRM para ordenar clientes y oportunidades.",
+        link: "/?servicio=CRM%20comercial#contacto",
+      }),
+    ],
+  );
+
+  assert.equal(cards[0]?.description, "CRM para ordenar clientes y oportunidades.");
+});

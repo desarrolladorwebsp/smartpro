@@ -30,7 +30,7 @@ const quote: QuoteRecord = {
     {
       id: "item-1",
       planId: "plan-1",
-      planName: "Plan Pro",
+      planName: "Plan Pro corporativo con nombre extendido para comprobar el ajuste de texto en la tabla",
       categoryName: "Marketing digital",
       subcategoryName: "Sitios web",
       quantity: 2,
@@ -46,11 +46,29 @@ const quote: QuoteRecord = {
 };
 
 test("buildQuotePdf genera un PDF corporativo con datos de la cotización", async () => {
-  const pdf = await buildQuotePdf(quote);
-  const searchable = pdf.toString("latin1").replace(/\0/g, "");
+  const previousSecret = process.env.ADMIN_SESSION_SECRET;
+  const previousUrl = process.env.APP_URL;
+  process.env.ADMIN_SESSION_SECRET = "pdf-quote-secret";
+  process.env.APP_URL = "https://smartpro.cl";
 
-  assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
-  assert.ok(pdf.length > 1000);
-  assert.match(searchable, /COT-2026-0001/);
-  assert.match(searchable, /SmartPro/);
+  try {
+    const pdf = await buildQuotePdf(quote);
+    const searchable = pdf.toString("latin1").replace(/\0/g, "");
+
+    assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
+    assert.ok(pdf.length > 1000);
+    assert.match(searchable, /COT-2026-0001/);
+    assert.match(searchable, /SmartPro/);
+    assert.match(searchable, /\/URI\s*\(/);
+    assert.match(searchable, /cotizacion\//);
+    assert.match(searchable, /pago=webpay/);
+    assert.match(searchable, /pago=mercadopago/);
+    assert.match(searchable, /#datos-bancarios/);
+    assert.doesNotMatch(searchable, /pago=webpay.*119000|119000.*pago=webpay/);
+  } finally {
+    if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
+    else process.env.ADMIN_SESSION_SECRET = previousSecret;
+    if (previousUrl === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = previousUrl;
+  }
 });

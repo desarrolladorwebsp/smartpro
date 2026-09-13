@@ -18,12 +18,17 @@ import {
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const LOCATION = {
-  address: "Santa Elena 941 B",
-  commune: "Santiago, RM, Chile",
-  postalCode: "7500000",
-
+  addresses: [
+    {
+      label: "Santa Elena 941 B, Santiago",
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=Santa+Elena+941+B+Santiago+Chile&key=${GOOGLE_MAPS_API_KEY}`,
+    },
+    {
+      label: "Vicuña Mackenna 920, of. 726, Ñuñoa",
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=Vicuna+Mackenna+920+Nunoa+Chile&key=${GOOGLE_MAPS_API_KEY}`,
+    },
+  ],
   mapUrl: `https://www.google.com/maps/search/?api=1&query=Santa+Elena+941+B+Santiago+Chile&key=${GOOGLE_MAPS_API_KEY}`,
-
   mapImage: "/images/location/map.png",
 } as const;
 
@@ -31,15 +36,15 @@ const LOCATION_ITEMS = [
   {
     id: "address",
     icon: MapPin,
-    title: "Dirección",
-    lines: [LOCATION.address, LOCATION.commune],
+    title: "Direcciones",
+    lines: LOCATION.addresses.map((office) => office.label),
   },
   {
     id: "connectivity",
     icon: Navigation,
     title: "Buena conectividad",
     lines: [
-      "Ubicación estratégica en Providencia.",
+      "Estamos a pasos del Metro Irarrázaval.",
       "Fácil acceso desde distintos puntos de Santiago.",
     ],
   },
@@ -47,16 +52,16 @@ const LOCATION_ITEMS = [
     id: "parking",
     icon: CarFront,
     title: "Estacionamientos",
-    lines: [
-      "Consulta disponibilidad de estacionamiento",
-      "antes de tu visita.",
-    ],
+    lines: ["Contamos con estacionamientos sin costo para tu visita."],
   },
   {
     id: "hours",
     icon: Clock3,
-    title: "Horario de atención",
-    lines: ["Lunes a Viernes", "09:00 a 18:30 hrs."],
+    title: "Horarios de atención",
+    lines: [
+      "Presencial: lunes a viernes, 09:00 a 20:00 hrs.",
+      "Telemático: todos los días, 08:00 a 20:00 hrs.",
+    ],
   },
 ] as const;
 
@@ -196,8 +201,8 @@ export default function LocationSection() {
             }}
             className="section-copy"
           >
-            Estamos ubicados en Providencia, Santiago. Fácil acceso y
-            conectividad para reunirnos contigo.
+            Estamos en Santiago y Ñuñoa, a pasos del Metro Irarrázaval, con
+            estacionamiento sin costo y atención presencial o telemática.
           </motion.p>
         </div>
 
@@ -209,7 +214,7 @@ export default function LocationSection() {
           className="
             grid
             gap-6
-            lg:grid-cols-[360px_1fr]
+            lg:grid-cols-[400px_1fr]
             lg:items-stretch
           "
         >
@@ -313,30 +318,6 @@ export default function LocationSection() {
                   </div>
                 );
               })}
-            </div>
-
-            {/* Postal code */}
-
-            <div
-              className="
-                mt-6
-                rounded-xl
-                bg-soft-background
-                px-4
-                py-3
-                text-sm
-                text-muted
-              "
-            >
-              Código Postal:{" "}
-              <span
-                className="
-                  font-semibold
-                  text-foreground
-                "
-              >
-                {LOCATION.postalCode}
-              </span>
             </div>
           </motion.div>
 

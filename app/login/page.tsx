@@ -1,28 +1,22 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
 import LoginForm from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Acceso administrativo",
+  title: "Iniciar sesión",
   robots: {
     index: false,
     follow: false,
   },
 };
 
-function LoginFallback() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#08081a] p-5 text-white">
-      <p className="text-sm text-white/50">Cargando acceso...</p>
-    </main>
-  );
-}
+type LoginPageProps = {
+  searchParams: Promise<{ role?: string | string[] }>;
+};
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<LoginFallback />}>
-      <LoginForm />
-    </Suspense>
-  );
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const roleParam = Array.isArray(params.role) ? params.role[0] : params.role;
+
+  return <LoginForm initialRole={roleParam === "ejecutivo" ? "ejecutivo" : "cliente"} />;
 }

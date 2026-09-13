@@ -1,7 +1,7 @@
 import type { Plan } from "@/components/plans/PlanCard";
 
 import { parseMoney } from "../orders/service";
-import { formatPlanPrice } from "./map-to-plan";
+import { formatPlanPrice, isInquiryPlan } from "./map-to-plan";
 
 export type ServiceCategoryOption = {
   id: string;
@@ -60,9 +60,13 @@ function deriveDescription(plans: Plan[]): string {
   const summary = plans.map((plan) => stripHtml(plan.summary ?? "")).find(Boolean);
   if (summary) return summary;
 
+  const countLabel = `${plans.length} ${plans.length === 1 ? "plan" : "planes"}`;
+  if (plans.every((plan) => isInquiryPlan(plan))) {
+    return `${countLabel} a cotizar`;
+  }
+
   const prices = plans.map((plan) => parseMoney(plan.price)).filter((price) => Number.isFinite(price) && price > 0);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-  const countLabel = `${plans.length} ${plans.length === 1 ? "plan" : "planes"}`;
 
   if (minPrice > 0) {
     return `${countLabel} desde ${formatPlanPrice(minPrice)}`;

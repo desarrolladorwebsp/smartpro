@@ -17,6 +17,7 @@ export async function seedServiceCatalog() {
       category = await upsertServiceCategory({
         name: entry.categoryName,
         slug: entry.categorySlug,
+        description: entry.categoryDescription,
         sortOrder: entry.categoryOrder,
         status: "ACTIVE",
       });
