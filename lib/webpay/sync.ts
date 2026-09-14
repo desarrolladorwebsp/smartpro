@@ -5,6 +5,7 @@ import {
   updateOrderRecord,
   type CustomerOrder,
 } from "../orders/repository";
+import { tryRegisterSaleFromPaidOrder } from "../sales/register-paid-order";
 import { amountsMatch, isWebpayApproved, type WebpayCommitSnapshot } from "./status";
 
 export type ApplyWebpayResult = {
@@ -80,14 +81,18 @@ export async function applyWebpayCommit(
   }
 
   if (order.processedPaymentKeys?.includes(key)) {
-    if (order.paymentStatus === "paid" && !order.notificationEmailSentAt) {
-      const emailSent = await sendApprovedOrderEmail(order, sendEmail);
-      return { order: emailSent.order, duplicate: true, emailSent: emailSent.delivered };
+    if (order.paymentStatus === "paid") {
+      await tryRegisterSaleFromPaidOrder(order);
+      if (!order.notificationEmailSentAt) {
+        const emailSent = await sendApprovedOrderEmail(order, sendEmail);
+        return { order: emailSent.order, duplicate: true, emailSent: emailSent.delivered };
+      }
     }
     return { order, duplicate: true, emailSent: false };
   }
 
   if (order.paymentStatus === "paid") {
+    await tryRegisterSaleFromPaidOrder(order);
     return {
       order: await updateOrderRecord(order.id, {
         processedPaymentKeys: [...(order.processedPaymentKeys ?? []), key],
@@ -124,6 +129,10 @@ export async function applyWebpayCommit(
 
   if (!nextOrder) {
     throw new Error("No se pudo actualizar la orden.");
+  }
+
+  if (approved) {
+    await tryRegisterSaleFromPaidOrder(nextOrder);
   }
 
   if (approved && !nextOrder.notificationEmailSentAt) {

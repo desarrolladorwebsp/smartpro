@@ -25,6 +25,7 @@ export type CustomerOrder = {
   webpayToken?: string;
   processedPaymentKeys?: string[];
   notificationEmailSentAt?: string;
+  quoteId?: string;
 };
 
 const ORDER_INCLUDE = {
@@ -139,6 +140,7 @@ function rowToCustomerOrder(row: OrderWithItems): CustomerOrder {
     webpayToken: row.webpayToken ?? undefined,
     processedPaymentKeys: parseProcessedPaymentKeys(row.processedPaymentKeys),
     notificationEmailSentAt: row.notificationEmailSentAt?.toISOString(),
+    quoteId: row.quoteId ?? undefined,
   };
 }
 
@@ -224,6 +226,7 @@ export async function createOrderRecord(
       preferenceId: orderInput.preferenceId ?? null,
       mercadopagoPaymentId: orderInput.mercadopagoPaymentId ?? null,
       webpayToken: orderInput.webpayToken ?? null,
+      quoteId: orderInput.quoteId ?? null,
       processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
       notificationEmailSentAt: orderInput.notificationEmailSentAt
         ? new Date(orderInput.notificationEmailSentAt)
@@ -270,6 +273,11 @@ export async function updateOrderRecord(
         : updates.notificationEmailSentAt
           ? new Date(updates.notificationEmailSentAt)
           : null,
+    ...(updates.quoteId !== undefined
+      ? {
+          quote: updates.quoteId ? { connect: { id: updates.quoteId } } : { disconnect: true },
+        }
+      : {}),
   };
 
   if (updates.customer) {

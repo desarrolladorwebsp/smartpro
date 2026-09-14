@@ -15,6 +15,15 @@ export type ServiceCategoryCardModel = ServiceCategoryOption & {
   audience: string | null;
 };
 
+export const LANDING_PAGE_INTRO =
+  "Una página enfocada en presentar una oferta y convertir visitas en consultas. Ideal para campañas, lanzamientos o un servicio específico.";
+
+export const WEBSITE_INTRO =
+  "Un sitio con varias páginas para presentar tu empresa, organizar tus servicios y facilitar que tus clientes encuentren información y te contacten.";
+
+const WEBSITE_INTRO_WITHOUT_MULTI_PAGE =
+  "Un sitio para presentar tu empresa, organizar tus servicios y facilitar que tus clientes encuentren información y te contacten.";
+
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -56,7 +65,24 @@ function deriveAudience(plans: Plan[]): string | null {
   return labeled.replace(/^[🔥🚀⭐★]+\s*/u, "").trim();
 }
 
-function deriveDescription(plans: Plan[]): string {
+function planMentionsMultiplePages(plans: Plan[]): boolean {
+  return plans.some((plan) =>
+    plan.features.some((feature) => /\d+\s+páginas|varias páginas/i.test(stripHtml(feature))),
+  );
+}
+
+function introForCategory(categoryName: string, plans: Plan[]): string | null {
+  if (categoryName === "Landing Page") return LANDING_PAGE_INTRO;
+  if (categoryName === "Website") {
+    return planMentionsMultiplePages(plans) ? WEBSITE_INTRO : WEBSITE_INTRO_WITHOUT_MULTI_PAGE;
+  }
+  return null;
+}
+
+function deriveDescription(categoryName: string, plans: Plan[]): string {
+  const intro = introForCategory(categoryName, plans);
+  if (intro) return intro;
+
   const summary = plans.map((plan) => stripHtml(plan.summary ?? "")).find(Boolean);
   if (summary) return summary;
 
@@ -86,7 +112,7 @@ export function buildServiceCategoryCards(
       return {
         ...category,
         planCount: categoryPlans.length,
-        description: deriveDescription(categoryPlans),
+        description: deriveDescription(category.name, categoryPlans),
         audience: deriveAudience(categoryPlans),
       };
     })

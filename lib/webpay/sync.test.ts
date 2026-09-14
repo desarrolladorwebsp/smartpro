@@ -8,6 +8,10 @@ import { applyWebpayCommit, applyWebpayInterrupted } from "./sync";
 const createdOrderIds: string[] = [];
 
 test.afterEach(async () => {
+  const prisma = getPrismaClient();
+  if (createdOrderIds.length) {
+    await prisma?.sale.deleteMany({ where: { orderId: { in: [...createdOrderIds] } } }).catch(() => undefined);
+  }
   while (createdOrderIds.length) {
     const orderId = createdOrderIds.pop();
     if (orderId) {
@@ -24,7 +28,7 @@ async function createPendingOrder() {
   const order = await createOrderRecord({
     customer: {
       name: "Ana García",
-      email: "ana@smartpro.cl",
+      email: `webpay.sync.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@smartpro.cl`,
       phone: "+56912345678",
       company: "SmartPro Studio",
     },
@@ -66,6 +70,10 @@ test("marca pagada una orden Webpay autorizada y envía correo una sola vez", as
   assert.equal(first.order?.paymentMethod, "transbank");
   assert.equal(first.order?.orderStatus, "confirmed");
   assert.equal(first.order?.webpayToken, "tok-ok");
+
+  const sale = await getPrismaClient()?.sale.findUnique({ where: { orderId: order.id } });
+  assert.ok(sale);
+  assert.equal(Number(sale.total), 119000);
 
   const second = await applyWebpayCommit(
     {

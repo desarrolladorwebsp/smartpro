@@ -7,6 +7,7 @@ import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversio
 import { nextSaleNumber } from "./numbering";
 import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import {
+  isSalePaymentMethod,
   isSaleSource,
   isSaleStatus,
   parseSaleObservation,
@@ -21,6 +22,7 @@ type SaleRow = Prisma.SaleGetPayload<{
   include: {
     client: true;
     quote: true;
+    order: true;
     executive: true;
   };
 }>;
@@ -51,8 +53,10 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     clientId: row.clientId,
     clientCompany: row.client.companyName,
     clientName: `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
-    quoteId: row.quoteId,
-    quoteNumber: row.quote.number,
+    quoteId: row.quoteId ?? null,
+    quoteNumber: row.quote?.number ?? null,
+    orderId: row.orderId ?? row.order?.id ?? null,
+    paymentMethod: isSalePaymentMethod(row.paymentMethod) ? row.paymentMethod : null,
     executiveId: row.executiveId,
     executiveName,
     createdByEmail: row.createdByEmail,
@@ -71,6 +75,7 @@ function toSaleRecord(row: SaleRow): SaleRecord {
 const saleInclude = {
   client: true,
   quote: true,
+  order: true,
   executive: true,
 } as const;
 
@@ -105,8 +110,23 @@ export async function listSales(): Promise<SaleRecord[]> {
 }
 
 export async function getSaleByQuoteId(quoteId: string): Promise<SaleRecord | null> {
+  const id = String(quoteId ?? "").trim();
+  if (!id) return null;
+
   const row = await getPrisma().sale.findUnique({
-    where: { quoteId },
+    where: { quoteId: id },
+    include: saleInclude,
+  });
+
+  return row ? toSaleRecord(row) : null;
+}
+
+export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | null> {
+  const id = String(orderId ?? "").trim();
+  if (!id) return null;
+
+  const row = await getPrisma().sale.findUnique({
+    where: { orderId: id },
     include: saleInclude,
   });
 
@@ -119,7 +139,7 @@ export async function listQuotesForSaleConversion(clientId: string): Promise<Quo
     getPrisma().sale.findMany({ where: { clientId }, select: { quoteId: true } }),
   ]);
 
-  const convertedIds = new Set(converted.map((entry) => entry.quoteId));
+  const convertedIds = new Set(converted.map((entry) => entry.quoteId).filter((id): id is string => Boolean(id)));
 
   return quotes.map((quote) => ({
     quote,

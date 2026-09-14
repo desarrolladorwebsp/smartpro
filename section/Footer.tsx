@@ -5,7 +5,13 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 
-import { FaFacebookF, FaInstagram, FaXTwitter } from "react-icons/fa6";
+import {
+  FaFacebookF,
+  FaInstagram,
+  FaLinkedinIn,
+  FaXTwitter,
+  FaYoutube,
+} from "react-icons/fa6";
 
 /* ============================================================
    CONSTANTES
@@ -104,11 +110,20 @@ const SOCIAL_LINKS = [
     icon: FaInstagram,
   },
   {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/smart-pro-chile/",
+    icon: FaLinkedinIn,
+  },
+  {
+    label: "YouTube",
+    href: "https://www.youtube.com/@SmartPro-l3l",
+    icon: FaYoutube,
+  },
+  {
     label: "X",
     href: "https://x.com/smartpro2025",
     icon: FaXTwitter,
   },
- 
 ] as const;
 
 /* ============================================================

@@ -35,8 +35,7 @@ const CONTACT = {
 } as const;
 
 /*
- * Agrega posteriormente las URLs reales de LinkedIn,
- * TikTok y YouTube cuando estén definidas.
+ * TikTok queda pendiente hasta tener la URL real.
  */
 const SOCIAL_LINKS = [
   {
@@ -51,7 +50,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "LinkedIn",
-    href: null,
+    href: "https://www.linkedin.com/company/smart-pro-chile/",
     icon: FaLinkedinIn,
   },
   {
@@ -66,7 +65,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "YouTube",
-    href: null,
+    href: "https://www.youtube.com/@SmartPro-l3l",
     icon: FaYoutube,
   },
 ] as const;

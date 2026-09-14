@@ -1,17 +1,17 @@
 "use client";
 
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
+import {
+  CAROUSEL_EASE,
+  CAROUSEL_TRANSITION_DURATION_S,
+  getLoopSlots,
+  isCarouselSlideVisible,
+} from "@/lib/carousel/loop";
+import { useLoopedCarousel } from "@/lib/carousel/use-looped-carousel";
 import { PUBLIC_PORTFOLIO_FILTERS, type PublicPortfolioFilter } from "@/lib/portfolio/constants";
 import type { PublicPortfolioProject } from "@/lib/portfolio/types";
 
@@ -23,33 +23,24 @@ function isPortfolioFilter(value: string): value is PublicPortfolioFilter {
   return (PUBLIC_PORTFOLIO_FILTERS as readonly string[]).includes(value);
 }
 
-const SCROLL_EDGE_PX = 8;
-
-function prefersReducedMotion() {
-  if (typeof window === "undefined") return false;
-
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function getCarouselStep(node: HTMLElement) {
+function measurePortfolioTrack(node: HTMLElement) {
+  const track = node.querySelector<HTMLElement>("[data-carousel-track]");
   const card = node.querySelector<HTMLElement>("[data-portfolio-card]");
 
-  if (!card) {
-    return Math.max(node.clientWidth * 0.82, 240);
+  if (!track || !card) {
+    return { stride: 0, visibleCount: 1 };
   }
 
-  const gap = Number.parseFloat(getComputedStyle(node).columnGap || "0") || 0;
+  const gap = Number.parseFloat(getComputedStyle(track).columnGap || "0") || 0;
+  const stride = card.offsetWidth + gap;
 
-  return card.offsetWidth + gap;
-}
-
-function getCarouselScrollState(node: HTMLElement) {
-  const maxScrollLeft = node.scrollWidth - node.clientWidth;
-  const hasOverflow = maxScrollLeft > SCROLL_EDGE_PX;
+  if (stride <= 0) {
+    return { stride: 0, visibleCount: 1 };
+  }
 
   return {
-    canScrollPrev: hasOverflow && node.scrollLeft > SCROLL_EDGE_PX,
-    canScrollNext: hasOverflow && node.scrollLeft < maxScrollLeft - SCROLL_EDGE_PX,
+    stride,
+    visibleCount: Math.max(1, Math.floor((node.clientWidth + gap) / stride)),
   };
 }
 
@@ -59,9 +50,8 @@ function getCarouselScrollState(node: HTMLElement) {
 
 export default function PortfolioSection({ projects }: PortfolioSectionProps) {
   const [activeFilter, setActiveFilter] = useState<PublicPortfolioFilter>("Todos");
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-  const portfolioTrackRef = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState(1);
+  const [stride, setStride] = useState(0);
 
   const filteredProjects = useMemo(() => {
     if (activeFilter === "Todos") {
@@ -71,83 +61,69 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
     return projects.filter((project) => project.category === activeFilter);
   }, [activeFilter, projects]);
 
-  const syncCarouselState = useCallback(() => {
-    const node = portfolioTrackRef.current;
+  const {
+    viewportRef,
+    index,
+    cloneCount,
+    canMove,
+    isJumping,
+    shouldReduceMotion,
+    goNext,
+    goPrev,
+    settleLoop,
+    regionProps,
+    trackProps,
+  } = useLoopedCarousel({
+    itemCount: filteredProjects.length,
+    visibleCount,
+    resetKey: activeFilter,
+    enabled: stride > 0,
+  });
 
-    if (!node) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-
-    const nextState = getCarouselScrollState(node);
-
-    setCanScrollPrev(nextState.canScrollPrev);
-    setCanScrollNext(nextState.canScrollNext);
-  }, []);
-
-  const scrollPortfolio = useCallback((direction: -1 | 1) => {
-    const node = portfolioTrackRef.current;
-
-    if (!node) return;
-
-    node.scrollBy({
-      left: direction * getCarouselStep(node),
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
-  }, []);
+  const loopSlots = useMemo(
+    () => getLoopSlots(filteredProjects, cloneCount),
+    [cloneCount, filteredProjects],
+  );
 
   const handleFilterChange = (filter: PublicPortfolioFilter) => {
     setActiveFilter(filter);
   };
 
-  const handleTrackKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      scrollPortfolio(-1);
-      return;
-    }
-
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      scrollPortfolio(1);
-    }
-  };
-
   useLayoutEffect(() => {
-    const node = portfolioTrackRef.current;
+    const node = viewportRef.current;
 
     if (!node) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
+      setVisibleCount(1);
+      setStride(0);
       return;
     }
 
-    node.scrollTo({ left: 0, behavior: "auto" });
-    syncCarouselState();
+    const measure = () => {
+      const nextLayout = measurePortfolioTrack(node);
+      setStride(nextLayout.stride);
+      setVisibleCount(nextLayout.visibleCount);
+    };
 
-    const frame = window.requestAnimationFrame(syncCarouselState);
-    const handleScroll = () => syncCarouselState();
-    const observer = new ResizeObserver(() => syncCarouselState());
+    measure();
+    const frame = window.requestAnimationFrame(measure);
+    const observer = new ResizeObserver(measure);
 
     observer.observe(node);
 
-    for (const child of node.children) {
+    for (const child of node.querySelectorAll("[data-portfolio-card]")) {
       if (child instanceof HTMLElement) {
         observer.observe(child);
       }
     }
 
-    node.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll);
+    window.addEventListener("resize", measure);
 
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
-      node.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
+      window.removeEventListener("resize", measure);
     };
-  }, [filteredProjects, syncCarouselState]);
+  }, [filteredProjects, cloneCount, viewportRef]);
 
   return (
     <section
@@ -403,8 +379,9 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
           aria-roledescription="carrusel"
           aria-label="Proyectos del portafolio"
           className="relative min-w-0 max-w-full"
+          {...regionProps}
         >
-          <p className="sr-only" aria-live="polite">
+          <p className="sr-only">
             {filteredProjects.length}{" "}
             {filteredProjects.length === 1 ? "proyecto" : "proyectos"} en {activeFilter}.
           </p>
@@ -416,43 +393,58 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
           ) : (
             <>
             <div
-              key={activeFilter}
-              ref={portfolioTrackRef}
-              tabIndex={0}
-              onKeyDown={handleTrackKeyDown}
+              ref={viewportRef}
+              tabIndex={canMove ? 0 : -1}
+              {...trackProps}
               className="
-                no-scrollbar
-                flex
-                w-full
-                min-w-0
-                flex-nowrap
-                items-stretch
-                gap-5
-                overflow-x-auto
-                overflow-y-hidden
-                overscroll-x-contain
-                scroll-smooth
+                overflow-hidden
                 pb-2
-                snap-x
-                snap-mandatory
-                touch-pan-x
+                touch-pan-y
                 outline-none
                 focus-visible:ring-2
                 focus-visible:ring-primary/40
                 focus-visible:ring-offset-2
               "
             >
-              {filteredProjects.map((project) => (
-                <PortfolioCard key={project.id} project={project} />
-              ))}
+              <motion.div
+                data-carousel-track
+                initial={false}
+                animate={{ x: -index * stride }}
+                transition={{
+                  duration:
+                    isJumping || shouldReduceMotion || stride <= 0
+                      ? 0
+                      : CAROUSEL_TRANSITION_DURATION_S,
+                  ease: CAROUSEL_EASE,
+                }}
+                onAnimationComplete={settleLoop}
+                className="flex w-full min-w-0 flex-nowrap items-stretch gap-5"
+              >
+                {loopSlots.map((slot) => {
+                  const isVisible = isCarouselSlideVisible(
+                    slot.slotIndex,
+                    index,
+                    visibleCount,
+                  );
+
+                  return (
+                    <PortfolioCard
+                      key={`${slot.item.id}-${slot.slotIndex}`}
+                      project={slot.item}
+                      inactive={!isVisible}
+                      animateEntrance={!slot.isClone}
+                    />
+                  );
+                })}
+              </motion.div>
             </div>
 
             <button
               type="button"
               aria-label="Ver proyectos anteriores"
-              aria-disabled={!canScrollPrev}
-              disabled={!canScrollPrev}
-              onClick={() => scrollPortfolio(-1)}
+              aria-disabled={!canMove}
+              disabled={!canMove}
+              onClick={() => goPrev()}
               className={`
                 icon-button
                 absolute
@@ -468,7 +460,7 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
                 backdrop-blur-md
                 lg:flex
                 disabled:pointer-events-none
-                ${canScrollPrev ? "opacity-100" : "pointer-events-none opacity-0"}
+                ${canMove ? "opacity-100" : "pointer-events-none opacity-0"}
               `}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -477,9 +469,9 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
             <button
               type="button"
               aria-label="Ver proyectos siguientes"
-              aria-disabled={!canScrollNext}
-              disabled={!canScrollNext}
-              onClick={() => scrollPortfolio(1)}
+              aria-disabled={!canMove}
+              disabled={!canMove}
+              onClick={() => goNext()}
               className={`
                 icon-button
                 absolute
@@ -495,7 +487,7 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
                 backdrop-blur-md
                 lg:flex
                 disabled:pointer-events-none
-                ${canScrollNext ? "opacity-100" : "pointer-events-none opacity-0"}
+                ${canMove ? "opacity-100" : "pointer-events-none opacity-0"}
               `}
             >
               <ChevronRight className="h-4 w-4" />
@@ -512,16 +504,30 @@ export default function PortfolioSection({ projects }: PortfolioSectionProps) {
    PORTFOLIO CARD
 ============================================================ */
 
-function PortfolioCard({ project }: { project: PublicPortfolioProject }) {
+function PortfolioCard({
+  project,
+  inactive = false,
+  animateEntrance = true,
+}: {
+  project: PublicPortfolioProject;
+  inactive?: boolean;
+  animateEntrance?: boolean;
+}) {
   const isExternal = project.url.startsWith("http");
 
   return (
     <motion.article
       data-portfolio-card
-      initial={{
-        opacity: 0,
-        y: 20,
-      }}
+      aria-hidden={inactive}
+      inert={inactive ? true : undefined}
+      initial={
+        animateEntrance
+          ? {
+              opacity: 0,
+              y: 20,
+            }
+          : false
+      }
       animate={{
         opacity: 1,
         y: 0,

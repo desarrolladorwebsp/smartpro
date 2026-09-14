@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import {
   ArrowRight,
   ChevronLeft,
@@ -10,6 +10,13 @@ import {
   Play,
 } from "lucide-react";
 import { SmartImage } from "@/components/ui/SmartImage";
+import {
+  CAROUSEL_EASE,
+  CAROUSEL_TRANSITION_DURATION_S,
+  getLoopSlots,
+  isCarouselSlideVisible,
+} from "@/lib/carousel/loop";
+import { useLoopedCarousel } from "@/lib/carousel/use-looped-carousel";
 
 /* ============================================================
    PRESENTADORES
@@ -46,26 +53,20 @@ const PRESENTERS = [
   },
 ] as const;
 
-const CAROUSEL_INTERVAL = 7000;
-
 /* ============================================================
    COMPONENTE PRINCIPAL
 ============================================================ */
 
 export default function PresentersSection() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
   /*
    * Solo este presentador puede estar reproduciéndose.
-   * No hay autoplay: nadie está activo hasta que el usuario haga clic.
+   * El carrusel mueve posters; el video no arranca hasta el clic.
    */
   const [activePresenterId, setActivePresenterId] = useState<number | null>(
     null,
   );
 
   const [itemsPerView, setItemsPerView] = useState(3);
-  const [carouselPaused, setCarouselPaused] = useState(false);
-  const shouldReduceMotion = useReducedMotion();
 
   /* ==========================================================
      RESPONSIVE
@@ -93,61 +94,42 @@ export default function PresentersSection() {
     };
   }, []);
 
-  const maxIndex = Math.max(0, PRESENTERS.length - itemsPerView);
-  const safeCurrentIndex = Math.min(currentIndex, maxIndex);
+  const {
+    viewportRef,
+    index,
+    realIndex,
+    cloneCount,
+    canMove,
+    isJumping,
+    shouldReduceMotion,
+    goNext,
+    goPrev,
+    goToRealIndex,
+    settleLoop,
+    regionProps,
+    trackProps,
+  } = useLoopedCarousel({
+    itemCount: PRESENTERS.length,
+    visibleCount: itemsPerView,
+    extraPaused: activePresenterId !== null,
+  });
 
-  /* ==========================================================
-     CAROUSEL
-  ========================================================== */
-
-  const nextSlide = useCallback(() => {
-    setCurrentIndex((current) => (current >= maxIndex ? 0 : current + 1));
-  }, [maxIndex]);
-
-  const previousSlide = useCallback(() => {
-    setCurrentIndex((current) => (current <= 0 ? maxIndex : current - 1));
-  }, [maxIndex]);
-
-  useEffect(() => {
-    if (
-      carouselPaused ||
-      activePresenterId !== null ||
-      maxIndex === 0 ||
-      shouldReduceMotion
-    ) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      nextSlide();
-    }, CAROUSEL_INTERVAL);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [activePresenterId, carouselPaused, maxIndex, nextSlide, shouldReduceMotion]);
+  const loopSlots = useMemo(
+    () => getLoopSlots(PRESENTERS, cloneCount),
+    [cloneCount],
+  );
 
   /* ==========================================================
      REPRODUCCIÓN
   ========================================================== */
 
-  const handlePlayPresenter = (id: number) => {
-    /*
-     * Al seleccionar otro video,
-     * activePresenterId cambia.
-     *
-     * Cada card detectará el cambio y:
-     * - pausará su video si no está activo
-     * - reproducirá el video seleccionado
-     */
+  const handlePlayPresenter = useCallback((id: number) => {
     setActivePresenterId(id);
-  };
+  }, []);
 
-  const handlePausePresenter = (id: number) => {
-    if (activePresenterId === id) {
-      setActivePresenterId(null);
-    }
-  };
+  const handlePausePresenter = useCallback((id: number) => {
+    setActivePresenterId((current) => (current === id ? null : current));
+  }, []);
 
   return (
     <section
@@ -332,15 +314,19 @@ export default function PresentersSection() {
 
         <div
           className="relative"
-          onMouseEnter={() => setCarouselPaused(true)}
-          onMouseLeave={() => setCarouselPaused(false)}
+          role="region"
+          aria-roledescription="carrusel"
+          aria-label="Voceros y presentadores SmartPro"
+          {...regionProps}
         >
           {/* Flecha izquierda */}
 
           <motion.button
             type="button"
             aria-label="Mostrar presentadores anteriores"
-            onClick={previousSlide}
+            aria-disabled={!canMove}
+            disabled={!canMove}
+            onClick={() => goPrev()}
             whileTap={{
               scale: 0.92,
             }}
@@ -368,6 +354,8 @@ export default function PresentersSection() {
               hover:bg-primary
               hover:text-white
               md:flex
+              disabled:pointer-events-none
+              disabled:opacity-35
             "
           >
             <ChevronLeft size={23} strokeWidth={2} />
@@ -377,37 +365,63 @@ export default function PresentersSection() {
               VIEWPORT
           ================================================== */}
 
-          <div className="overflow-hidden">
+          <div
+            ref={viewportRef}
+            tabIndex={canMove ? 0 : -1}
+            {...trackProps}
+            className="
+              overflow-hidden
+              touch-pan-y
+              outline-none
+              focus-visible:ring-2
+              focus-visible:ring-primary/40
+              focus-visible:ring-offset-2
+            "
+          >
             <motion.div
+              initial={false}
               animate={{
-                x: `-${safeCurrentIndex * (100 / itemsPerView)}%`,
+                x: `-${index * (100 / itemsPerView)}%`,
               }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.55,
-                ease: [0.22, 1, 0.36, 1],
+                duration:
+                  isJumping || shouldReduceMotion
+                    ? 0
+                    : CAROUSEL_TRANSITION_DURATION_S,
+                ease: CAROUSEL_EASE,
               }}
+              onAnimationComplete={settleLoop}
               className="flex"
             >
-              {PRESENTERS.map((presenter, index) => (
-                <div
-                  key={presenter.id}
-                  className="
-                      shrink-0
-                      px-2.5
-                    "
-                  style={{
-                    width: `${100 / itemsPerView}%`,
-                  }}
-                >
-                  <PresenterVideoCard
-                    presenter={presenter}
-                    index={index}
-                    isActive={activePresenterId === presenter.id}
-                    onPlay={() => handlePlayPresenter(presenter.id)}
-                    onPause={() => handlePausePresenter(presenter.id)}
-                  />
-                </div>
-              ))}
+              {loopSlots.map((slot) => {
+                const isVisible = isCarouselSlideVisible(
+                  slot.slotIndex,
+                  index,
+                  itemsPerView,
+                );
+
+                return (
+                  <div
+                    key={`${slot.item.id}-${slot.slotIndex}`}
+                    className="shrink-0 px-2.5"
+                    style={{
+                      width: `${100 / itemsPerView}%`,
+                    }}
+                    aria-hidden={!isVisible}
+                    inert={isVisible ? undefined : true}
+                  >
+                    <PresenterVideoCard
+                      presenter={slot.item}
+                      index={slot.realIndex}
+                      isActive={
+                        isVisible && activePresenterId === slot.item.id
+                      }
+                      onPlay={() => handlePlayPresenter(slot.item.id)}
+                      onPause={() => handlePausePresenter(slot.item.id)}
+                    />
+                  </div>
+                );
+              })}
             </motion.div>
           </div>
 
@@ -416,7 +430,9 @@ export default function PresentersSection() {
           <motion.button
             type="button"
             aria-label="Mostrar siguientes presentadores"
-            onClick={nextSlide}
+            aria-disabled={!canMove}
+            disabled={!canMove}
+            onClick={() => goNext()}
             whileTap={{
               scale: 0.92,
             }}
@@ -444,6 +460,8 @@ export default function PresentersSection() {
               hover:bg-primary
               hover:text-white
               md:flex
+              disabled:pointer-events-none
+              disabled:opacity-35
             "
           >
             <ChevronRight size={23} strokeWidth={2} />
@@ -453,64 +471,66 @@ export default function PresentersSection() {
               MOBILE CONTROLS
           ================================================== */}
 
-          <div
-            className="
-              mt-5
-              flex
-              items-center
-              justify-center
-              gap-3
-              md:hidden
-            "
-          >
-            <button
-              type="button"
-              aria-label="Presentador anterior"
-              onClick={previousSlide}
+          {canMove ? (
+            <div
               className="
+                mt-5
                 flex
-                h-11
-                w-11
                 items-center
                 justify-center
-                rounded-full
-                border
-                border-primary/15
-                bg-white
-                text-primary
-                shadow-sm
+                gap-3
+                md:hidden
               "
             >
-              <ChevronLeft size={20} />
-            </button>
+              <button
+                type="button"
+                aria-label="Presentador anterior"
+                onClick={() => goPrev()}
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-full
+                  border
+                  border-primary/15
+                  bg-white
+                  text-primary
+                  shadow-sm
+                "
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-            <button
-              type="button"
-              aria-label="Presentador siguiente"
-              onClick={nextSlide}
-              className="
-                flex
-                h-11
-                w-11
-                items-center
-                justify-center
-                rounded-full
-                border
-                border-primary/15
-                bg-white
-                text-primary
-                shadow-sm
-              "
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
+              <button
+                type="button"
+                aria-label="Presentador siguiente"
+                onClick={() => goNext()}
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-full
+                  border
+                  border-primary/15
+                  bg-white
+                  text-primary
+                  shadow-sm
+                "
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          ) : null}
 
           {/* ==================================================
               DOTS
           ================================================== */}
 
-          {maxIndex > 0 && (
+          {canMove ? (
             <div
               className="
                 mt-5
@@ -520,14 +540,13 @@ export default function PresentersSection() {
                 gap-2
               "
             >
-              {Array.from({
-                length: maxIndex + 1,
-              }).map((_, index) => (
+              {PRESENTERS.map((presenter, presenterIndex) => (
                 <button
-                  key={index}
+                  key={presenter.id}
                   type="button"
-                  aria-label={`Ir al grupo ${index + 1}`}
-                  onClick={() => setCurrentIndex(index)}
+                  aria-label={`Ir a ${presenter.name}`}
+                  aria-current={realIndex === presenterIndex ? "true" : undefined}
+                  onClick={() => goToRealIndex(presenterIndex)}
                   className="
                     flex
                     h-6
@@ -544,7 +563,7 @@ export default function PresentersSection() {
                       duration-300
 
                       ${
-                        safeCurrentIndex === index
+                        realIndex === presenterIndex
                           ? "w-7 bg-primary"
                           : "w-2 bg-primary/20 hover:bg-primary/40"
                       }
@@ -553,7 +572,7 @@ export default function PresentersSection() {
                 </button>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </section>
@@ -586,6 +605,7 @@ function PresenterVideoCard({
   onPause,
 }: PresenterVideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const onPauseRef = useRef(onPause);
   const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
 
   /*
@@ -594,6 +614,10 @@ function PresenterVideoCard({
    */
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+
+  useEffect(() => {
+    onPauseRef.current = onPause;
+  }, [onPause]);
 
   /* ==========================================================
      CONTROL CENTRALIZADO DEL VIDEO
@@ -611,9 +635,10 @@ function PresenterVideoCard({
         } catch {
           /*
            * Algunos navegadores pueden bloquear la reproducción.
-           * En ese caso aparecerá el botón Play.
+           * En ese caso aparecerá el botón Play y el carrusel puede seguir.
            */
           setIsActuallyPlaying(false);
+          onPauseRef.current();
         }
       };
 
@@ -785,6 +810,10 @@ function PresenterVideoCard({
               preload="none"
               onClick={handleVideoClick}
               onLoadedData={() => setIsVideoReady(true)}
+              onError={() => {
+                setIsActuallyPlaying(false);
+                onPauseRef.current();
+              }}
               onPlay={() => setIsActuallyPlaying(true)}
               onPause={() => setIsActuallyPlaying(false)}
               className={`

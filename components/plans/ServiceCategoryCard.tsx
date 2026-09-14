@@ -38,7 +38,7 @@ export default function ServiceCategoryCard({ category, index, onSelect }: Servi
 
       <span className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">{category.name}</span>
 
-      <span className="line-clamp-2 text-[13px] leading-5 text-muted">{category.description}</span>
+      <span className="text-[13px] leading-5 text-muted">{category.description}</span>
 
       {category.audience ? (
         <span className="rounded-lg bg-soft-background px-2.5 py-2 text-[12px] leading-4 text-foreground/80">

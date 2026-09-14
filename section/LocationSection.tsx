@@ -10,6 +10,7 @@ import {
   Info,
   ArrowUpRight,
 } from "lucide-react";
+import { FaLinkedinIn, FaYoutube } from "react-icons/fa6";
 
 /* ============================================================
    CONSTANTES
@@ -62,6 +63,19 @@ const LOCATION_ITEMS = [
       "Presencial: lunes a viernes, 09:00 a 20:00 hrs.",
       "Telemático: todos los días, 08:00 a 20:00 hrs.",
     ],
+  },
+] as const;
+
+const SOCIAL_LINKS = [
+  {
+    label: "YouTube",
+    href: "https://www.youtube.com/@SmartPro-l3l",
+    icon: FaYoutube,
+  },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/smart-pro-chile/",
+    icon: FaLinkedinIn,
   },
 ] as const;
 
@@ -318,6 +332,53 @@ export default function LocationSection() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-5 border-t border-border pt-5">
+              <h3
+                className="
+                  text-base
+                  font-semibold
+                  tracking-[-0.02em]
+                  text-foreground
+                "
+              >
+                Redes sociales
+              </h3>
+
+              <div className="mt-3 flex flex-wrap gap-3">
+                {SOCIAL_LINKS.map((social) => {
+                  const Icon = social.icon;
+
+                  return (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`SmartPro en ${social.label}`}
+                      className="
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-gradient-to-br
+                        from-primary
+                        to-violet-500
+                        text-white
+                        shadow-[0_8px_22px_rgba(109,40,217,0.22)]
+                        transition-transform
+                        duration-300
+                        hover:-translate-y-0.5
+                      "
+                    >
+                      <Icon size={17} />
+                    </a>
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
 

@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 
 import type { Plan } from "@/components/plans/PlanCard";
 
-import { buildServiceCategoryCards } from "./category-cards";
+import {
+  buildServiceCategoryCards,
+  LANDING_PAGE_INTRO,
+  WEBSITE_INTRO,
+} from "./category-cards";
 
 function plan(partial: Partial<Plan> & Pick<Plan, "name" | "price">): Plan {
   return {
@@ -56,9 +60,12 @@ test("buildServiceCategoryCards usa categorías reales y deriva copy desde los p
     ["Landing Page", "Website", "E-commerce"],
   );
   assert.equal(cards[0]?.planCount, 2);
-  assert.equal(cards[0]?.description, "2 planes desde $199.990");
+  assert.equal(cards[0]?.description, LANDING_PAGE_INTRO);
   assert.equal(cards[0]?.audience, "Ideal para emprendimientos que inician su presencia digital.");
-  assert.equal(cards[1]?.description, "Sitio institucional para presentar la marca.");
+  assert.equal(
+    cards[1]?.description,
+    "Un sitio para presentar tu empresa, organizar tus servicios y facilitar que tus clientes encuentren información y te contacten.",
+  );
   assert.equal(cards[1]?.audience, "Dirigido a empresas que necesitan una web corporativa.");
   assert.equal(cards[2]?.id, "E-commerce");
   assert.equal(cards[2]?.audience, "Ideal para emprendimientos que inician su tienda online.");
@@ -96,4 +103,20 @@ test("buildServiceCategoryCards no muestra precio cuando el plan es a cotizar", 
   );
 
   assert.equal(cards[0]?.description, "CRM para ordenar clientes y oportunidades.");
+});
+
+test("buildServiceCategoryCards usa el copy de Website con varias páginas cuando el alcance lo incluye", () => {
+  const cards = buildServiceCategoryCards(
+    [{ id: "web", name: "Website", slug: "website" }],
+    [
+      plan({
+        name: "Website Start",
+        subcategory: "Website",
+        price: "$349.990",
+        features: ["<strong>Hasta 5 páginas</strong>", "Formulario de contacto integrado"],
+      }),
+    ],
+  );
+
+  assert.equal(cards[0]?.description, WEBSITE_INTRO);
 });

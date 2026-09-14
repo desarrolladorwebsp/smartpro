@@ -306,12 +306,16 @@ model Order {
   webpayToken             String?       @unique
   processedPaymentKeys    Json          @default("[]")
   notificationEmailSentAt DateTime?
+  quoteId                 String?
+  quote                   Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   items                   OrderItem[]
+  sale                    Sale?
 
   @@index([customerEmail])
   @@index([orderStatus])
   @@index([paymentStatus])
   @@index([createdAt])
+  @@index([quoteId])
 }
 
 model OrderItem {
@@ -389,6 +393,7 @@ model Quote {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   items          QuoteItem[]
+  orders         Order[]
   sale           Sale?
 
   @@index([clientId])
@@ -428,29 +433,33 @@ enum SaleStatus {
 enum SaleSource {
   MANUAL
   QUOTE_ACCEPTED
+  ORDER_PAID
 }
 
 model Sale {
-  id               String     @id @default(cuid())
-  number           String     @unique
-  status           SaleStatus @default(REGISTERED)
-  source           SaleSource @default(MANUAL)
+  id               String          @id @default(cuid())
+  number           String          @unique
+  status           SaleStatus      @default(REGISTERED)
+  source           SaleSource      @default(MANUAL)
   clientId         String
-  client           Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  quoteId          String     @unique
-  quote            Quote      @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  client           Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quoteId          String?         @unique
+  quote            Quote?          @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  orderId          String?         @unique
+  order            Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  paymentMethod    PaymentMethod?
   executiveId      String?
-  executive        User?      @relation("SaleExecutive", fields: [executiveId], references: [id], onDelete: SetNull)
+  executive        User?           @relation("SaleExecutive", fields: [executiveId], references: [id], onDelete: SetNull)
   createdByEmail   String
-  soldAt           DateTime   @default(now())
-  observation      String     @default("") @db.Text
-  receiptPath      String     @default("")
-  receiptFileName  String     @default("")
-  subtotal         Decimal    @db.Decimal(12, 2)
-  tax              Decimal    @db.Decimal(12, 2)
-  total            Decimal    @db.Decimal(12, 2)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  soldAt           DateTime        @default(now())
+  observation      String          @default("") @db.Text
+  receiptPath      String          @default("")
+  receiptFileName  String          @default("")
+  subtotal         Decimal         @db.Decimal(12, 2)
+  tax              Decimal         @db.Decimal(12, 2)
+  total            Decimal         @db.Decimal(12, 2)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([clientId])
   @@index([executiveId])

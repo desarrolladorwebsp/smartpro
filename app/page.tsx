@@ -58,6 +58,8 @@ const organizationSchema = {
     "https://www.instagram.com/smartpro.chile/",
     "https://www.facebook.com/profile.php?id=61568563559545",
     "https://x.com/smartpro2025",
+    "https://www.linkedin.com/company/smart-pro-chile/",
+    "https://www.youtube.com/@SmartPro-l3l",
   ],
   priceRange: "$$",
   makesOffer: [

@@ -17,6 +17,7 @@ export type PaymentCheckoutInput = {
   subtotal: number;
   tax: number;
   total: number;
+  quoteId?: string;
 };
 
 export type WebpayCheckoutResult = {
@@ -47,6 +48,7 @@ function toOrderDraft(checkout: PaymentCheckoutInput, paymentMethod: CustomerOrd
     orderStatus: "pending" as const,
     status: "pending" as const,
     paymentMethod,
+    quoteId: checkout.quoteId,
   };
 }
 

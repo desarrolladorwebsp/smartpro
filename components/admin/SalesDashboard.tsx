@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
@@ -10,6 +10,7 @@ import { SaleCreateModal } from "@/components/admin/SaleCreateModal";
 import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import {
+  getSalePaymentMethodLabel,
   getSaleStatusLabel,
   SALE_STATUSES,
   type SaleRecord,
@@ -35,8 +36,9 @@ type SalesDashboardProps = {
   clients: ClientRecord[];
 };
 
-export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
+export function SalesDashboard({ initialSales, clients: initialClients }: SalesDashboardProps) {
   const [sales, setSales] = useState(initialSales);
+  const [clients, setClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaleStatus | "ALL">("ALL");
   const [clientFilter, setClientFilter] = useState("ALL");
@@ -46,6 +48,43 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
 
+  const refreshSales = useCallback(async () => {
+    try {
+      const [salesResponse, clientsResponse] = await Promise.all([
+        fetch("/api/sales", { cache: "no-store" }),
+        fetch("/api/clients", { cache: "no-store" }),
+      ]);
+
+      if (salesResponse.ok) {
+        const data = (await salesResponse.json()) as { sales?: SaleRecord[] };
+        if (Array.isArray(data.sales)) {
+          setSales(data.sales);
+        }
+      }
+
+      if (clientsResponse.ok) {
+        const data = (await clientsResponse.json()) as { clients?: ClientRecord[] };
+        if (Array.isArray(data.clients)) {
+          setClients(data.clients);
+        }
+      }
+    } catch {
+      // Keep the last successful snapshot visible.
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshSales();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refreshSales]);
+
   const filteredSales = useMemo(() => {
     const query = search.trim().toLowerCase();
     const fromDate = from ? new Date(`${from}T00:00:00`) : null;
@@ -54,7 +93,7 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
     return sales.filter((sale) => {
       const matchesSearch =
         !query ||
-        [sale.number, sale.clientCompany, sale.clientName, sale.quoteNumber, sale.executiveName, sale.observation]
+        [sale.number, sale.clientCompany, sale.clientName, sale.quoteNumber, sale.orderId, sale.executiveName, sale.observation]
           .join(" ")
           .toLowerCase()
           .includes(query);
@@ -113,7 +152,7 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
       {sales.length === 0 ? (
         <DashboardEmptyState
           title="No hay ventas registradas"
-          description="Convierte una cotización en venta con el botón Nueva venta."
+          description="Los pagos aprobados se registran aquí automáticamente. También puedes convertir una cotización con Nueva venta."
           action={{ label: "Nueva venta", onClick: () => setIsCreateOpen(true) }}
         />
       ) : filteredSales.length === 0 ? (
@@ -126,7 +165,8 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
                 <tr>
                   <th className="px-4 py-3 font-medium">Número</th>
                   <th className="px-4 py-3 font-medium">Cliente</th>
-                  <th className="px-4 py-3 font-medium">Cotización</th>
+                  <th className="px-4 py-3 font-medium">Cotización / Orden</th>
+                  <th className="px-4 py-3 font-medium">Pago</th>
                   <th className="px-4 py-3 font-medium">Ejecutivo</th>
                   <th className="px-4 py-3 font-medium">Fecha</th>
                   <th className="px-4 py-3 font-medium">Total</th>
@@ -143,10 +183,19 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
                       <div className="text-xs text-muted">{sale.clientName}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/dashboard/cotizaciones/${sale.quoteId}`} className="font-medium text-primary hover:underline">
-                        {sale.quoteNumber}
-                      </Link>
+                      {sale.quoteId && sale.quoteNumber ? (
+                        <Link href={`/dashboard/cotizaciones/${sale.quoteId}`} className="font-medium text-primary hover:underline">
+                          {sale.quoteNumber}
+                        </Link>
+                      ) : sale.orderId ? (
+                        <Link href={`/dashboard/compras/${sale.orderId}`} className="font-medium text-primary hover:underline">
+                          {sale.orderId}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
+                    <td className="px-4 py-3">{getSalePaymentMethodLabel(sale.paymentMethod)}</td>
                     <td className="px-4 py-3">{sale.executiveName}</td>
                     <td className="px-4 py-3">{formatDate(sale.soldAt)}</td>
                     <td className="px-4 py-3 font-semibold">{formatCurrency(sale.total)}</td>
@@ -189,6 +238,7 @@ export function SalesDashboard({ initialSales, clients }: SalesDashboardProps) {
           setFrom("");
           setTo("");
           setSuccessMessage(`Venta ${sale.number} registrada correctamente.`);
+          void refreshSales();
         }}
       />
       {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}

@@ -9,6 +9,7 @@ import {
   updateOrderRecord,
   type CustomerOrder,
 } from "../orders/repository";
+import { tryRegisterSaleFromPaidOrder } from "../sales/register-paid-order";
 
 export type MercadoPagoPaymentSnapshot = {
   id: string | number;
@@ -75,9 +76,12 @@ export async function applyMercadoPagoPayment(
   const alreadyProcessed = order.processedPaymentKeys?.includes(key);
 
   if (alreadyProcessed) {
-    if (order.paymentStatus === "paid" && !order.notificationEmailSentAt) {
-      const emailSent = await sendApprovedOrderEmail(order, sendEmail);
-      return { order: emailSent.order, duplicate: true, emailSent: emailSent.delivered };
+    if (order.paymentStatus === "paid") {
+      await tryRegisterSaleFromPaidOrder(order);
+      if (!order.notificationEmailSentAt) {
+        const emailSent = await sendApprovedOrderEmail(order, sendEmail);
+        return { order: emailSent.order, duplicate: true, emailSent: emailSent.delivered };
+      }
     }
 
     return { order, duplicate: true, emailSent: false };
@@ -92,6 +96,9 @@ export async function applyMercadoPagoPayment(
   }
 
   if (!canTransitionPaymentStatus(order.paymentStatus, mapped.paymentStatus)) {
+    if (order.paymentStatus === "paid") {
+      await tryRegisterSaleFromPaidOrder(order);
+    }
     return {
       order: await updateOrderRecord(order.id, {
         processedPaymentKeys: [...(order.processedPaymentKeys ?? []), key],
@@ -114,6 +121,10 @@ export async function applyMercadoPagoPayment(
 
   if (!nextOrder) {
     throw new Error("No se pudo actualizar la orden.");
+  }
+
+  if (mapped.paymentStatus === "paid") {
+    await tryRegisterSaleFromPaidOrder(nextOrder);
   }
 
   if (mapped.paymentStatus === "paid" && !nextOrder.notificationEmailSentAt) {

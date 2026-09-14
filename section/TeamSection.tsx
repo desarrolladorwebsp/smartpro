@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SmartImage } from "@/components/ui/SmartImage";
 import {
+  CAROUSEL_EASE,
+  CAROUSEL_TRANSITION_DURATION_S,
+  getLoopSlots,
+  isCarouselSlideVisible,
+} from "@/lib/carousel/loop";
+import { useLoopedCarousel } from "@/lib/carousel/use-looped-carousel";
+import {
   getTeamCarouselLayout,
-  getTeamPageStarts,
   type TeamCarouselLayout,
 } from "@/lib/team/carousel-layout";
 
@@ -57,7 +63,8 @@ const TEAM_MEMBERS = [
     id: 6,
     name: "Ariana de la Fuente",
     role: "Ejecutiva Comercial",
-    description: "Encargada del diseño grafico y creacion de estrategias publicitarias",
+    description:
+      "Asesora a clientes en la elección de servicios y acompaña el seguimiento de sus propuestas comerciales.",
     image: "/images/team/ariana.png",
   },
   {
@@ -83,39 +90,38 @@ const INITIAL_LAYOUT = getTeamCarouselLayout(0);
 ============================================================ */
 
 export default function TeamSection() {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const dragStartX = useRef<number | null>(null);
-  const shouldReduceMotion = useReducedMotion();
-
   const [layout, setLayout] = useState<TeamCarouselLayout>(INITIAL_LAYOUT);
-  const [pageIndex, setPageIndex] = useState(0);
+  const [hasMeasured, setHasMeasured] = useState(false);
 
-  const pageStarts = useMemo(
-    () => getTeamPageStarts(TEAM_MEMBERS.length, layout.visibleCount),
-    [layout.visibleCount],
+  const {
+    viewportRef,
+    index,
+    realIndex,
+    cloneCount,
+    canMove,
+    isJumping,
+    shouldReduceMotion,
+    goNext,
+    goPrev,
+    goToRealIndex,
+    settleLoop,
+    regionProps,
+    trackProps,
+  } = useLoopedCarousel({
+    itemCount: TEAM_MEMBERS.length,
+    visibleCount: layout.visibleCount,
+    enabled: hasMeasured,
+  });
+
+  const loopSlots = useMemo(
+    () => getLoopSlots(TEAM_MEMBERS, cloneCount),
+    [cloneCount],
   );
-  const lastPageIndex = Math.max(0, pageStarts.length - 1);
-  const activePageIndex = Math.min(pageIndex, lastPageIndex);
-  const canScrollPrev = activePageIndex > 0;
-  const canScrollNext = activePageIndex < lastPageIndex;
-  const showControls = lastPageIndex > 0;
-  const visibleStart = pageStarts[activePageIndex] ?? 0;
   const visibleMembers = TEAM_MEMBERS.slice(
-    visibleStart,
-    visibleStart + layout.visibleCount,
+    realIndex,
+    realIndex + layout.visibleCount,
   );
-  const trackOffset = visibleStart * (layout.cardWidth + layout.gap);
-
-  const goToPage = useCallback(
-    (nextPageIndex: number) => {
-      setPageIndex(Math.min(Math.max(nextPageIndex, 0), lastPageIndex));
-    },
-    [lastPageIndex],
-  );
-
-  useEffect(() => {
-    setPageIndex((current) => Math.min(current, lastPageIndex));
-  }, [lastPageIndex]);
+  const trackOffset = index * (layout.cardWidth + layout.gap);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -135,6 +141,7 @@ export default function TeamSection() {
 
         return nextLayout;
       });
+      setHasMeasured(true);
     };
 
     const observer = new ResizeObserver(measure);
@@ -142,41 +149,7 @@ export default function TeamSection() {
     measure();
 
     return () => observer.disconnect();
-  }, []);
-
-  const handleTrackKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      goToPage(activePageIndex - 1);
-      return;
-    }
-
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      goToPage(activePageIndex + 1);
-    }
-  };
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    dragStartX.current = event.clientX;
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (dragStartX.current == null) return;
-
-    const delta = event.clientX - dragStartX.current;
-    dragStartX.current = null;
-
-    if (Math.abs(delta) < 48) return;
-
-    if (delta < 0) {
-      goToPage(activePageIndex + 1);
-      return;
-    }
-
-    goToPage(activePageIndex - 1);
-  };
+  }, [viewportRef]);
 
   return (
     <section
@@ -299,23 +272,23 @@ export default function TeamSection() {
           role="region"
           aria-roledescription="carrusel"
           aria-label="Equipo SmartPro"
+          {...regionProps}
         >
-          <p className="sr-only" aria-live="polite">
-            Vista {activePageIndex + 1} de {pageStarts.length}.{" "}
+          <p className="sr-only">
             {visibleMembers.length === 1
               ? visibleMembers[0]?.name
               : `${visibleMembers[0]?.name} a ${visibleMembers.at(-1)?.name}`}
             .
           </p>
 
-          {showControls ? (
+          {canMove ? (
             <button
               type="button"
               aria-label="Mostrar ejecutivos anteriores"
               aria-controls="team-carousel"
-              aria-disabled={!canScrollPrev}
-              disabled={!canScrollPrev}
-              onClick={() => goToPage(activePageIndex - 1)}
+              aria-disabled={!canMove}
+              disabled={!canMove}
+              onClick={() => goPrev()}
               className="
                 absolute
                 left-0
@@ -350,13 +323,8 @@ export default function TeamSection() {
           <div
             ref={viewportRef}
             id="team-carousel"
-            tabIndex={0}
-            onKeyDown={handleTrackKeyDown}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={() => {
-              dragStartX.current = null;
-            }}
+            tabIndex={canMove ? 0 : -1}
+            {...trackProps}
             className="
               overflow-hidden
               outline-none
@@ -367,38 +335,53 @@ export default function TeamSection() {
             "
           >
             <motion.div
+              initial={false}
               animate={{ x: -trackOffset }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.55,
-                ease: [0.22, 1, 0.36, 1],
+                duration:
+                  isJumping || shouldReduceMotion
+                    ? 0
+                    : CAROUSEL_TRANSITION_DURATION_S,
+                ease: CAROUSEL_EASE,
               }}
+              onAnimationComplete={settleLoop}
               style={{ gap: layout.gap }}
               className="flex flex-nowrap items-stretch"
             >
-              {TEAM_MEMBERS.map((member, index) => (
-                <div
-                  key={member.id}
-                  data-team-slide
-                  style={{
-                    width: layout.cardWidth,
-                    flex: `0 0 ${layout.cardWidth}px`,
-                  }}
-                  className="min-w-0"
-                >
-                  <TeamCard member={member} index={index} />
-                </div>
-              ))}
+              {loopSlots.map((slot) => {
+                const isVisible = isCarouselSlideVisible(
+                  slot.slotIndex,
+                  index,
+                  layout.visibleCount,
+                );
+
+                return (
+                  <div
+                    key={`${slot.item.id}-${slot.slotIndex}`}
+                    data-team-slide
+                    style={{
+                      width: layout.cardWidth,
+                      flex: `0 0 ${layout.cardWidth}px`,
+                    }}
+                    className="min-w-0"
+                    aria-hidden={!isVisible}
+                    inert={isVisible ? undefined : true}
+                  >
+                    <TeamCard member={slot.item} index={slot.realIndex} />
+                  </div>
+                );
+              })}
             </motion.div>
           </div>
 
-          {showControls ? (
+          {canMove ? (
             <button
               type="button"
               aria-label="Mostrar siguientes ejecutivos"
               aria-controls="team-carousel"
-              aria-disabled={!canScrollNext}
-              disabled={!canScrollNext}
-              onClick={() => goToPage(activePageIndex + 1)}
+              aria-disabled={!canMove}
+              disabled={!canMove}
+              onClick={() => goNext()}
               className="
                 absolute
                 right-0
@@ -430,25 +413,25 @@ export default function TeamSection() {
             </button>
           ) : null}
 
-          {showControls ? (
+          {canMove ? (
             <div
               className="mt-6 flex items-center justify-center gap-2"
               role="tablist"
               aria-label="Vistas del equipo"
             >
-              {pageStarts.map((_, index) => {
-                const isActive = activePageIndex === index;
+              {TEAM_MEMBERS.map((member, memberIndex) => {
+                const isActive = realIndex === memberIndex;
 
                 return (
                   <button
-                    key={`team-page-${index}`}
+                    key={`team-page-${member.id}`}
                     type="button"
                     role="tab"
                     aria-selected={isActive}
                     aria-current={isActive ? "true" : undefined}
-                    aria-label={`Ir a la vista ${index + 1} de ${pageStarts.length}`}
+                    aria-label={`Ir a ${member.name}`}
                     aria-controls="team-carousel"
-                    onClick={() => goToPage(index)}
+                    onClick={() => goToRealIndex(memberIndex)}
                     className="flex h-8 items-center justify-center px-1"
                   >
                     <span
