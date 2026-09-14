@@ -25,11 +25,13 @@ export function isManagedServiceCoverPath(coverImage: string | null | undefined)
 }
 
 export function withServiceCoverCache(coverImage: string, updatedAt: Date): string {
-  if (!isManagedServiceCoverPath(coverImage)) {
+  const normalized = normalizeCoverPath(coverImage);
+
+  if (!normalized.startsWith(`${SERVICE_COVER_MEDIA_PREFIX}/`)) {
     return coverImage;
   }
 
-  return `${normalizeCoverPath(coverImage)}?v=${updatedAt.getTime()}`;
+  return `${normalized}?v=${updatedAt.getTime()}`;
 }
 
 export function validateServiceCoverUpload(file: Pick<File, "size" | "type">) {

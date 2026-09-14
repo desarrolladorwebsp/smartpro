@@ -103,7 +103,11 @@ export async function listPortfolioCategories(): Promise<PortfolioCategorySummar
   const categories = await prisma.serviceCategory.findMany({
     where: { slug: { in: [...ENABLED_CATEGORY_SLUGS] } },
     orderBy: { sortOrder: "asc" },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      coverImage: true,
       subcategories: {
         where: { status: "ACTIVE" },
         orderBy: { sortOrder: "asc" },
@@ -259,7 +263,10 @@ export async function createPortfolioProject(input: PortfolioProjectInput): Prom
   return withPortfolioTable(async () => {
   const prisma = getPrisma();
   const categorySlug = input.categorySlug || WEB_DEVELOPMENT_CATEGORY_SLUG;
-  const category = await prisma.serviceCategory.findUnique({ where: { slug: categorySlug } });
+  const category = await prisma.serviceCategory.findUnique({
+    where: { slug: categorySlug },
+    select: { id: true },
+  });
 
   if (!category) {
     throw new Error("El servicio Desarrollo Web no está en el catálogo.");

@@ -33,11 +33,15 @@ test("isManagedServiceCoverPath solo reconoce uploads gestionados", () => {
   assert.equal(isManagedServiceCoverPath(""), false);
 });
 
-test("withServiceCoverCache versiona rutas gestionadas", () => {
+test("withServiceCoverCache versiona rutas de media y deja intactos uploads estáticos", () => {
   const updatedAt = new Date("2026-09-14T15:00:00.000Z");
   assert.equal(
     withServiceCoverCache("/api/services/media/abc", updatedAt),
     `/api/services/media/abc?v=${updatedAt.getTime()}`,
+  );
+  assert.equal(
+    withServiceCoverCache("/uploads/services/abc.jpg", updatedAt),
+    "/uploads/services/abc.jpg",
   );
   assert.equal(withServiceCoverCache("/images/services/service-01.png", updatedAt), "/images/services/service-01.png");
 });
