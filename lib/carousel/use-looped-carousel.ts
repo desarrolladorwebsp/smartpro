@@ -279,12 +279,12 @@ export function useLoopedCarousel({
     settleLoop,
     regionProps: {
       onPointerEnter: (event: PointerEvent<HTMLDivElement>) => {
-        if (event.pointerType === "mouse" || event.pointerType === "") {
+        if (event.pointerType !== "touch" && event.pointerType !== "pen") {
           setHovered(true);
         }
       },
       onPointerLeave: (event: PointerEvent<HTMLDivElement>) => {
-        if (event.pointerType === "mouse" || event.pointerType === "") {
+        if (event.pointerType !== "touch" && event.pointerType !== "pen") {
           setHovered(false);
         }
       },
