@@ -204,6 +204,8 @@ model ServiceCategory {
   slug        String        @unique
   description String        @default("") @db.Text
   coverImage  String        @default("")
+  coverMime   String        @default("")
+  coverBytes  Bytes?        @db.MediumBlob
   sortOrder   Int           @default(0)
   status      CatalogStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())

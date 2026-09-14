@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
-import { saveServiceCoverUpload } from "@/lib/services/cover-image";
-import { clearServiceCategoryCoverImage, setServiceCategoryCoverImage } from "@/lib/services/repository";
+import { clearServiceCategoryCoverImage, persistServiceCategoryCover } from "@/lib/services/repository";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,10 +16,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Debes enviar una imagen." }, { status: 400 });
     }
 
-    const coverImage = await saveServiceCoverUpload(id, file);
-    const category = await setServiceCategoryCoverImage(id, coverImage);
-
-    return NextResponse.json({ category }, { status: 200 });
+    const category = await persistServiceCategoryCover(id, file);
+    return NextResponse.json({ category }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo actualizar la imagen del servicio.";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -30,7 +29,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await requireAdminSession();
     const { id } = await params;
     const category = await clearServiceCategoryCoverImage(id);
-    return NextResponse.json({ category }, { status: 200 });
+    return NextResponse.json({ category }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo quitar la imagen del servicio.";
     return NextResponse.json({ error: message }, { status: 400 });

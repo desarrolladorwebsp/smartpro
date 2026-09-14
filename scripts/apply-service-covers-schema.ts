@@ -28,6 +28,16 @@ async function main() {
     console.log("Added ServiceCategory.coverImage");
   }
 
+  if (!(await columnExists("ServiceCategory", "coverMime"))) {
+    await exec("ALTER TABLE `ServiceCategory` ADD COLUMN `coverMime` VARCHAR(64) NOT NULL DEFAULT ''");
+    console.log("Added ServiceCategory.coverMime");
+  }
+
+  if (!(await columnExists("ServiceCategory", "coverBytes"))) {
+    await exec("ALTER TABLE `ServiceCategory` ADD COLUMN `coverBytes` MEDIUMBLOB NULL");
+    console.log("Added ServiceCategory.coverBytes");
+  }
+
   const updated = await backfillDefaultServiceCoverImages();
   console.log(`Backfilled ${updated} service cover images.`);
   await prisma.$disconnect();

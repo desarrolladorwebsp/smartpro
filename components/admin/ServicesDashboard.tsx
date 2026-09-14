@@ -285,6 +285,10 @@ export function ServicesDashboard({ initialTree, initialView = "servicios" }: Se
     return resolveServiceCoverImage(service.coverImage, service.slug, index);
   }
 
+  function isRemoteCoverSrc(src: string) {
+    return src.startsWith("/api/") || src.startsWith("blob:");
+  }
+
   async function uploadServiceCover(serviceId: string, file: File) {
     const formData = new FormData();
     formData.append("cover", file);
@@ -724,6 +728,7 @@ export function ServicesDashboard({ initialTree, initialView = "servicios" }: Se
                             fill
                             className="object-cover"
                             sizes="64px"
+                            unoptimized={isRemoteCoverSrc(getServicePreviewImage(service, index))}
                           />
                         </div>
                       </td>
@@ -910,6 +915,7 @@ export function ServicesDashboard({ initialTree, initialView = "servicios" }: Se
                         fill
                         className="object-cover"
                         sizes="80px"
+                        unoptimized={isRemoteCoverSrc(getServicePreviewImage(service, index))}
                       />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -1060,6 +1066,10 @@ export function ServicesDashboard({ initialTree, initialView = "servicios" }: Se
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 480px"
+                      unoptimized={isRemoteCoverSrc(
+                        pendingCoverPreviewUrl ??
+                          resolveServiceCoverImage(serviceForm.coverImage, serviceForm.slug, 0),
+                      )}
                     />
                   </div>
 

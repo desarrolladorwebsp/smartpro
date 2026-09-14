@@ -1,7 +1,5 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-
 export const SERVICE_COVER_UPLOAD_DIR = "/uploads/services";
+export const SERVICE_COVER_MEDIA_PREFIX = "/api/services/media";
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const ALLOWED_MIME_TYPES: Record<string, "jpg" | "png" | "webp"> = {
@@ -10,21 +8,28 @@ const ALLOWED_MIME_TYPES: Record<string, "jpg" | "png" | "webp"> = {
   "image/webp": "webp",
 };
 
-function getUploadAbsoluteDir() {
-  return path.join(process.cwd(), "public", "uploads", "services");
+function normalizeCoverPath(coverImage: string | null | undefined): string {
+  return String(coverImage ?? "").trim().split("?")[0];
+}
+
+export function getServiceCoverMediaPath(serviceId: string): string {
+  return `${SERVICE_COVER_MEDIA_PREFIX}/${serviceId}`;
 }
 
 export function isManagedServiceCoverPath(coverImage: string | null | undefined): boolean {
-  const normalized = String(coverImage ?? "").trim();
-  return normalized.startsWith(`${SERVICE_COVER_UPLOAD_DIR}/`);
+  const normalized = normalizeCoverPath(coverImage);
+  return (
+    normalized.startsWith(`${SERVICE_COVER_MEDIA_PREFIX}/`) ||
+    normalized.startsWith(`${SERVICE_COVER_UPLOAD_DIR}/`)
+  );
 }
 
-export function getManagedServiceCoverAbsolutePath(coverImage: string): string {
-  return path.join(process.cwd(), "public", coverImage.replace(/^\//, ""));
-}
+export function withServiceCoverCache(coverImage: string, updatedAt: Date): string {
+  if (!isManagedServiceCoverPath(coverImage)) {
+    return coverImage;
+  }
 
-export async function ensureServiceCoverUploadDir() {
-  await fs.mkdir(getUploadAbsoluteDir(), { recursive: true });
+  return `${normalizeCoverPath(coverImage)}?v=${updatedAt.getTime()}`;
 }
 
 export function validateServiceCoverUpload(file: Pick<File, "size" | "type">) {
@@ -41,24 +46,29 @@ export function validateServiceCoverUpload(file: Pick<File, "size" | "type">) {
   }
 }
 
-export async function saveServiceCoverUpload(serviceId: string, file: File): Promise<string> {
-  validateServiceCoverUpload(file);
-  await ensureServiceCoverUploadDir();
-
-  const extension = ALLOWED_MIME_TYPES[file.type];
-  const fileName = `${serviceId}.${extension}`;
-  const absolutePath = path.join(getUploadAbsoluteDir(), fileName);
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  await fs.writeFile(absolutePath, buffer);
-
-  return `${SERVICE_COVER_UPLOAD_DIR}/${fileName}`;
-}
-
-export async function removeManagedServiceCoverFile(coverImage: string | null | undefined) {
-  if (!isManagedServiceCoverPath(coverImage)) {
-    return;
+function assertMagicBytes(buffer: Buffer, mimeType: string) {
+  if (mimeType === "image/jpeg" && !(buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)) {
+    throw new Error("La imagen JPG no es válida.");
   }
 
-  await fs.unlink(getManagedServiceCoverAbsolutePath(String(coverImage))).catch(() => undefined);
+  if (
+    mimeType === "image/png" &&
+    !(buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47)
+  ) {
+    throw new Error("La imagen PNG no es válida.");
+  }
+
+  if (mimeType === "image/webp") {
+    const header = buffer.subarray(0, 12).toString("ascii");
+    if (!header.startsWith("RIFF") || !header.includes("WEBP")) {
+      throw new Error("La imagen WEBP no es válida.");
+    }
+  }
+}
+
+export async function prepareServiceCoverUpload(file: File): Promise<{ mimeType: string; bytes: Buffer }> {
+  validateServiceCoverUpload(file);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  assertMagicBytes(buffer, file.type);
+  return { mimeType: file.type, bytes: buffer };
 }

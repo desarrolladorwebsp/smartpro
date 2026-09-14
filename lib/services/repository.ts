@@ -1,7 +1,13 @@
 import { Prisma, type CatalogStatus as PrismaCatalogStatus } from "@prisma/client";
 
 import { getPrismaClient } from "../db";
-import { removeManagedServiceCoverFile } from "./cover-image";
+import {
+  getServiceCoverMediaPath,
+  isManagedServiceCoverPath,
+  prepareServiceCoverUpload,
+  withServiceCoverCache,
+} from "./cover-image";
+import { ensureServiceCoverColumns, withServiceCoverColumns } from "./cover-schema";
 import { DEFAULT_SERVICE_COVERS } from "./default-covers";
 import { parseMoney } from "../orders/service";
 import type {
@@ -137,13 +143,17 @@ type PlanRow = {
   } | null;
 };
 
+const omitCoverBlob = { coverBytes: true } as const;
+
 function toCategoryRecord(row: CategoryRow): ServiceCategoryRecord {
+  const coverImage = row.coverImage ?? "";
+
   return {
     id: row.id,
     name: row.name,
     slug: row.slug,
     description: row.description,
-    coverImage: row.coverImage ?? "",
+    coverImage: withServiceCoverCache(coverImage, row.updatedAt),
     sortOrder: row.sortOrder,
     status: row.status,
     createdAt: toIso(row.createdAt),
@@ -215,6 +225,7 @@ const planInclude = {
 
 export async function listServiceCategories(): Promise<ServiceCategoryRecord[]> {
   const rows = await getPrisma().serviceCategory.findMany({
+    omit: omitCoverBlob,
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   return rows.map(toCategoryRecord);
@@ -282,6 +293,7 @@ function mapCategoryTree(
 
 export async function getCatalogTree(): Promise<CatalogTree> {
   const categories = await getPrisma().serviceCategory.findMany({
+    omit: omitCoverBlob,
     include: catalogTreeInclude,
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
@@ -291,6 +303,7 @@ export async function getCatalogTree(): Promise<CatalogTree> {
 
 export async function getPublicCatalogTree(): Promise<CatalogTree> {
   const categories = await getPrisma().serviceCategory.findMany({
+    omit: omitCoverBlob,
     where: { status: "ACTIVE" },
     include: {
       subcategories: {
@@ -332,6 +345,7 @@ export async function getPublicCategoryPlans(categorySlug: string): Promise<{
   if (!slug) return null;
 
   const category = await getPrisma().serviceCategory.findFirst({
+    omit: omitCoverBlob,
     where: { slug, status: "ACTIVE" },
     include: {
       subcategories: {
@@ -406,7 +420,10 @@ export async function upsertServiceCategory(input: ServiceCategoryPayload & { sl
   const slug = slugify(input.slug ?? name);
   if (!slug) throw new Error("No se pudo generar el identificador del servicio.");
 
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { slug } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { slug },
+    omit: omitCoverBlob,
+  });
   const data: {
     name: string;
     slug: string;
@@ -429,14 +446,17 @@ export async function upsertServiceCategory(input: ServiceCategoryPayload & { sl
   }
 
   const row = existing
-    ? await getPrisma().serviceCategory.update({ where: { id: existing.id }, data })
-    : await getPrisma().serviceCategory.create({ data });
+    ? await getPrisma().serviceCategory.update({ where: { id: existing.id }, omit: omitCoverBlob, data })
+    : await getPrisma().serviceCategory.create({ omit: omitCoverBlob, data });
 
   return toCategoryRecord(row);
 }
 
 export async function updateServiceCategory(id: string, input: ServiceCategoryPayload): Promise<ServiceCategoryRecord> {
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { id },
+    omit: omitCoverBlob,
+  });
   if (!existing) throw new Error("El servicio no existe.");
 
   const name = normalizeText(input.name ?? existing.name);
@@ -461,6 +481,7 @@ export async function updateServiceCategory(id: string, input: ServiceCategoryPa
 
   const row = await getPrisma().serviceCategory.update({
     where: { id },
+    omit: omitCoverBlob,
     data,
   });
 
@@ -475,7 +496,10 @@ export async function upsertServiceSubcategory(
   if (!categoryId) throw new Error("El servicio es obligatorio.");
   if (!name) throw new Error("El nombre de la categoría es obligatorio.");
 
-  const category = await getPrisma().serviceCategory.findUnique({ where: { id: categoryId } });
+  const category = await getPrisma().serviceCategory.findUnique({
+    where: { id: categoryId },
+    select: { id: true },
+  });
   if (!category) throw new Error("El servicio no existe.");
 
   const slug = slugify(input.slug ?? name);
@@ -666,11 +690,15 @@ export async function updateServicePlanStatus(id: string, status: CatalogStatus)
 }
 
 export async function updateServiceCategoryStatus(id: string, status: CatalogStatus): Promise<ServiceCategoryRecord> {
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { id },
+    select: { id: true },
+  });
   if (!existing) throw new Error("La categoría no existe.");
 
   const row = await getPrisma().serviceCategory.update({
     where: { id },
+    omit: omitCoverBlob,
     data: { status: toStatus(status) },
   });
   return toCategoryRecord(row);
@@ -691,42 +719,94 @@ export async function updateServiceSubcategoryStatus(id: string, status: Catalog
   return toSubcategoryRecord(row);
 }
 
+export async function persistServiceCategoryCover(id: string, file: File): Promise<ServiceCategoryRecord> {
+  return withServiceCoverColumns(async () => {
+    const existing = await getPrisma().serviceCategory.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new Error("El servicio no existe.");
+
+    await ensureServiceCoverColumns();
+    const prepared = await prepareServiceCoverUpload(file);
+
+    const row = await getPrisma().serviceCategory.update({
+      where: { id },
+      omit: omitCoverBlob,
+      data: {
+        coverImage: getServiceCoverMediaPath(id),
+        coverMime: prepared.mimeType,
+        coverBytes: new Uint8Array(prepared.bytes),
+      },
+    });
+
+    return toCategoryRecord(row);
+  });
+}
+
+export async function getServiceCoverMedia(id: string) {
+  return withServiceCoverColumns(async () => {
+    const row = await getPrisma().serviceCategory.findUnique({
+      where: { id },
+      select: { coverImage: true, coverMime: true, coverBytes: true },
+    });
+
+    if (!row?.coverBytes || row.coverBytes.length === 0) {
+      return null;
+    }
+
+    return {
+      mimeType: row.coverMime || "application/octet-stream",
+      bytes: Buffer.from(row.coverBytes),
+    };
+  });
+}
+
 export async function setServiceCategoryCoverImage(id: string, coverImage: string): Promise<ServiceCategoryRecord> {
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { id },
+    omit: omitCoverBlob,
+  });
   if (!existing) throw new Error("El servicio no existe.");
 
   const nextCoverImage = normalizeText(coverImage);
-  if (existing.coverImage && existing.coverImage !== nextCoverImage) {
-    await removeManagedServiceCoverFile(existing.coverImage);
-  }
+  const shouldClearBlob = isManagedServiceCoverPath(existing.coverImage) && existing.coverImage !== nextCoverImage;
 
   const row = await getPrisma().serviceCategory.update({
     where: { id },
-    data: { coverImage: nextCoverImage },
+    omit: omitCoverBlob,
+    data: {
+      coverImage: nextCoverImage,
+      ...(shouldClearBlob ? { coverMime: "", coverBytes: null } : {}),
+    },
   });
 
   return toCategoryRecord(row);
 }
 
 export async function clearServiceCategoryCoverImage(id: string): Promise<ServiceCategoryRecord> {
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { id },
+    select: { id: true },
+  });
   if (!existing) throw new Error("El servicio no existe.");
-
-  await removeManagedServiceCoverFile(existing.coverImage);
 
   const row = await getPrisma().serviceCategory.update({
     where: { id },
-    data: { coverImage: "" },
+    omit: omitCoverBlob,
+    data: { coverImage: "", coverMime: "", coverBytes: null },
   });
 
   return toCategoryRecord(row);
 }
 
 export async function deleteServiceCategory(id: string): Promise<void> {
-  const existing = await getPrisma().serviceCategory.findUnique({ where: { id } });
+  const existing = await getPrisma().serviceCategory.findUnique({
+    where: { id },
+    select: { id: true },
+  });
   if (!existing) throw new Error("El servicio no existe.");
 
-  await removeManagedServiceCoverFile(existing.coverImage);
   await getPrisma().serviceCategory.delete({ where: { id } });
 }
 

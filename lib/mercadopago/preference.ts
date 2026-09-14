@@ -1,6 +1,6 @@
 import { Preference } from "mercadopago";
 
-import { createMercadoPagoClient, getAppBaseUrl, getMercadoPagoAccessToken, isMercadoPagoTestCredentials } from "./config";
+import { createMercadoPagoClient, getAppBaseUrl, isPublicHttpsAppUrl } from "./config";
 import { TAX_RATE, type CartItemDraft } from "../orders/service";
 import type { CustomerOrder } from "../orders/repository";
 
@@ -39,10 +39,7 @@ export function buildPreferenceItems(order: Pick<CustomerOrder, "id" | "items" |
 }
 
 export function getCheckoutRedirectUrl(preference: { init_point?: string; sandbox_init_point?: string }) {
-  const token = getMercadoPagoAccessToken();
-  const checkoutUrl = isMercadoPagoTestCredentials(token)
-    ? preference.sandbox_init_point || preference.init_point
-    : preference.init_point;
+  const checkoutUrl = preference.init_point || preference.sandbox_init_point;
 
   if (!checkoutUrl) {
     throw new Error("Mercado Pago no devolvió una URL de checkout.");
@@ -51,10 +48,15 @@ export function getCheckoutRedirectUrl(preference: { init_point?: string; sandbo
   return checkoutUrl;
 }
 
+export function buildPreferenceReturnUrl(orderId: string, appUrl = getAppBaseUrl()) {
+  return `${appUrl}/api/mercadopago/return?orderId=${encodeURIComponent(orderId)}`;
+}
+
 export async function createMercadoPagoPreference(order: CustomerOrder) {
   const appUrl = getAppBaseUrl();
-  const returnUrl = `${appUrl}/api/mercadopago/return?orderId=${encodeURIComponent(order.id)}`;
+  const returnUrl = buildPreferenceReturnUrl(order.id, appUrl);
   const payer = splitCustomerName(order.customer.name);
+  const publicCallbacks = isPublicHttpsAppUrl(appUrl);
 
   const preference = new Preference(createMercadoPagoClient());
   const created = await preference.create({
@@ -71,13 +73,17 @@ export async function createMercadoPagoPreference(order: CustomerOrder) {
       },
       external_reference: order.id,
       statement_descriptor: "SmartPro",
-      notification_url: `${appUrl}/api/mercadopago/webhook`,
       back_urls: {
         success: returnUrl,
         pending: returnUrl,
         failure: returnUrl,
       },
-      auto_return: "approved",
+      ...(publicCallbacks
+        ? {
+            auto_return: "approved" as const,
+            notification_url: `${appUrl}/api/mercadopago/webhook`,
+          }
+        : {}),
       metadata: {
         order_id: order.id,
       },

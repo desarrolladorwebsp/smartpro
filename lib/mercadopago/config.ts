@@ -10,6 +10,26 @@ export function getAppBaseUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+export function isPublicHttpsAppUrl(appUrl = getAppBaseUrl()): boolean {
+  try {
+    const url = new URL(appUrl);
+    const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "0.0.0.0";
+    return url.protocol === "https:" && !isLocal;
+  } catch {
+    return false;
+  }
+}
+
+export function getMercadoPagoPublicKey(): string {
+  const key = process.env.MERCADOPAGO_PUBLIC_KEY?.trim();
+
+  if (!key) {
+    throw new Error("Falta MERCADOPAGO_PUBLIC_KEY.");
+  }
+
+  return key;
+}
+
 export function getMercadoPagoAccessToken(): string {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
 
@@ -28,10 +48,6 @@ export function getMercadoPagoWebhookSecret(): string {
   }
 
   return secret;
-}
-
-export function isMercadoPagoTestCredentials(token = getMercadoPagoAccessToken()): boolean {
-  return token.startsWith("TEST-");
 }
 
 export function createMercadoPagoClient(): MercadoPagoConfig {
