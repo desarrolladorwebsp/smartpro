@@ -63,7 +63,7 @@ export function buildOrderNotificationText(order: OrderEmailPayload) {
 }
 
 export async function sendOrderNotification(order: OrderEmailPayload) {
-  const to = process.env.EMAIL_TO ?? "commercial@smartpro.cl";
+  const to = process.env.EMAIL_TO ?? "contacto@smartpro.cl";
 
   return sendEmail({
     to,
