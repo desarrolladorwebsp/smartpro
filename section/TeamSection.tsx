@@ -58,7 +58,7 @@ const TEAM_MEMBERS = [
     name: "Ariana de la Fuente",
     role: "Ejecutiva Comercial",
     description: "Encargada del diseño grafico y creacion de estrategias publicitarias",
-    image: "/images/team/ariana-de-la-fuente.png",
+    image: "/images/team/ariana.png",
   },
   {
     id: 7,
