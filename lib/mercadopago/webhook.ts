@@ -17,6 +17,9 @@ export type WebhookHandlerResult = {
     ignored?: boolean;
     error?: string;
   };
+  /// Orden sincronizada, cuando la notificación correspondió a un pago
+  /// conocido. La usa la API pública para avisar al sitio que la originó.
+  order?: ApplyPaymentResult["order"];
 };
 
 type MercadoPagoWebhookBody = {
@@ -96,7 +99,7 @@ export async function handleMercadoPagoWebhook(
       duplicate: result.duplicate,
     });
 
-    return { status: 200, body: { ok: true, duplicate: result.duplicate } };
+    return { status: 200, body: { ok: true, duplicate: result.duplicate }, order: result.order };
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo procesar el pago.";
     console.error("[smartpro:mercadopago:webhook] Error al procesar", {

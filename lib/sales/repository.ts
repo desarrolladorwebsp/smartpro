@@ -12,6 +12,7 @@ import {
   isSaleStatus,
   parseSaleObservation,
   type QuoteForSaleConversion,
+  type SalePaymentMethod,
   type SaleRecord,
   type SaleSource,
 } from "./types";
@@ -59,6 +60,8 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     paymentMethod: isSalePaymentMethod(row.paymentMethod) ? row.paymentMethod : null,
     executiveId: row.executiveId,
     executiveName,
+    apiClientId: row.apiClientId ?? null,
+    externalReference: row.externalReference,
     createdByEmail: row.createdByEmail,
     soldAt: row.soldAt.toISOString(),
     observation: row.observation,
@@ -119,6 +122,85 @@ export async function getSaleByQuoteId(quoteId: string): Promise<SaleRecord | nu
   });
 
   return row ? toSaleRecord(row) : null;
+}
+
+export async function getSaleById(id: string): Promise<SaleRecord | null> {
+  const saleId = String(id ?? "").trim();
+  if (!saleId) return null;
+
+  const row = await getPrisma().sale.findUnique({
+    where: { id: saleId },
+    include: saleInclude,
+  });
+
+  return row ? toSaleRecord(row) : null;
+}
+
+export async function listSalesByApiClientId(apiClientId: string): Promise<SaleRecord[]> {
+  const rows = await getPrisma().sale.findMany({
+    where: { apiClientId },
+    include: saleInclude,
+    orderBy: { soldAt: "desc" },
+  });
+
+  return rows.map(toSaleRecord);
+}
+
+export async function findSaleByExternalReference(
+  apiClientId: string,
+  externalReference: string,
+): Promise<SaleRecord | null> {
+  const reference = String(externalReference ?? "").trim();
+  if (!reference) return null;
+
+  const row = await getPrisma().sale.findFirst({
+    where: { apiClientId, externalReference: reference },
+    include: saleInclude,
+  });
+
+  return row ? toSaleRecord(row) : null;
+}
+
+export type ExternalSaleInput = {
+  apiClientId: string;
+  clientId: string;
+  assignedExecutiveId: string | null;
+  createdByEmail: string;
+  paymentMethod: SalePaymentMethod;
+  subtotal: number;
+  tax: number;
+  total: number;
+  soldAt: Date;
+  observation: string;
+  externalReference: string;
+};
+
+/// Registra una venta cerrada fuera del pago en línea (transferencia, efectivo
+/// o acuerdo directo) reportada por una aplicación externa autorizada.
+export async function createExternalSale(input: ExternalSaleInput): Promise<SaleRecord> {
+  const number = await nextNumber();
+
+  const created = await getPrisma().sale.create({
+    data: {
+      number,
+      status: "REGISTERED",
+      source: "EXTERNAL_API",
+      clientId: input.clientId,
+      executiveId: input.assignedExecutiveId,
+      apiClientId: input.apiClientId,
+      externalReference: input.externalReference,
+      paymentMethod: input.paymentMethod,
+      createdByEmail: input.createdByEmail,
+      soldAt: input.soldAt,
+      observation: input.observation,
+      subtotal: input.subtotal,
+      tax: input.tax,
+      total: input.total,
+    },
+    include: saleInclude,
+  });
+
+  return toSaleRecord(created);
 }
 
 export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | null> {

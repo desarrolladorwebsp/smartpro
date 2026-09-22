@@ -115,6 +115,107 @@ enum PaymentMethod {
   simulated
   transbank
   mercadopago
+  transfer
+  cash
+  other
+}
+
+enum ApiClientStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum ApiWebhookStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Aplicación externa autorizada a consumir la API pública (`/api/v1`).
+/// Cada subpágina de servicio es un ApiClient con credenciales propias.
+model ApiClient {
+  id                 String          @id @default(cuid())
+  name               String
+  slug               String          @unique
+  publicKey          String          @unique
+  secretHash         String          @unique
+  secretPreview      String          @default("")
+  status             ApiClientStatus @default(ACTIVE)
+  scopes             Json            @default("[]")
+  allowedOrigins     Json            @default("[]")
+  allowedReturnUrls  Json            @default("[]")
+  allowedServiceIds  Json            @default("[]")
+  webhookUrl         String          @default("")
+  rateLimitPerMinute Int             @default(120)
+  contactEmail       String          @default("")
+  notes              String          @default("") @db.Text
+  lastUsedAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  requestLogs       ApiRequestLog[]
+  idempotencyKeys   ApiIdempotencyRecord[]
+  webhookDeliveries ApiWebhookDelivery[]
+  orders            Order[]
+  sales             Sale[]
+  clients           Client[]
+
+  @@index([status])
+}
+
+model ApiRequestLog {
+  id          String     @id @default(cuid())
+  apiClientId String?
+  apiClient   ApiClient? @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
+  method      String
+  path        String     @db.Text
+  status      Int
+  errorCode   String     @default("")
+  origin      String     @default("")
+  ip          String     @default("")
+  durationMs  Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  @@index([apiClientId, createdAt])
+  @@index([createdAt])
+}
+
+/// Respuesta almacenada por `Idempotency-Key` para que un reintento de red
+/// no genere un segundo cobro ni una segunda venta.
+model ApiIdempotencyRecord {
+  id           String    @id @default(cuid())
+  apiClientId  String
+  apiClient    ApiClient @relation(fields: [apiClientId], references: [id], onDelete: Cascade)
+  endpoint     String
+  key          String
+  requestHash  String
+  status       Int
+  responseBody Json
+  createdAt    DateTime  @default(now())
+
+  @@unique([apiClientId, endpoint, key])
+  @@index([createdAt])
+}
+
+model ApiWebhookDelivery {
+  id             String           @id @default(cuid())
+  apiClientId    String
+  apiClient      ApiClient        @relation(fields: [apiClientId], references: [id], onDelete: Cascade)
+  event          String
+  resourceId     String
+  payload        Json
+  status         ApiWebhookStatus @default(PENDING)
+  attempts       Int              @default(0)
+  responseStatus Int?
+  lastError      String           @default("") @db.Text
+  nextAttemptAt  DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([apiClientId, event, resourceId])
+  @@index([status, nextAttemptAt])
 }
 
 model Client {
@@ -144,6 +245,8 @@ model Client {
   interestService            ServiceCategory?    @relation("ClientInterestService", fields: [interestServiceId], references: [id], onDelete: SetNull)
   interestSubcategory        ServiceSubcategory? @relation("ClientInterestSubcategory", fields: [interestSubcategoryId], references: [id], onDelete: SetNull)
   interestPlan               ServicePlan?        @relation("ClientInterestPlan", fields: [interestPlanId], references: [id], onDelete: SetNull)
+  apiClientId      String?
+  apiClient        ApiClient?   @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -160,6 +263,7 @@ model Client {
   @@index([interestServiceId])
   @@index([interestSubcategoryId])
   @@index([interestPlanId])
+  @@index([apiClientId])
 }
 
 model ClientNote {
@@ -308,6 +412,10 @@ model Order {
   notificationEmailSentAt DateTime?
   quoteId                 String?
   quote                   Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  apiClientId             String?
+  apiClient               ApiClient?    @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
+  apiReturnUrl            String        @default("")
+  apiExternalReference    String        @default("")
   items                   OrderItem[]
   sale                    Sale?
 
@@ -316,6 +424,7 @@ model Order {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([quoteId])
+  @@index([apiClientId])
 }
 
 model OrderItem {
@@ -434,6 +543,7 @@ enum SaleSource {
   MANUAL
   QUOTE_ACCEPTED
   ORDER_PAID
+  EXTERNAL_API
 }
 
 model Sale {
@@ -450,6 +560,9 @@ model Sale {
   paymentMethod    PaymentMethod?
   executiveId      String?
   executive        User?           @relation("SaleExecutive", fields: [executiveId], references: [id], onDelete: SetNull)
+  apiClientId      String?
+  apiClient        ApiClient?      @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
+  externalReference String         @default("")
   createdByEmail   String
   soldAt           DateTime        @default(now())
   observation      String          @default("") @db.Text
@@ -465,4 +578,5 @@ model Sale {
   @@index([executiveId])
   @@index([status])
   @@index([soldAt])
+  @@index([apiClientId])
 }

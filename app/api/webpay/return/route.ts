@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { finalizeApiCheckoutReturn } from "@/lib/api/v1/checkout-return";
 import { getAppUrl } from "@/lib/app-url";
+import type { CustomerOrder } from "@/lib/orders/repository";
 import {
   applyWebpayCommit,
   applyWebpayInterrupted,
@@ -25,6 +27,12 @@ function resultUrl(status: string, orderId?: string | null) {
   return url;
 }
 
+async function redirectForOrder(order: CustomerOrder | null, status: string, fallbackOrderId?: string | null) {
+  const apiReturnUrl = await finalizeApiCheckoutReturn(order, status);
+
+  return NextResponse.redirect(apiReturnUrl ?? resultUrl(status, order?.id ?? fallbackOrderId));
+}
+
 async function handleReturn(request: Request) {
   try {
     const params = await readWebpayReturnParams(request);
@@ -39,7 +47,7 @@ async function handleReturn(request: Request) {
       const status = result.order
         ? checkoutResultStatus(result.order.paymentStatus)
         : checkoutResultFromWebpayKind(classified.kind, false);
-      return NextResponse.redirect(resultUrl(status, result.order?.id ?? classified.buyOrder));
+      return redirectForOrder(result.order ?? null, status, classified.buyOrder);
     }
 
     const webpay = getWebpayTransaction();
@@ -58,7 +66,7 @@ async function handleReturn(request: Request) {
           token: classified.token,
           buyOrder: classified.buyOrder,
         });
-        return NextResponse.redirect(resultUrl("failed", result.order?.id ?? classified.buyOrder));
+        return redirectForOrder(result.order ?? null, "failed", classified.buyOrder);
       }
     }
 
@@ -68,7 +76,7 @@ async function handleReturn(request: Request) {
       ? checkoutResultStatus(result.order.paymentStatus)
       : checkoutResultFromWebpayKind("commit", approved);
 
-    return NextResponse.redirect(resultUrl(status, result.order?.id ?? snapshot.buy_order));
+    return redirectForOrder(result.order ?? null, status, snapshot.buy_order);
   } catch (error) {
     console.error("[smartpro:webpay:return] Error en retorno de Webpay", error);
     return NextResponse.redirect(resultUrl("failed"));

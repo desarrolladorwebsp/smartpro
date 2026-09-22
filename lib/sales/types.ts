@@ -14,16 +14,26 @@ export const SALE_RECEIPT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/
 export const SALE_RECEIPT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
 export const SALE_OBSERVATION_MAX_LENGTH = 2000;
 
-export const SALE_SOURCES = ["MANUAL", "QUOTE_ACCEPTED", "ORDER_PAID"] as const;
+export const SALE_SOURCES = ["MANUAL", "QUOTE_ACCEPTED", "ORDER_PAID", "EXTERNAL_API"] as const;
 export type SaleSource = (typeof SALE_SOURCES)[number];
 
-export const SALE_PAYMENT_METHODS = ["simulated", "transbank", "mercadopago"] as const;
+export const SALE_PAYMENT_METHODS = [
+  "simulated",
+  "transbank",
+  "mercadopago",
+  "transfer",
+  "cash",
+  "other",
+] as const;
 export type SalePaymentMethod = (typeof SALE_PAYMENT_METHODS)[number];
 
 export const SALE_PAYMENT_METHOD_LABELS: Record<SalePaymentMethod, string> = {
   simulated: "Simulado",
   transbank: "Webpay",
   mercadopago: "Mercado Pago",
+  transfer: "Transferencia bancaria",
+  cash: "Efectivo",
+  other: "Otro medio",
 };
 
 export function isSalePaymentMethod(value: unknown): value is SalePaymentMethod {
@@ -56,6 +66,8 @@ export type SaleRecord = {
   paymentMethod: SalePaymentMethod | null;
   executiveId: string | null;
   executiveName: string;
+  apiClientId: string | null;
+  externalReference: string;
   createdByEmail: string;
   soldAt: string;
   observation: string;

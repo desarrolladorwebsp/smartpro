@@ -26,6 +26,9 @@ export type CustomerOrder = {
   processedPaymentKeys?: string[];
   notificationEmailSentAt?: string;
   quoteId?: string;
+  apiClientId?: string;
+  apiReturnUrl?: string;
+  apiExternalReference?: string;
 };
 
 const ORDER_INCLUDE = {
@@ -134,13 +137,16 @@ function rowToCustomerOrder(row: OrderWithItems): CustomerOrder {
     tax: decimalToNumber(row.tax),
     total: decimalToNumber(row.total),
     paymentStatus: row.paymentStatus,
-    paymentMethod: row.paymentMethod,
+    paymentMethod: normalizePaymentMethod(row.paymentMethod),
     preferenceId: row.preferenceId ?? undefined,
     mercadopagoPaymentId: row.mercadopagoPaymentId ?? undefined,
     webpayToken: row.webpayToken ?? undefined,
     processedPaymentKeys: parseProcessedPaymentKeys(row.processedPaymentKeys),
     notificationEmailSentAt: row.notificationEmailSentAt?.toISOString(),
     quoteId: row.quoteId ?? undefined,
+    apiClientId: row.apiClientId ?? undefined,
+    apiReturnUrl: row.apiReturnUrl || undefined,
+    apiExternalReference: row.apiExternalReference || undefined,
   };
 }
 
@@ -227,6 +233,9 @@ export async function createOrderRecord(
       mercadopagoPaymentId: orderInput.mercadopagoPaymentId ?? null,
       webpayToken: orderInput.webpayToken ?? null,
       quoteId: orderInput.quoteId ?? null,
+      apiClientId: orderInput.apiClientId ?? null,
+      apiReturnUrl: orderInput.apiReturnUrl ?? "",
+      apiExternalReference: orderInput.apiExternalReference ?? "",
       processedPaymentKeys: orderInput.processedPaymentKeys ?? [],
       notificationEmailSentAt: orderInput.notificationEmailSentAt
         ? new Date(orderInput.notificationEmailSentAt)

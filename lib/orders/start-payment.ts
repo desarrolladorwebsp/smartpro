@@ -18,6 +18,9 @@ export type PaymentCheckoutInput = {
   tax: number;
   total: number;
   quoteId?: string;
+  apiClientId?: string;
+  apiReturnUrl?: string;
+  apiExternalReference?: string;
 };
 
 export type WebpayCheckoutResult = {
@@ -49,6 +52,9 @@ function toOrderDraft(checkout: PaymentCheckoutInput, paymentMethod: CustomerOrd
     status: "pending" as const,
     paymentMethod,
     quoteId: checkout.quoteId,
+    apiClientId: checkout.apiClientId,
+    apiReturnUrl: checkout.apiReturnUrl,
+    apiExternalReference: checkout.apiExternalReference,
   };
 }
 

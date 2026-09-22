@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { finalizeApiCheckoutReturn } from "@/lib/api/v1/checkout-return";
 import { getAppBaseUrl } from "@/lib/mercadopago/config";
 import { checkoutResultStatus } from "@/lib/mercadopago/status";
 import { applyMercadoPagoPayment, getMercadoPagoPayment } from "@/lib/mercadopago/sync";
-import { getOrderRecord } from "@/lib/orders/repository";
+import { getOrderRecord, type CustomerOrder } from "@/lib/orders/repository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,12 @@ function resultUrl(status: string, orderId?: string | null) {
   return url;
 }
 
+async function redirectForOrder(order: CustomerOrder | null, status: string, fallbackOrderId?: string | null) {
+  const apiReturnUrl = await finalizeApiCheckoutReturn(order, status);
+
+  return NextResponse.redirect(apiReturnUrl ?? resultUrl(status, order?.id ?? fallbackOrderId));
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get("orderId") ?? searchParams.get("external_reference");
@@ -28,13 +35,13 @@ export async function GET(request: Request) {
       const payment = await getMercadoPagoPayment(paymentId);
       const result = await applyMercadoPagoPayment(payment);
       const status = result.order ? checkoutResultStatus(result.order.paymentStatus) : "failed";
-      return NextResponse.redirect(resultUrl(status, result.order?.id ?? orderId));
+      return redirectForOrder(result.order ?? null, status, orderId);
     }
 
     const order = orderId ? await getOrderRecord(orderId) : null;
 
     if (order) {
-      return NextResponse.redirect(resultUrl(checkoutResultStatus(order.paymentStatus), order.id));
+      return redirectForOrder(order, checkoutResultStatus(order.paymentStatus));
     }
 
     return NextResponse.redirect(resultUrl("pending", orderId));
