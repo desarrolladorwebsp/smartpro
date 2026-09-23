@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   FileText,
   Images,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { label: "Portafolios", href: "/dashboard/portafolios", icon: Images, adminOnly: false },
   { label: "Ventas", href: "/dashboard/ventas", icon: ShoppingBag, adminOnly: false },
   { label: "Ejecutivos", href: "/dashboard/ejecutivos", icon: UserCog, adminOnly: true },
+  { label: "APIs", href: "/dashboard/apis", icon: KeyRound, adminOnly: true },
 ] as const;
 
 const LOGO_SRC = "/images/logo/logo-smartpro-full.png";
