@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
+import { parseQuoteItemInputs } from "@/lib/quotes/custom-item";
 import { createQuoteRecord, listQuotes } from "@/lib/quotes/repository";
-import { isQuoteStatus, type QuoteItemInput, type QuoteStatus } from "@/lib/quotes/types";
-
-function parseItems(value: unknown): QuoteItemInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((item) => {
-    const record = item as { planId?: unknown; quantity?: unknown };
-    return {
-      planId: String(record.planId ?? ""),
-      quantity: Number(record.quantity) || 1,
-    };
-  });
-}
+import { isQuoteStatus, type QuoteStatus } from "@/lib/quotes/types";
 
 export async function GET(request: Request) {
   try {
@@ -60,7 +47,7 @@ export async function POST(request: Request) {
 
     const quote = await createQuoteRecord({
       clientId: String(body.clientId ?? ""),
-      items: parseItems(body.items),
+      items: parseQuoteItemInputs(body.items),
       notes: typeof body.notes === "string" ? body.notes : "",
       validUntil: body.validUntil === null ? null : typeof body.validUntil === "string" ? body.validUntil : undefined,
       deliveryBusinessDays: body.deliveryBusinessDays as number | string | undefined,

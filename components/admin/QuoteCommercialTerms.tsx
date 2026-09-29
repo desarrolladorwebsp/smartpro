@@ -23,8 +23,8 @@ export function QuoteCommercialTerms({ quote }: QuoteCommercialTermsProps) {
           <p className="mt-2 text-sm text-muted">Según el detalle de los planes cotizados.</p>
         ) : (
           <div className="mt-3 space-y-4">
-            {terms.scopeGroups.map((group) => (
-              <div key={group.planName}>
+            {terms.scopeGroups.map((group, index) => (
+              <div key={`${group.planName}-${index}`}>
                 {terms.scopeGroups.length > 1 ? <p className="text-sm font-semibold text-foreground">{group.planName}</p> : null}
                 <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-foreground">
                   {group.items.map((item) => (

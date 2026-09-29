@@ -19,7 +19,7 @@ function makeQuote(overrides: Partial<QuoteRecord> = {}): QuoteRecord {
     clientAddress: "Santa Elena 941 B",
     createdByEmail: "ejecutivo@smartpro.cl",
     notes: "",
-    validUntil: "2026-09-24T23:59:59.000Z",
+    validUntil: "2027-09-24T23:59:59.000Z",
     deliveryBusinessDays: 15,
     initialPaymentPercent: 50,
     subtotal: 100000,
@@ -56,6 +56,27 @@ test("buildQuoteCheckoutOrder usa montos y cliente de la cotización, no del req
   assert.equal(checkout.total, 119000);
   assert.equal(checkout.items[0]?.unitPrice, 100000);
   assert.equal(checkout.items[0]?.source, "quote");
+});
+
+test("buildQuoteCheckoutOrder acepta un servicio único sin plan de catálogo", () => {
+  const checkout = buildQuoteCheckoutOrder(
+    makeQuote({
+      items: [
+        {
+          ...makeQuote().items[0],
+          planId: null,
+          planName: "Campaña a medida",
+          categoryName: "Servicio único",
+          subcategoryName: "",
+          includedItems: ["Piezas gráficas"],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(checkout.items[0]?.id, "item-1");
+  assert.equal(checkout.items[0]?.name, "Campaña a medida");
+  assert.equal(checkout.items[0]?.category, "Servicio único");
 });
 
 test("buildQuoteCheckoutOrder rechaza si el total no coincide con los ítems", () => {

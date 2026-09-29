@@ -1,20 +1,40 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 import type { ClientRecord } from "@/lib/clients/types";
-import { formatCurrency } from "@/lib/orders/service";
+import { formatCurrency, TAX_RATE } from "@/lib/orders/service";
 import {
   QUOTE_DEFAULT_DELIVERY_DAYS,
   QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT,
   QUOTE_DEFAULT_VALIDITY_DAYS,
 } from "@/lib/quotes/company";
+import { CUSTOM_QUOTE_SERVICE_LABEL, parseCustomQuoteItemInput } from "@/lib/quotes/custom-item";
 import type { QuoteCatalogGroup, QuoteCatalogPlan, QuoteRecord } from "@/lib/quotes/types";
 
-type SelectedPlan = {
+type SelectedCatalogPlan = {
+  kind: "catalog";
   plan: QuoteCatalogPlan;
   quantity: number;
+};
+
+type SelectedCustomService = {
+  kind: "custom";
+  id: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  includedItems: string[];
+};
+
+type SelectedEntry = SelectedCatalogPlan | SelectedCustomService;
+
+type CustomDraft = {
+  id: string | null;
+  name: string;
+  price: string;
+  items: string[];
 };
 
 type QuoteCreateModalProps = {
@@ -31,6 +51,28 @@ function defaultValidUntil(): string {
   return date.toISOString().slice(0, 10);
 }
 
+function emptyCustomDraft(): CustomDraft {
+  return { id: null, name: "", price: "", items: [""] };
+}
+
+function customDraftIsDirty(draft: CustomDraft): boolean {
+  return Boolean(draft.name.trim() || draft.price.trim() || draft.items.some((item) => item.trim()));
+}
+
+function selectedKey(entry: SelectedEntry): string {
+  return entry.kind === "catalog" ? entry.plan.id : entry.id;
+}
+
+function lineSubtotal(entry: SelectedEntry): number {
+  if (entry.kind === "catalog") return entry.plan.price * entry.quantity;
+  return entry.unitPrice * entry.quantity;
+}
+
+function lineTax(entry: SelectedEntry): number {
+  if (entry.kind === "catalog") return entry.plan.price * entry.quantity * entry.plan.taxRate;
+  return entry.unitPrice * entry.quantity * TAX_RATE;
+}
+
 export function QuoteCreateModal({ open, ...props }: QuoteCreateModalProps) {
   if (!open) return null;
   return <QuoteCreateForm {...props} />;
@@ -43,7 +85,12 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
   const [catalogError, setCatalogError] = useState("");
   const [clientId, setClientId] = useState(client?.id ?? "");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Record<string, SelectedPlan>>({});
+  const [selected, setSelected] = useState<SelectedEntry[]>([]);
+  const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
+  const [customError, setCustomError] = useState("");
+  const [customFocusToken, setCustomFocusToken] = useState(0);
+  const customSectionRef = useRef<HTMLElement>(null);
+  const customNameRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState(defaultValidUntil);
   const [deliveryBusinessDays, setDeliveryBusinessDays] = useState(String(QUOTE_DEFAULT_DELIVERY_DAYS));
@@ -107,37 +154,106 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
       .filter((group) => group.plans.length > 0);
   }, [catalog, search]);
 
-  const selectedItems = useMemo(() => Object.values(selected), [selected]);
-
   const totals = useMemo(() => {
-    const subtotal = selectedItems.reduce((sum, item) => sum + item.plan.price * item.quantity, 0);
-    const tax = selectedItems.reduce((sum, item) => sum + item.plan.price * item.quantity * item.plan.taxRate, 0);
+    const subtotal = selected.reduce((sum, item) => sum + lineSubtotal(item), 0);
+    const tax = selected.reduce((sum, item) => sum + lineTax(item), 0);
     return { subtotal, tax, total: subtotal + tax };
-  }, [selectedItems]);
+  }, [selected]);
+
+  useEffect(() => {
+    if (!customFocusToken) return;
+    customSectionRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    customNameRef.current?.focus();
+  }, [customFocusToken]);
+
+  function openCustomDraft(draft: CustomDraft = emptyCustomDraft()) {
+    setCustomDraft(draft);
+    setCustomError("");
+    setSubmitError("");
+    setCustomFocusToken((current) => current + 1);
+  }
 
   function addPlan(plan: QuoteCatalogPlan) {
     setSelected((current) => {
-      if (current[plan.id]) return current;
-      return { ...current, [plan.id]: { plan, quantity: 1 } };
+      if (current.some((entry) => entry.kind === "catalog" && entry.plan.id === plan.id)) return current;
+      return [...current, { kind: "catalog", plan, quantity: 1 }];
     });
     setSubmitError("");
   }
 
-  function removePlan(planId: string) {
-    setSelected((current) => {
-      if (!current[planId]) return current;
-      const next = { ...current };
-      delete next[planId];
-      return next;
-    });
+  function removeEntry(key: string) {
+    setSelected((current) => current.filter((entry) => selectedKey(entry) !== key));
+    setCustomDraft((current) => (current?.id === key ? null : current));
+    setCustomError("");
   }
 
-  function updateQuantity(planId: string, quantity: number) {
-    setSelected((current) => {
-      const item = current[planId];
-      if (!item) return current;
-      return { ...current, [planId]: { ...item, quantity: Math.max(1, Math.trunc(quantity) || 1) } };
+  function updateQuantity(key: string, quantity: number) {
+    setSelected((current) =>
+      current.map((entry) => {
+        if (selectedKey(entry) !== key) return entry;
+        const next = Math.max(1, Math.trunc(quantity) || 1);
+        return { ...entry, quantity: entry.kind === "custom" ? Math.min(99, next) : next };
+      }),
+    );
+  }
+
+  function updateCustomDraft(patch: Partial<CustomDraft>) {
+    setCustomDraft((current) => (current ? { ...current, ...patch } : current));
+    setCustomError("");
+  }
+
+  function updateCustomDraftItem(index: number, value: string) {
+    setCustomDraft((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.map((item, itemIndex) => (itemIndex === index ? value : item)),
+      };
     });
+    setCustomError("");
+  }
+
+  function commitCustomDraft() {
+    if (!customDraft) return;
+
+    try {
+      const parsed = parseCustomQuoteItemInput({
+        name: customDraft.name,
+        unitPrice: customDraft.price,
+        includedItems: customDraft.items,
+      });
+      setSelected((current) => {
+        if (customDraft.id) {
+          return current.map((entry) =>
+            entry.kind === "custom" && entry.id === customDraft.id
+              ? {
+                  ...entry,
+                  name: parsed.name,
+                  unitPrice: parsed.unitPrice,
+                  includedItems: parsed.includedItems,
+                }
+              : entry,
+          );
+        }
+
+        return [
+          ...current,
+          {
+            kind: "custom",
+            id: crypto.randomUUID(),
+            name: parsed.name,
+            unitPrice: parsed.unitPrice,
+            quantity: parsed.quantity,
+            includedItems: parsed.includedItems,
+          },
+        ];
+      });
+      setCustomDraft(null);
+      setCustomError("");
+      setSubmitError("");
+    } catch (error) {
+      setCustomError(error instanceof Error ? error.message : "Revisa el servicio único.");
+    }
   }
 
   async function save(status: "DRAFT" | "CREATED") {
@@ -146,7 +262,13 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
       setSubmitError("Selecciona un cliente.");
       return;
     }
-    if (selectedItems.length === 0) {
+    if (customDraft && customDraftIsDirty(customDraft)) {
+      setSubmitError("Guarda o cancela el servicio único que estás editando.");
+      setCustomError("Guarda o cancela este servicio antes de crear la cotización.");
+      setCustomFocusToken((current) => current + 1);
+      return;
+    }
+    if (selected.length === 0) {
       setSubmitError("Agrega al menos un plan o servicio.");
       return;
     }
@@ -166,7 +288,16 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
           validUntil: validUntil || null,
           deliveryBusinessDays,
           initialPaymentPercent,
-          items: selectedItems.map((item) => ({ planId: item.plan.id, quantity: item.quantity })),
+          items: selected.map((item) =>
+            item.kind === "catalog"
+              ? { planId: item.plan.id, quantity: item.quantity }
+              : {
+                  name: item.name,
+                  unitPrice: item.unitPrice,
+                  quantity: item.quantity,
+                  includedItems: item.includedItems,
+                },
+          ),
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { quote?: QuoteRecord; error?: string };
@@ -246,12 +377,133 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
               {catalogError ? <p className="text-sm text-red-600">{catalogError}</p> : null}
 
               <div className="space-y-4">
+                <section ref={customSectionRef}>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{CUSTOM_QUOTE_SERVICE_LABEL}</h3>
+                  <article className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-3">
+                    {customDraft ? (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="font-semibold text-foreground">{CUSTOM_QUOTE_SERVICE_LABEL}</p>
+                          <p className="text-xs text-muted">
+                            Servicio fuera del catálogo. El nombre, el precio y los ítems se muestran en la cotización igual que un plan.
+                          </p>
+                        </div>
+                        <label className="block">
+                          <span className="mb-1.5 block text-sm font-semibold text-foreground">Nombre</span>
+                          <input
+                            ref={customNameRef}
+                            value={customDraft.name}
+                            onChange={(event) => updateCustomDraft({ name: event.target.value })}
+                            className="dashboard-field"
+                            placeholder="Ej. Landing para campaña"
+                            maxLength={120}
+                            disabled={Boolean(isSaving)}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1.5 block text-sm font-semibold text-foreground">Precio neto</span>
+                          <input
+                            value={customDraft.price}
+                            onChange={(event) => updateCustomDraft({ price: event.target.value })}
+                            className="dashboard-field"
+                            inputMode="numeric"
+                            placeholder="150000"
+                            disabled={Boolean(isSaving)}
+                          />
+                          <span className="mt-1 block text-xs text-muted">Sin IVA. El impuesto se calcula al guardar, igual que en el catálogo.</span>
+                        </label>
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-foreground">Ítems</span>
+                            <button
+                              type="button"
+                              onClick={() => updateCustomDraft({ items: [...customDraft.items, ""] })}
+                              disabled={Boolean(isSaving)}
+                              className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                            >
+                              Agregar ítem
+                            </button>
+                          </div>
+                          <div className="space-y-1.5">
+                            {customDraft.items.map((item, index) => (
+                              <div key={`custom-item-${index}`} className="flex items-center gap-1.5">
+                                <input
+                                  value={item}
+                                  onChange={(event) => updateCustomDraftItem(index, event.target.value)}
+                                  className="dashboard-field"
+                                  placeholder="Ej. Diseño de 5 piezas"
+                                  maxLength={180}
+                                  aria-label={`Ítem ${index + 1}`}
+                                  disabled={Boolean(isSaving)}
+                                />
+                                {customDraft.items.length > 1 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateCustomDraft({
+                                        items: customDraft.items.filter((_, itemIndex) => itemIndex !== index),
+                                      })
+                                    }
+                                    disabled={Boolean(isSaving)}
+                                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-white hover:text-foreground disabled:opacity-50"
+                                    aria-label={`Quitar ítem ${index + 1}`}
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {customError ? <p className="text-sm text-red-600">{customError}</p> : null}
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomDraft(null);
+                              setCustomError("");
+                            }}
+                            disabled={Boolean(isSaving)}
+                            className="min-h-9 rounded-full border border-border px-3 text-sm font-semibold disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={commitCustomDraft}
+                            disabled={Boolean(isSaving)}
+                            className="min-h-9 rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            {customDraft.id ? "Guardar cambios" : "Agregar servicio"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground">{CUSTOM_QUOTE_SERVICE_LABEL}</p>
+                          <p className="text-xs text-muted">Agrega un servicio que no está en el catálogo, con nombre, precio e ítems.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openCustomDraft()}
+                          disabled={Boolean(isSaving)}
+                          aria-label="Agregar servicio único"
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Plus size={16} strokeWidth={2.4} />
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                </section>
+
                 {filteredCatalog.map((group) => (
                   <section key={group.id}>
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{group.name}</h3>
                     <div className="space-y-2">
                       {group.plans.map((plan) => {
-                        const isSelected = Boolean(selected[plan.id]);
+                        const isSelected = selected.some((entry) => entry.kind === "catalog" && entry.plan.id === plan.id);
                         return (
                           <article
                             key={plan.id}
@@ -286,39 +538,79 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
 
             <aside className="space-y-4 lg:sticky lg:top-0">
               <div className="rounded-[20px] border border-border bg-white p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Planes agregados</p>
-                {selectedItems.length === 0 ? (
-                  <p className="mt-3 text-sm text-muted">Usa el botón + para agregar planes a la cotización.</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Servicios agregados</p>
+                {selected.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted">Usa el botón + para agregar un servicio único o un plan del catálogo.</p>
                 ) : (
                   <ul className="mt-3 space-y-3">
-                    {selectedItems.map((item) => (
-                      <li key={item.plan.id} className="rounded-2xl border border-border bg-slate-50/80 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">{item.plan.name}</p>
-                            <p className="text-xs text-muted">{formatCurrency(item.plan.price)}</p>
+                    {selected.map((item) => {
+                      const key = selectedKey(item);
+                      const name = item.kind === "catalog" ? item.plan.name : item.name;
+                      const price = item.kind === "catalog" ? item.plan.price : item.unitPrice;
+                      const isEditing = item.kind === "custom" && customDraft?.id === item.id;
+
+                      return (
+                        <li
+                          key={key}
+                          className={`rounded-2xl border p-3 ${isEditing ? "border-primary/40 bg-primary/[0.04]" : "border-border bg-slate-50/80"}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">{name}</p>
+                              <p className="text-xs text-muted">
+                                {formatCurrency(price)}
+                                {item.kind === "custom" ? ` · ${CUSTOM_QUOTE_SERVICE_LABEL}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0">
+                              {item.kind === "custom" ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openCustomDraft({
+                                      id: item.id,
+                                      name: item.name,
+                                      price: String(item.unitPrice),
+                                      items: [...item.includedItems],
+                                    })
+                                  }
+                                  aria-label={`Editar ${name}`}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-white hover:text-primary"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => removeEntry(key)}
+                                aria-label={`Quitar ${name}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-white hover:text-red-600"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removePlan(item.plan.id)}
-                            aria-label={`Quitar ${item.plan.name}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-white hover:text-red-600"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                        <label className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-foreground">
-                          Cantidad
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(event) => updateQuantity(item.plan.id, Number(event.target.value))}
-                            className="dashboard-field h-9 w-20 px-2"
-                          />
-                        </label>
-                      </li>
-                    ))}
+                          {item.kind === "custom" ? (
+                            <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-foreground">
+                              {item.includedItems.map((feature) => (
+                                <li key={feature}>{feature}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          <label className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                            Cantidad
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.kind === "custom" ? 99 : undefined}
+                              value={item.quantity}
+                              onChange={(event) => updateQuantity(key, Number(event.target.value))}
+                              className="dashboard-field h-9 w-20 px-2"
+                            />
+                          </label>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -326,7 +618,7 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
               <div className="rounded-[20px] border border-border bg-slate-50/80 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Resumen</p>
                 <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between gap-3"><span className="text-muted">Ítems</span><span>{selectedItems.length}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted">Ítems</span><span>{selected.length}</span></div>
                   <div className="flex justify-between gap-3"><span className="text-muted">Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
                   <div className="flex justify-between gap-3"><span className="text-muted">IVA</span><span>{formatCurrency(totals.tax)}</span></div>
                   <div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>Total</span><span className="text-primary">{formatCurrency(totals.total)}</span></div>

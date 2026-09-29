@@ -5,6 +5,7 @@ import { getClientById } from "../clients/repository";
 import { formatCurrency, TAX_RATE } from "../orders/service";
 import { getServicePlanById } from "../services/repository";
 import { QUOTE_DEFAULT_DELIVERY_DAYS, QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT, QUOTE_DEFAULT_VALIDITY_DAYS } from "./company";
+import { buildCustomQuoteItemRecord } from "./custom-item";
 import { parseQuoteValidUntil } from "./dates";
 import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "./fields";
 import { nextQuoteNumber } from "./numbering";
@@ -118,55 +119,71 @@ function defaultValidUntil(now = new Date()): Date {
   return date;
 }
 
+function withQuantity(item: QuoteItemRecord, quantity: number): QuoteItemRecord {
+  const subtotal = item.unitPrice * quantity;
+  const tax = subtotal * item.taxRate;
+
+  return {
+    ...item,
+    quantity,
+    subtotal,
+    tax,
+    total: subtotal + tax,
+  };
+}
+
 async function resolveQuoteItems(inputItems: QuoteItemInput[]): Promise<QuoteItemRecord[]> {
-  const unique = new Map<string, number>();
-
-  for (const item of inputItems) {
-    const planId = String(item.planId ?? "").trim();
-    if (!planId) continue;
-    const quantity = Math.max(1, Math.trunc(Number(item.quantity) || 1));
-    unique.set(planId, (unique.get(planId) ?? 0) + quantity);
-  }
-
-  if (unique.size === 0) {
+  if (inputItems.length === 0) {
     throw new Error("Selecciona al menos un plan o servicio.");
   }
 
   const items: QuoteItemRecord[] = [];
-  let sortOrder = 0;
+  const catalogIndex = new Map<string, number>();
 
-  for (const [planId, quantity] of unique.entries()) {
-    const plan = await getServicePlanById(planId);
+  for (const input of inputItems) {
+    if (input.kind === "custom") {
+      items.push(buildCustomQuoteItemRecord(input, items.length));
+      continue;
+    }
 
+    const existingIndex = catalogIndex.get(input.planId);
+    if (existingIndex != null) {
+      const current = items[existingIndex];
+      if (current) {
+        items[existingIndex] = withQuantity(current, current.quantity + input.quantity);
+      }
+      continue;
+    }
+
+    const plan = await getServicePlanById(input.planId);
     if (!plan || plan.status !== "ACTIVE") {
       throw new Error("Uno de los planes seleccionados ya no está disponible.");
     }
 
     const unitPrice = Math.max(0, plan.price);
     const taxRate = Number.isFinite(plan.taxRate) ? plan.taxRate : TAX_RATE;
-    const subtotal = unitPrice * quantity;
+    const subtotal = unitPrice * input.quantity;
     const tax = subtotal * taxRate;
-    const total = subtotal + tax;
 
+    catalogIndex.set(input.planId, items.length);
     items.push({
       id: "",
       planId: plan.id,
       planName: plan.name,
       categoryName: plan.categoryName,
       subcategoryName: plan.subcategoryName,
-      quantity,
+      quantity: input.quantity,
       unitPrice,
       taxRate,
       includedItems: plan.items.filter((entry) => entry.status === "ACTIVE").map((entry) => entry.label),
       subtotal,
       tax,
-      total,
-      sortOrder,
+      total: subtotal + tax,
+      sortOrder: items.length,
     });
-    sortOrder += 1;
   }
 
-  return items;
+  return items.map((item, sortOrder) => ({ ...item, sortOrder }));
 }
 
 export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteRecord[]> {

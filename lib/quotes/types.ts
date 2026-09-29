@@ -10,10 +10,21 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   REJECTED: "Rechazada",
 };
 
-export type QuoteItemInput = {
+export type QuoteCatalogItemInput = {
+  kind: "catalog";
   planId: string;
-  quantity?: number;
+  quantity: number;
 };
+
+export type QuoteCustomItemInput = {
+  kind: "custom";
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  includedItems: string[];
+};
+
+export type QuoteItemInput = QuoteCatalogItemInput | QuoteCustomItemInput;
 
 export type QuoteItemRecord = {
   id: string;
