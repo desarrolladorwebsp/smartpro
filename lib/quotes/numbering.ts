@@ -1,18 +1,22 @@
+import { randomInt } from "node:crypto";
+
 const PREFIX = "COT";
 
-export function nextQuoteNumber(latest: string | null | undefined, now = new Date()): string {
+export const QUOTE_NUMBER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const SUFFIX_LENGTH = 4;
+
+function randomAlphabetIndex(max: number): number {
+  return randomInt(max);
+}
+
+export function createQuoteNumber(now = new Date(), randomIndex: (max: number) => number = randomAlphabetIndex): string {
   const year = now.getFullYear();
-  const yearPrefix = `${PREFIX}-${year}-`;
+  let suffix = "";
 
-  if (!latest || !latest.startsWith(yearPrefix)) {
-    return `${yearPrefix}0001`;
+  for (let index = 0; index < SUFFIX_LENGTH; index += 1) {
+    const position = randomIndex(QUOTE_NUMBER_ALPHABET.length);
+    suffix += QUOTE_NUMBER_ALPHABET[position] ?? QUOTE_NUMBER_ALPHABET[0];
   }
 
-  const sequence = Number.parseInt(latest.slice(yearPrefix.length), 10);
-
-  if (!Number.isFinite(sequence) || sequence < 1) {
-    return `${yearPrefix}0001`;
-  }
-
-  return `${yearPrefix}${String(sequence + 1).padStart(4, "0")}`;
+  return `${PREFIX}-${year}-${suffix}`;
 }

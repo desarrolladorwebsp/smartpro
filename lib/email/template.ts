@@ -160,9 +160,20 @@ export function renderCorporateEmail(content: CorporateEmailContent): { html: st
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
     <title>${title}</title>
     <style type="text/css">
+      .email-logo-plate, .email-logo-plate img {
+        background-color: #FFFFFF !important;
+        background-image: linear-gradient(#FFFFFF, #FFFFFF) !important;
+      }
+      @media (prefers-color-scheme: dark) {
+        .email-logo-plate, .email-logo-plate img {
+          background-color: #FFFFFF !important;
+          background-image: linear-gradient(#FFFFFF, #FFFFFF) !important;
+        }
+      }
       @media only screen and (max-width: 620px) {
         .email-wrapper { padding: 16px 12px !important; }
         .email-container { width: 100% !important; }
@@ -186,7 +197,13 @@ export function renderCorporateEmail(content: CorporateEmailContent): { html: st
             </tr>
             <tr>
               <td class="email-header" align="center" bgcolor="${EMAIL_BRAND.colors.white}" style="background-color:${EMAIL_BRAND.colors.white};padding:28px 32px 20px;">
-                <img src="${logoUrl}" alt="${escapeHtml(EMAIL_BRAND.name)}" width="${EMAIL_BRAND.logoWidth}" height="${EMAIL_BRAND.logoHeight}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:180px;" />
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;">
+                  <tr>
+                    <td class="email-logo-plate" align="center" bgcolor="${EMAIL_BRAND.colors.white}" style="background-color:${EMAIL_BRAND.colors.white};background-image:linear-gradient(${EMAIL_BRAND.colors.white},${EMAIL_BRAND.colors.white});padding:14px 22px;border-radius:16px;">
+                      <img src="${logoUrl}" alt="${escapeHtml(EMAIL_BRAND.name)}" width="${EMAIL_BRAND.logoWidth}" height="${EMAIL_BRAND.logoHeight}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:180px;background-color:${EMAIL_BRAND.colors.white};background-image:linear-gradient(${EMAIL_BRAND.colors.white},${EMAIL_BRAND.colors.white});" />
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>

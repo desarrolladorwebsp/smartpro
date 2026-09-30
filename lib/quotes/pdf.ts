@@ -79,6 +79,16 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   const pageBottom = PAGE.height - FOOTER_HEIGHT - 18;
   const paymentUrls = buildQuotePaymentUrls(quote.id);
   let y = PAGE.margin;
+  const addContentPage = doc.addPage.bind(doc);
+  let allowPageBreak = false;
+
+  doc.addPage = ((options?: PDFKit.PDFDocumentOptions) => {
+    if (!allowPageBreak) return doc;
+    const page = addContentPage(options);
+    doc.page.margins.bottom = 0;
+    return page;
+  }) as typeof doc.addPage;
+  doc.page.margins.bottom = 0;
 
   const drawFooter = () => {
     const footerY = PAGE.height - FOOTER_HEIGHT;
@@ -89,11 +99,13 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
       `${SMARTPRO_COMPANY.brandName}  ·  ${SMARTPRO_COMPANY.email}  ·  ${SMARTPRO_COMPANY.phone}`,
       PAGE.margin,
       footerY + 14,
-      { width: contentWidth, align: "center" },
+      { width: contentWidth, align: "center", lineBreak: false, height: 12 },
     );
     doc.fillColor("#C9C6D6").fontSize(7.5).text(SMARTPRO_COMPANY.website, PAGE.margin, footerY + 28, {
       width: contentWidth,
       align: "center",
+      lineBreak: false,
+      height: 10,
       link: SMARTPRO_COMPANY.website,
     });
     doc.restore();
@@ -116,7 +128,10 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
 
   const ensureSpace = (needed: number) => {
     if (y + needed < pageBottom) return;
-    doc.addPage();
+    allowPageBreak = true;
+    addContentPage();
+    allowPageBreak = false;
+    doc.page.margins.bottom = 0;
     drawContinuationHeader();
     y = CONTINUATION_HEADER + 18;
   };
@@ -139,7 +154,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     doc.font(options?.bold ? "Helvetica-Bold" : "Helvetica").fontSize(size);
     const height = doc.heightOfString(text, { width: contentWidth });
     ensureSpace(height + 10);
-    doc.fillColor(options?.color ?? COLORS.ink).text(text, PAGE.margin, y, { width: contentWidth });
+    doc.fillColor(options?.color ?? COLORS.ink).text(text, PAGE.margin, y, { width: contentWidth, height });
     y += height + 8;
   };
 
@@ -149,7 +164,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
       doc.font("Helvetica").fontSize(9);
       const height = Math.max(14, doc.heightOfString(bullet, { width: contentWidth - 8 }));
       ensureSpace(height + 4);
-      doc.fillColor(COLORS.ink).text(bullet, PAGE.margin, y, { width: contentWidth });
+      doc.fillColor(COLORS.ink).text(bullet, PAGE.margin, y, { width: contentWidth, height });
       y += height + 3;
     }
   };
@@ -475,9 +490,11 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   for (let pageIndex = 0; pageIndex < range.count; pageIndex += 1) {
     doc.switchToPage(range.start + pageIndex);
     drawFooter();
-    doc.fillColor("#C9C6D6").font("Helvetica").fontSize(7).text(`Página ${pageIndex + 1} de ${range.count}`, PAGE.margin, PAGE.height - 18, {
+    doc.fillColor("#C9C6D6").font("Helvetica").fontSize(7).text(`Página ${pageIndex + 1} de ${range.count}`, PAGE.margin, PAGE.height - 16, {
       width: contentWidth,
       align: "right",
+      lineBreak: false,
+      height: 10,
     });
   }
 

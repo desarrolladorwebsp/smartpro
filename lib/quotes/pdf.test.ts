@@ -57,6 +57,8 @@ test("buildQuotePdf genera un PDF corporativo con datos de la cotización", asyn
 
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
     assert.ok(pdf.length > 1000);
+    const pageCount = pdf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g)?.length ?? 0;
+    assert.ok(pageCount >= 1 && pageCount <= 3, `el PDF no debe agregar hojas en blanco (${pageCount})`);
     assert.match(searchable, /COT-2026-0001/);
     assert.match(searchable, /SmartPro/);
     assert.match(searchable, /\/URI\s*\(/);

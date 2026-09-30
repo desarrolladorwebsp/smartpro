@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { CheckoutValidationError, buildServerCheckoutOrder } from "./checkout";
 import { getPrismaClient } from "../db";
-import { buildOrderNotificationText } from "./email";
+import { buildOrderNotificationEmail } from "./email";
 import { buildPreferenceItems } from "../mercadopago/preference";
 
 test.after(async () => {
@@ -42,7 +42,7 @@ test("buildServerCheckoutOrder rechaza un payload incompleto", async () => {
 });
 
 test("el correo de orden incluye método, estado y servicios", () => {
-  const text = buildOrderNotificationText({
+  const email = buildOrderNotificationEmail({
     id: "SP-2026-100000",
     createdAt: "2026-09-09T12:00:00.000Z",
     customer: { name: "Ana García", email: "ana@smartpro.cl", phone: "+56912345678" },
@@ -52,12 +52,14 @@ test("el correo de orden incluye método, estado y servicios", () => {
     total: 119000,
     paymentMethod: "mercadopago",
     paymentStatus: "paid",
-  });
+  }, "https://smartpro.cl");
 
-  assert.match(text, /SP-2026-100000/);
-  assert.match(text, /Plan Pro/);
-  assert.match(text, /Mercado Pago/);
-  assert.match(text, /Pagada/);
+  assert.match(email.text, /SP-2026-100000/);
+  assert.match(email.text, /Plan Pro/);
+  assert.match(email.text, /Mercado Pago/);
+  assert.match(email.text, /Pagada/);
+  assert.match(email.html, /email-logo-plate/);
+  assert.match(email.html, /Pago confirmado/);
 });
 
 test("los ítems de preferencia cobran el total con IVA en CLP entero", () => {

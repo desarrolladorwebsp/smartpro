@@ -1,16 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { nextQuoteNumber } from "./numbering";
+import { QUOTE_NUMBER_ALPHABET, createQuoteNumber } from "./numbering";
 
-test("nextQuoteNumber inicia la serie anual cuando no hay cotizaciones previas", () => {
-  const now = new Date("2026-03-10T12:00:00");
-  assert.equal(nextQuoteNumber(null, now), "COT-2026-0001");
-  assert.equal(nextQuoteNumber("COT-2025-0099", now), "COT-2026-0001");
+test("createQuoteNumber arma COT-año y cuatro caracteres al azar", () => {
+  const now = new Date("2026-09-30T12:00:00");
+  const positions = [0, 10, 20, 31];
+  let cursor = 0;
+  const number = createQuoteNumber(now, () => positions[cursor++] ?? 0);
+
+  assert.equal(
+    number,
+    `COT-2026-${QUOTE_NUMBER_ALPHABET[0]}${QUOTE_NUMBER_ALPHABET[10]}${QUOTE_NUMBER_ALPHABET[20]}${QUOTE_NUMBER_ALPHABET[31]}`,
+  );
+  assert.match(number, /^COT-2026-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/);
 });
 
-test("nextQuoteNumber incrementa el correlativo del mismo año", () => {
-  const now = new Date("2026-09-09T12:00:00");
-  assert.equal(nextQuoteNumber("COT-2026-0001", now), "COT-2026-0002");
-  assert.equal(nextQuoteNumber("COT-2026-0099", now), "COT-2026-0100");
+test("createQuoteNumber no continúa el correlativo anterior", () => {
+  const now = new Date("2026-09-30T12:00:00");
+  const number = createQuoteNumber(now, () => 3);
+
+  assert.notEqual(number, "COT-2026-0002");
+  assert.equal(number.slice(-4), QUOTE_NUMBER_ALPHABET[3]!.repeat(4));
 });

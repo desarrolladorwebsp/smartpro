@@ -8,7 +8,7 @@ import { QUOTE_DEFAULT_DELIVERY_DAYS, QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT, QUO
 import { buildCustomQuoteItemRecord } from "./custom-item";
 import { parseQuoteValidUntil } from "./dates";
 import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "./fields";
-import { nextQuoteNumber } from "./numbering";
+import { createQuoteNumber } from "./numbering";
 import { assertQuoteStatusTransition, parseQuoteStatus } from "./status";
 import type {
   QuoteItemInput,
@@ -292,13 +292,7 @@ export async function createQuoteRecord(input: {
   }
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const latest = await getPrisma().quote.findFirst({
-      where: { number: { startsWith: `COT-${new Date().getFullYear()}-` } },
-      orderBy: { number: "desc" },
-      select: { number: true },
-    });
-
-    const number = nextQuoteNumber(latest?.number);
+    const number = createQuoteNumber();
 
     try {
       const created = await getPrisma().quote.create({

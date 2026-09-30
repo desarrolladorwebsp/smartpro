@@ -38,6 +38,8 @@ test("renderCorporateEmail reutiliza logo, paleta, CTA y firma", () => {
   });
 
   assert.match(html, /logo-smartpro-01\.png/);
+  assert.match(html, /email-logo-plate/);
+  assert.match(html, /background-image:linear-gradient\(#FFFFFF,#FFFFFF\)/);
   assert.match(html, /https:\/\/smartpro\.cl\/images\/logo\/logo-smartpro-01\.png/);
   assert.match(html, /#101024/);
   assert.match(html, /#6D28D9/);
