@@ -7,6 +7,7 @@ import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversio
 import { nextSaleNumber } from "./numbering";
 import { parseSalePaymentAmount } from "./balances";
 import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
+import { withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
 import {
   isSaleManualPaymentMethod,
@@ -146,6 +147,10 @@ export type SalePaymentInput = {
 };
 
 async function persistSalePayment(saleId: string, input: SalePaymentInput): Promise<SaleRecord> {
+  return withSalePaymentTable(() => persistSalePaymentOnce(saleId, input));
+}
+
+async function persistSalePaymentOnce(saleId: string, input: SalePaymentInput): Promise<SaleRecord> {
   const db = getPrisma();
   const created = await db.salePayment.create({
     data: {
@@ -247,6 +252,17 @@ export async function recordPaidOrderPayment(input: {
   createdByEmail: string;
   observation: string;
 }): Promise<SaleRecord> {
+  return withSalePaymentTable(() => recordPaidOrderPaymentOnce(input));
+}
+
+async function recordPaidOrderPaymentOnce(input: {
+  saleId: string;
+  amount: number;
+  method: SalePaymentMethod;
+  orderId: string;
+  createdByEmail: string;
+  observation: string;
+}): Promise<SaleRecord> {
   const existing = await getPrisma().salePayment.findUnique({
     where: { orderId: input.orderId },
   });
@@ -272,46 +288,54 @@ export async function recordPaidOrderPayment(input: {
 }
 
 export async function listSales(): Promise<SaleRecord[]> {
-  const rows = await getPrisma().sale.findMany({
-    include: saleInclude,
-    orderBy: { soldAt: "desc" },
-  });
+  return withSalePaymentTable(async () => {
+    const rows = await getPrisma().sale.findMany({
+      include: saleInclude,
+      orderBy: { soldAt: "desc" },
+    });
 
-  return rows.map(toSaleRecord);
+    return rows.map(toSaleRecord);
+  });
 }
 
 export async function getSaleByQuoteId(quoteId: string): Promise<SaleRecord | null> {
   const id = String(quoteId ?? "").trim();
   if (!id) return null;
 
-  const row = await getPrisma().sale.findUnique({
-    where: { quoteId: id },
-    include: saleInclude,
-  });
+  return withSalePaymentTable(async () => {
+    const row = await getPrisma().sale.findUnique({
+      where: { quoteId: id },
+      include: saleInclude,
+    });
 
-  return row ? toSaleRecord(row) : null;
+    return row ? toSaleRecord(row) : null;
+  });
 }
 
 export async function getSaleById(id: string): Promise<SaleRecord | null> {
   const saleId = String(id ?? "").trim();
   if (!saleId) return null;
 
-  const row = await getPrisma().sale.findUnique({
-    where: { id: saleId },
-    include: saleInclude,
-  });
+  return withSalePaymentTable(async () => {
+    const row = await getPrisma().sale.findUnique({
+      where: { id: saleId },
+      include: saleInclude,
+    });
 
-  return row ? toSaleRecord(row) : null;
+    return row ? toSaleRecord(row) : null;
+  });
 }
 
 export async function listSalesByApiClientId(apiClientId: string): Promise<SaleRecord[]> {
-  const rows = await getPrisma().sale.findMany({
-    where: { apiClientId },
-    include: saleInclude,
-    orderBy: { soldAt: "desc" },
-  });
+  return withSalePaymentTable(async () => {
+    const rows = await getPrisma().sale.findMany({
+      where: { apiClientId },
+      include: saleInclude,
+      orderBy: { soldAt: "desc" },
+    });
 
-  return rows.map(toSaleRecord);
+    return rows.map(toSaleRecord);
+  });
 }
 
 export async function findSaleByExternalReference(
@@ -321,12 +345,14 @@ export async function findSaleByExternalReference(
   const reference = String(externalReference ?? "").trim();
   if (!reference) return null;
 
-  const row = await getPrisma().sale.findFirst({
-    where: { apiClientId, externalReference: reference },
-    include: saleInclude,
-  });
+  return withSalePaymentTable(async () => {
+    const row = await getPrisma().sale.findFirst({
+      where: { apiClientId, externalReference: reference },
+      include: saleInclude,
+    });
 
-  return row ? toSaleRecord(row) : null;
+    return row ? toSaleRecord(row) : null;
+  });
 }
 
 export type ExternalSaleInput = {
@@ -382,12 +408,14 @@ export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | nu
   const id = String(orderId ?? "").trim();
   if (!id) return null;
 
-  const row = await getPrisma().sale.findUnique({
-    where: { orderId: id },
-    include: saleInclude,
-  });
+  return withSalePaymentTable(async () => {
+    const row = await getPrisma().sale.findUnique({
+      where: { orderId: id },
+      include: saleInclude,
+    });
 
-  return row ? toSaleRecord(row) : null;
+    return row ? toSaleRecord(row) : null;
+  });
 }
 
 export async function listQuotesForSaleConversion(clientId: string): Promise<QuoteForSaleConversion[]> {
