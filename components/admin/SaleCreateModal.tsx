@@ -32,6 +32,13 @@ function formatDate(value: string | null): string {
   return new Intl.DateTimeFormat("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
+function todayDateInputValue(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+type SaleEntryMode = "DIRECT" | "QUOTE";
+
 export function SaleCreateModal({ open, ...props }: SaleCreateModalProps) {
   if (!open) return null;
   return <SaleCreateForm {...props} />;
@@ -40,14 +47,19 @@ export function SaleCreateModal({ open, ...props }: SaleCreateModalProps) {
 function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
   const quotesRequestRef = useRef(0);
+  const [entryMode, setEntryMode] = useState<SaleEntryMode>("DIRECT");
   const [clientId, setClientId] = useState("");
   const [quoteId, setQuoteId] = useState("");
   const [quotes, setQuotes] = useState<QuoteForSaleConversion[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState("");
+  const [serviceName, setServiceName] = useState("");
+  const [subtotal, setSubtotal] = useState("");
+  const [tax, setTax] = useState("0");
+  const [soldAt, setSoldAt] = useState(todayDateInputValue);
   const [observation, setObservation] = useState("");
   const [paidAmount, setPaidAmount] = useState("0");
-  const [paymentMethod, setPaymentMethod] = useState<SaleManualPaymentMethod | "">("transfer");
+  const [paymentMethod, setPaymentMethod] = useState<SaleManualPaymentMethod | "">("");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -111,22 +123,90 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     }
   }
 
+  function selectClient(nextClientId: string) {
+    if (entryMode === "QUOTE") {
+      void loadQuotesForClient(nextClientId);
+      return;
+    }
+
+    quotesRequestRef.current += 1;
+    setClientId(nextClientId);
+    setQuoteId("");
+    setPaidAmount("0");
+    setQuotes([]);
+    setIsLoadingQuotes(false);
+    setQuotesError("");
+    setSubmitError("");
+  }
+
+  function changeEntryMode(nextMode: SaleEntryMode) {
+    if (nextMode === entryMode) return;
+    setEntryMode(nextMode);
+    setQuoteId("");
+    setPaidAmount("0");
+    setPaymentMethod(nextMode === "DIRECT" ? "" : "transfer");
+    setSubmitError("");
+    setQuotesError("");
+
+    if (nextMode === "DIRECT") {
+      quotesRequestRef.current += 1;
+      setQuotes([]);
+      setIsLoadingQuotes(false);
+    } else if (clientId) {
+      void loadQuotesForClient(clientId);
+    }
+  }
+
   const selectedOption = useMemo(
     () => quotes.find((entry) => entry.quote.id === quoteId) ?? null,
     [quotes, quoteId],
   );
   const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
   const deposit = selectedQuote ? quoteDepositAmounts(selectedQuote) : null;
+  const directSubtotal = Number(subtotal);
+  const directTax = Number(tax || 0);
+  const directAmountsValid =
+    subtotal.trim() !== "" &&
+    Number.isSafeInteger(directSubtotal) &&
+    directSubtotal >= 0 &&
+    Number.isSafeInteger(directTax) &&
+    directTax >= 0;
+  const directTotal = directAmountsValid ? directSubtotal + directTax : 0;
+  const activeTotal = entryMode === "DIRECT" ? directTotal : selectedQuote?.total ?? 0;
+  const receivedAmount = Number(paidAmount || 0);
+  const receivedAmountValid =
+    Number.isSafeInteger(receivedAmount) &&
+    receivedAmount >= 0 &&
+    receivedAmount <= activeTotal;
+  const canSubmit = entryMode === "DIRECT"
+    ? Boolean(clientId && serviceName.trim() && soldAt && directAmountsValid && directTotal > 0 && receivedAmountValid)
+    : Boolean(selectedQuote && receivedAmountValid && (receivedAmount === 0 || paymentMethod));
 
-  async function convert() {
+  async function create() {
     if (isSavingRef.current) return;
 
     if (!clientId) {
       setSubmitError("Selecciona un cliente.");
       return;
     }
-    if (!selectedQuote) {
+    if (entryMode === "QUOTE" && !selectedQuote) {
       setSubmitError("Selecciona una cotización válida.");
+      return;
+    }
+    if (entryMode === "DIRECT" && !serviceName.trim()) {
+      setSubmitError("Describe el servicio de la venta.");
+      return;
+    }
+    if (entryMode === "DIRECT" && (!soldAt || !directAmountsValid || directTotal < 1)) {
+      setSubmitError("Ingresa una fecha, subtotal e IVA válidos para la venta directa.");
+      return;
+    }
+    if (!receivedAmountValid) {
+      setSubmitError("El monto recibido debe ser un monto válido y no puede superar el total de la venta.");
+      return;
+    }
+    if (entryMode === "QUOTE" && receivedAmount > 0 && !paymentMethod) {
+      setSubmitError("Selecciona un medio de pago para el monto recibido.");
       return;
     }
 
@@ -142,7 +222,16 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
 
     try {
       const formData = new FormData();
-      formData.append("quoteId", selectedQuote.id);
+      formData.append("saleType", entryMode);
+      if (entryMode === "DIRECT") {
+        formData.append("clientId", clientId);
+        formData.append("serviceName", serviceName.trim());
+        formData.append("subtotal", String(directSubtotal));
+        formData.append("tax", String(directTax));
+        formData.append("soldAt", soldAt);
+      } else if (selectedQuote) {
+        formData.append("quoteId", selectedQuote.id);
+      }
       formData.append("observation", observation);
       formData.append("paidAmount", paidAmount);
       formData.append("paymentMethod", paymentMethod);
@@ -181,7 +270,9 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
               Nueva venta
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Convierte la cotización y registra cuánto se recibió ahora. El saldo queda como cuenta por cobrar.
+              {entryMode === "DIRECT"
+                ? "Registra una venta directa aunque no exista una cotización. Puedes dejar saldo pendiente."
+                : "Convierte una cotización existente y registra cuánto se recibió ahora."}
             </p>
           </div>
           <button
@@ -196,12 +287,33 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => changeEntryMode("DIRECT")}
+              disabled={isSaving}
+              aria-pressed={entryMode === "DIRECT"}
+              className={`min-h-10 rounded-xl px-3 text-sm font-semibold transition ${entryMode === "DIRECT" ? "bg-white text-primary shadow-sm" : "text-muted hover:text-foreground"}`}
+            >
+              Venta directa
+            </button>
+            <button
+              type="button"
+              onClick={() => changeEntryMode("QUOTE")}
+              disabled={isSaving}
+              aria-pressed={entryMode === "QUOTE"}
+              className={`min-h-10 rounded-xl px-3 text-sm font-semibold transition ${entryMode === "QUOTE" ? "bg-white text-primary shadow-sm" : "text-muted hover:text-foreground"}`}
+            >
+              Desde cotización
+            </button>
+          </div>
+
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Cliente</span>
             <select
               value={clientId}
               onChange={(event) => {
-                void loadQuotesForClient(event.target.value);
+                selectClient(event.target.value);
               }}
               className="dashboard-field"
               disabled={isSaving}
@@ -215,39 +327,71 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
             </select>
           </label>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-foreground">Cotización</span>
-            <select
-              value={quoteId}
-              onChange={(event) => {
-                const nextId = event.target.value;
-                setQuoteId(nextId);
-                setSubmitError("");
-                const next = quotes.find((entry) => entry.quote.id === nextId);
-                if (next?.convertible) {
-                  setPaidAmount(String(quoteDepositAmounts(next.quote).total));
-                } else {
-                  setPaidAmount("0");
-                }
-              }}
-              className="dashboard-field"
-              disabled={!clientId || isLoadingQuotes || isSaving}
-            >
-              <option value="">{isLoadingQuotes ? "Cargando cotizaciones..." : "Selecciona una cotización"}</option>
-              {quotes.map((entry) => (
-                <option key={entry.quote.id} value={entry.quote.id} disabled={!entry.convertible}>
-                  {entry.quote.number} · {getQuoteStatusLabel(entry.quote.status)} · {formatCurrency(entry.quote.total)}
-                  {entry.convertible ? "" : ` — ${entry.reason ?? "No convertible"}`}
-                </option>
-              ))}
-            </select>
-          </label>
+          {entryMode === "QUOTE" ? (
+            <>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-foreground">Cotización</span>
+                <select
+                  value={quoteId}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    setQuoteId(nextId);
+                    setSubmitError("");
+                    const next = quotes.find((entry) => entry.quote.id === nextId);
+                    setPaidAmount(next?.convertible ? String(quoteDepositAmounts(next.quote).total) : "0");
+                  }}
+                  className="dashboard-field"
+                  disabled={!clientId || isLoadingQuotes || isSaving}
+                >
+                  <option value="">{isLoadingQuotes ? "Cargando cotizaciones..." : "Selecciona una cotización"}</option>
+                  {quotes.map((entry) => (
+                    <option key={entry.quote.id} value={entry.quote.id} disabled={!entry.convertible}>
+                      {entry.quote.number} · {getQuoteStatusLabel(entry.quote.status)} · {formatCurrency(entry.quote.total)}
+                      {entry.convertible ? "" : ` — ${entry.reason ?? "No convertible"}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {quotesError ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{quotesError}</p> : null}
-
-          {clientId && !isLoadingQuotes && !quotesError && quotes.length === 0 ? (
-            <p className="rounded-xl border border-border bg-slate-50 px-3 py-2 text-sm text-muted">Este cliente no tiene cotizaciones.</p>
-          ) : null}
+              {quotesError ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{quotesError}</p> : null}
+              {clientId && !isLoadingQuotes && !quotesError && quotes.length === 0 ? (
+                <p className="rounded-xl border border-border bg-slate-50 px-3 py-2 text-sm text-muted">Este cliente no tiene cotizaciones.</p>
+              ) : null}
+            </>
+          ) : (
+            <div className="space-y-4 rounded-[20px] border border-border bg-slate-50/80 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Datos de la venta directa</p>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-foreground">Servicio o detalle</span>
+                <input
+                  value={serviceName}
+                  onChange={(event) => setServiceName(event.target.value)}
+                  className="dashboard-field"
+                  placeholder="Ej.: Landing Page"
+                  maxLength={160}
+                  disabled={isSaving}
+                />
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Fecha de venta</span>
+                  <input type="date" value={soldAt} onChange={(event) => setSoldAt(event.target.value)} className="dashboard-field" disabled={isSaving} />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto de venta (sin IVA)</span>
+                  <input type="number" min={0} step={1} value={subtotal} onChange={(event) => setSubtotal(event.target.value)} className="dashboard-field" disabled={isSaving} />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-foreground">IVA (0 si no aplica)</span>
+                  <input type="number" min={0} step={1} value={tax} onChange={(event) => setTax(event.target.value)} className="dashboard-field" disabled={isSaving} />
+                </label>
+                <div className="flex flex-col justify-center rounded-xl border border-border bg-white px-3 py-2">
+                  <span className="text-xs text-muted">Total</span>
+                  <span className="font-bold text-primary">{formatCurrency(directTotal)}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {selectedQuote ? (
             <div className="rounded-[20px] border border-border bg-slate-50/80 p-4">
@@ -297,16 +441,18 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto recibido ahora</span>
+              <span className="mb-1.5 block text-sm font-semibold text-foreground">
+                Monto recibido ahora{entryMode === "DIRECT" ? " (opcional)" : ""}
+              </span>
               <input
                 type="number"
                 min={0}
-                max={selectedQuote?.total ?? undefined}
+                max={activeTotal || undefined}
                 step={1}
                 value={paidAmount}
                 onChange={(event) => setPaidAmount(event.target.value)}
                 className="dashboard-field"
-                disabled={isSaving || !selectedQuote}
+                disabled={isSaving || activeTotal <= 0}
               />
               <p className="mt-1.5 text-xs text-muted">0 deja la venta como deuda. Puedes registrar el abono o el total.</p>
             </label>
@@ -316,14 +462,18 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as SaleManualPaymentMethod | "")}
                 className="dashboard-field"
-                disabled={isSaving || Number(paidAmount) <= 0}
+                disabled={isSaving || receivedAmount <= 0 || activeTotal <= 0}
               >
+                {entryMode === "DIRECT" ? <option value="">Sin especificar (opcional)</option> : <option value="">Selecciona un medio de pago</option>}
                 {SALE_MANUAL_PAYMENT_METHODS.map((method) => (
                   <option key={method} value={method}>
                     {getSalePaymentMethodLabel(method)}
                   </option>
                 ))}
               </select>
+              {entryMode === "DIRECT" ? (
+                <p className="mt-1.5 text-xs text-muted">Puedes registrar el total, un abono parcial o dejar el pago pendiente. Si no indicas el medio, quedará como “Otro medio”.</p>
+              ) : null}
             </label>
           </div>
 
@@ -365,11 +515,11 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
             </button>
             <button
               type="button"
-              onClick={() => void convert()}
-              disabled={isSaving || !selectedQuote}
+              onClick={() => void create()}
+              disabled={isSaving || !canSubmit}
               className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isSaving ? "Convirtiendo..." : "Convertir en venta"}
+              {isSaving ? "Registrando..." : entryMode === "DIRECT" ? "Registrar venta" : "Convertir en venta"}
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
-import { convertQuoteToSale, listSales } from "@/lib/sales/repository";
+import { convertQuoteToSale, createDirectSale, listSales } from "@/lib/sales/repository";
 
 export async function GET() {
   try {
@@ -30,26 +30,48 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData();
+    const saleType = String(formData.get("saleType") ?? "QUOTE").trim();
     const quoteId = String(formData.get("quoteId") ?? "").trim();
+    const clientId = String(formData.get("clientId") ?? "").trim();
+    const serviceName = String(formData.get("serviceName") ?? "").trim();
+    const subtotal = String(formData.get("subtotal") ?? "");
+    const tax = String(formData.get("tax") ?? "0");
+    const soldAt = String(formData.get("soldAt") ?? "").trim();
     const observation = String(formData.get("observation") ?? "");
     const paidAmount = String(formData.get("paidAmount") ?? "0");
     const paymentMethod = String(formData.get("paymentMethod") ?? "").trim();
     const receiptValue = formData.get("receipt");
     const receipt = receiptValue instanceof File && receiptValue.size > 0 ? receiptValue : null;
 
-    if (!quoteId) {
+    if (saleType !== "DIRECT" && saleType !== "QUOTE") {
+      return NextResponse.json({ error: "Selecciona el tipo de venta." }, { status: 400 });
+    }
+    if (saleType === "QUOTE" && !quoteId) {
       return NextResponse.json({ error: "Selecciona una cotización." }, { status: 400 });
     }
 
-    const sale = await convertQuoteToSale({
-      quoteId,
-      observation,
-      receipt,
-      paidAmount,
-      paymentMethod,
-      createdByEmail: session.email,
-      source: "MANUAL",
-    });
+    const sale = saleType === "DIRECT"
+      ? await createDirectSale({
+          clientId,
+          serviceName,
+          subtotal,
+          tax,
+          soldAt,
+          observation,
+          receipt,
+          paidAmount,
+          paymentMethod,
+          createdByEmail: session.email,
+        })
+      : await convertQuoteToSale({
+          quoteId,
+          observation,
+          receipt,
+          paidAmount,
+          paymentMethod,
+          createdByEmail: session.email,
+          source: "MANUAL",
+        });
 
     return NextResponse.json({ sale }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {

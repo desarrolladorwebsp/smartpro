@@ -124,6 +124,30 @@ async function nextNumber(): Promise<string> {
   return nextSaleNumber(latest?.number);
 }
 
+function parseDirectSaleAmount(value: unknown, label: string): number {
+  const raw = String(value ?? "").trim();
+  const amount = raw ? Number(raw) : 0;
+
+  if (!Number.isSafeInteger(amount) || amount < 0) {
+    throw new Error(`${label} debe ser un monto válido en pesos.`);
+  }
+
+  return amount;
+}
+
+function parseDirectSaleDate(value: unknown): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  const raw = String(value ?? "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (match) {
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
+    if (date.toISOString().slice(0, 10) === raw) return date;
+  }
+
+  throw new Error("Ingresa una fecha de venta válida.");
+}
+
 async function resolveExecutiveId(assignedExecutiveId: string | null, createdByEmail: string): Promise<string | null> {
   if (assignedExecutiveId) return assignedExecutiveId;
 
@@ -520,6 +544,96 @@ export async function convertQuoteToSale(input: {
     }
     throw error;
   }
+}
+
+/** Registra una venta manual directamente, sin cotización ni orden asociada. */
+export async function createDirectSale(input: {
+  clientId: string;
+  serviceName: string;
+  subtotal: unknown;
+  tax?: unknown;
+  soldAt?: unknown;
+  createdByEmail: string;
+  observation?: string;
+  receipt?: File | null;
+  paidAmount?: unknown;
+  paymentMethod?: unknown;
+}): Promise<SaleRecord> {
+  return withSalePaymentTable(async () => {
+    const clientId = String(input.clientId ?? "").trim();
+    if (!clientId) throw new Error("Selecciona un cliente.");
+
+    const client = await getClientById(clientId);
+    if (!client) throw new Error("El cliente de la venta no existe.");
+
+    const serviceName = String(input.serviceName ?? "").trim();
+    if (!serviceName) throw new Error("Describe el servicio de la venta.");
+    if (serviceName.length > 160) throw new Error("El detalle del servicio no puede superar 160 caracteres.");
+
+    const subtotal = parseDirectSaleAmount(input.subtotal, "El subtotal");
+    const tax = parseDirectSaleAmount(input.tax ?? 0, "El IVA");
+    const total = subtotal + tax;
+    if (subtotal < 1 || total < 1) throw new Error("El subtotal de la venta debe ser mayor a 0.");
+
+    const createdByEmail = String(input.createdByEmail ?? "").trim().toLowerCase();
+    if (!createdByEmail) throw new Error("No se pudo identificar al ejecutivo.");
+
+    const observation = parseSaleObservation(
+      [`Servicio: ${serviceName}`, String(input.observation ?? "").trim()].filter(Boolean).join("\n\n"),
+    );
+    const receipt = input.receipt && input.receipt.size > 0 ? input.receipt : null;
+    if (receipt) validateSaleReceiptUpload(receipt);
+
+    const soldAt = input.soldAt == null || input.soldAt === "" ? new Date() : parseDirectSaleDate(input.soldAt);
+    const paidAmount = parseDirectSaleAmount(input.paidAmount ?? 0, "El monto recibido");
+    if (paidAmount > total) throw new Error("El abono no puede superar el total de la venta.");
+    let paymentMethod: SaleManualPaymentMethod | null = null;
+    if (paidAmount > 0) {
+      paymentMethod = isSaleManualPaymentMethod(input.paymentMethod) ? input.paymentMethod : "other";
+    }
+
+    const executiveId = await resolveExecutiveId(client.assignedExecutiveId, createdByEmail);
+    const number = await nextNumber();
+    const db = getPrisma();
+    const created = await db.sale.create({
+      data: {
+        number,
+        status: "REGISTERED",
+        source: "MANUAL",
+        clientId: client.id,
+        executiveId,
+        createdByEmail,
+        soldAt,
+        observation,
+        paymentMethod,
+        subtotal,
+        tax,
+        total,
+      },
+      include: saleInclude,
+    });
+
+    if (paidAmount < 1) {
+      const sale = toSaleRecord(created);
+      return sale;
+    }
+
+    try {
+      const sale = await persistSalePayment(created.id, {
+        amount: paidAmount,
+        method: paymentMethod ?? "other",
+        source: "MANUAL",
+        createdByEmail,
+        observation,
+        receipt,
+        paidAt: soldAt,
+      });
+      return sale;
+    } catch (error) {
+      await db.sale.delete({ where: { id: created.id } }).catch(() => undefined);
+      throw error;
+    }
+  });
 }
 
 /** Punto de entrada para convertir una cotización aceptada. No registra pagos. */

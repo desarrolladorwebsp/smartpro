@@ -231,6 +231,10 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                         <Link href={`/dashboard/compras/${sale.orderId}`} className="font-medium text-primary hover:underline">
                           {sale.orderId}
                         </Link>
+                      ) : sale.source === "MANUAL" ? (
+                        <span className="text-muted">Venta directa</span>
+                      ) : sale.source === "EXTERNAL_API" ? (
+                        <span className="text-muted">API externa</span>
                       ) : (
                         <span className="text-muted">—</span>
                       )}
