@@ -609,3 +609,33 @@ model SalePayment {
   @@index([saleId])
   @@index([paidAt])
 }
+
+enum AdminNotificationType {
+  CLIENT_CREATED
+  QUOTE_CREATED
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  ORDER_CREATED
+  ORDER_PAID
+  SALE_REGISTERED
+  PAYMENT_RECEIVED
+}
+
+/// Avisos del panel administrativo: inbox compartido del equipo.
+model AdminNotification {
+  id         String                 @id @default(cuid())
+  type       AdminNotificationType
+  title      String
+  body       String                 @db.Text
+  href       String                 @default("")
+  entityType String                 @default("")
+  entityId   String                 @default("")
+  dedupeKey  String                 @unique
+  readAt     DateTime?
+  createdAt  DateTime               @default(now())
+
+  @@index([createdAt])
+  @@index([readAt])
+  @@index([type])
+}

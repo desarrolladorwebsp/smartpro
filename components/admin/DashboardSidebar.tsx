@@ -6,6 +6,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  Bell,
   FileText,
   Images,
   KeyRound,
@@ -22,6 +23,7 @@ import {
 
 const NAV_ITEMS = [
   { label: "Resumen", href: "/dashboard", icon: LayoutDashboard, adminOnly: false },
+  { label: "Notificaciones", href: "/dashboard/notificaciones", icon: Bell, adminOnly: false },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users, adminOnly: false },
   { label: "Cotizaciones", href: "/dashboard/cotizaciones", icon: FileText, adminOnly: false },
   { label: "Servicios", href: "/dashboard/servicios", icon: Package, adminOnly: false },

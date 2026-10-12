@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
+import { notifyClientCreated } from "../notifications/events";
 import { CLIENT_ORIGINS, type ClientOrigin, type QuoteMotive } from "./contact-options";
 import { emptyClientInterest, formatClientInterestLabel, resolveClientInterest } from "./interest";
 import { getCatalogTree } from "../services/repository";
@@ -442,7 +443,9 @@ export async function createClientRecord(input: ClientPayload): Promise<ClientRe
       include: { assignedExecutive: { select: ASSIGNED_EXECUTIVE_SELECT } },
     });
 
-    return toClientRecord(created);
+    const record = toClientRecord(created);
+    await notifyClientCreated(record);
+    return record;
   } catch (error) {
     if (isPrismaUniqueError(error, "rut")) {
       throw new Error("El RUT ya está registrado.");

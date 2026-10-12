@@ -2,7 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Bell, CalendarDays, FileText, Images, KeyRound, LayoutDashboard, Package, Plus, ShoppingBag, Users, UserCog, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Check, FileText, Images, KeyRound, LayoutDashboard, Package, Plus, ShoppingBag, UserCog, Users } from "lucide-react";
+
+import { NotificationCenter } from "@/components/admin/NotificationCenter";
 
 const HEADER_ICONS = {
   dashboard: LayoutDashboard,
@@ -14,6 +16,8 @@ const HEADER_ICONS = {
   ejecutivos: UserCog,
   portafolios: Images,
   apis: KeyRound,
+  notificaciones: Bell,
+  check: Check,
   back: ArrowLeft,
   plus: Plus,
 } as const;
@@ -143,14 +147,7 @@ export function DashboardPageHeader({
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:shrink-0 lg:justify-end">
           {trailing}
 
-          <button
-            type="button"
-            aria-label="Notificaciones"
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-navy transition hover:border-primary/25 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <Bell size={18} strokeWidth={1.8} />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-magenta ring-2 ring-white" />
-          </button>
+          <NotificationCenter />
 
           <DashboardHeaderClock />
 

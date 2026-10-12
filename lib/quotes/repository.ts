@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
 import { getClientById } from "../clients/repository";
+import { notifyQuoteCreated, notifyQuoteSent, notifyQuoteStatusChanged } from "../notifications/events";
 import { formatCurrency, TAX_RATE } from "../orders/service";
 import { getServicePlanById } from "../services/repository";
 import { QUOTE_DEFAULT_DELIVERY_DAYS, QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT, QUOTE_DEFAULT_VALIDITY_DAYS } from "./company";
@@ -328,7 +329,9 @@ export async function createQuoteRecord(input: {
         include: quoteInclude,
       });
 
-      return toQuoteRecord(created);
+      const record = toQuoteRecord(created);
+      await notifyQuoteCreated(record);
+      return record;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -360,11 +363,9 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus): Promis
     include: quoteInclude,
   });
 
-  // Conversión automática a venta: cuando este flujo se active, usar
-  // convertAcceptedQuoteToSale(id, createdByEmail) desde lib/sales.
-  // No registrar pagos en esa conversión.
-
-  return toQuoteRecord(updated);
+  const record = toQuoteRecord(updated);
+  await notifyQuoteStatusChanged(record);
+  return record;
 }
 
 export async function markQuoteSent(id: string): Promise<QuoteRecord> {
@@ -384,7 +385,9 @@ export async function markQuoteSent(id: string): Promise<QuoteRecord> {
     include: quoteInclude,
   });
 
-  return toQuoteRecord(updated);
+  const record = toQuoteRecord(updated);
+  await notifyQuoteSent(record);
+  return record;
 }
 
 export function formatQuoteTotals(quote: Pick<QuoteRecord, "subtotal" | "tax" | "total">) {

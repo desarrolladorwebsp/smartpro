@@ -5,6 +5,7 @@ import type { CustomerOrder } from "../orders/repository";
 import { canTransitionQuoteStatus } from "../quotes/status";
 import { getQuoteById, updateQuoteStatus } from "../quotes/repository";
 import { prisma } from "../db";
+import { notifySaleRegistered } from "../notifications/events";
 import {
   buildPaidOrderSaleDraft,
   isPaidOrderEligible,
@@ -179,6 +180,7 @@ export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<R
     });
 
     const sale = await applyPaidOrderPayment(created.id, draft);
+    await notifySaleRegistered(sale);
     return { sale, client, duplicate: false, skipped: false };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

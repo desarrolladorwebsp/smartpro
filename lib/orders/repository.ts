@@ -1,6 +1,7 @@
 import type { Order, OrderItem, Prisma } from "@prisma/client";
 
 import { getPrismaClient } from "../db";
+import { notifyOrderCreated, notifyOrderPaid } from "../notifications/events";
 import { buildOrderItems, buildOrderTotals, generateOrderId, TAX_RATE, type CartItemDraft } from "./service";
 
 export type CustomerOrder = {
@@ -215,6 +216,7 @@ export async function createOrderRecord(
   const paymentStatus = normalizePaymentStatus(orderInput.paymentStatus);
   const createdAt = orderInput.createdAt ? new Date(orderInput.createdAt) : undefined;
 
+  const wasPaid = paymentStatus === "paid";
   const row = await getPrisma().order.create({
     data: {
       id: orderInput.id ?? generateOrderId(),
@@ -247,7 +249,12 @@ export async function createOrderRecord(
     include: ORDER_INCLUDE,
   });
 
-  return rowToCustomerOrder(row);
+  const order = rowToCustomerOrder(row);
+  await notifyOrderCreated(order);
+  if (wasPaid) {
+    await notifyOrderPaid(order);
+  }
+  return order;
 }
 
 export async function updateOrderRecord(
@@ -315,7 +322,12 @@ export async function updateOrderRecord(
     include: ORDER_INCLUDE,
   });
 
-  return rowToCustomerOrder(row);
+  const order = rowToCustomerOrder(row);
+  const becamePaid = existing.paymentStatus !== "paid" && order.paymentStatus === "paid";
+  if (becamePaid) {
+    await notifyOrderPaid(order);
+  }
+  return order;
 }
 
 export async function updateOrderStatus(

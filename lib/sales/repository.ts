@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
 import { getClientById } from "../clients/repository";
+import { notifyPaymentReceived, notifySaleRegistered } from "../notifications/events";
 import { getQuoteById, listQuotesByClientId } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
@@ -221,6 +222,16 @@ async function persistSalePaymentOnce(saleId: string, input: SalePaymentInput): 
   if (!sale) {
     throw new Error("No se pudo cargar la venta después de registrar el pago.");
   }
+
+  await notifyPaymentReceived({
+    id: created.id,
+    saleId: sale.id,
+    saleNumber: sale.number,
+    clientId: sale.clientId,
+    clientCompany: sale.clientCompany,
+    amount: input.amount,
+  });
+
   return sale;
 }
 
@@ -419,7 +430,7 @@ export async function createExternalSale(input: ExternalSaleInput): Promise<Sale
     include: saleInclude,
   });
 
-  return persistSalePayment(created.id, {
+  const sale = await persistSalePayment(created.id, {
     amount: input.total,
     method: input.paymentMethod,
     source: "EXTERNAL_API",
@@ -427,6 +438,8 @@ export async function createExternalSale(input: ExternalSaleInput): Promise<Sale
     observation: input.observation,
     paidAt: input.soldAt,
   });
+  await notifySaleRegistered(sale);
+  return sale;
 }
 
 export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | null> {
@@ -523,11 +536,13 @@ export async function convertQuoteToSale(input: {
     });
 
     if (paidAmount < 1) {
-      return toSaleRecord(created);
+      const sale = toSaleRecord(created);
+      await notifySaleRegistered(sale);
+      return sale;
     }
 
     try {
-      return await persistSalePayment(created.id, {
+      const sale = await persistSalePayment(created.id, {
         amount: paidAmount,
         method: paymentMethod ?? "other",
         source: "MANUAL",
@@ -535,6 +550,8 @@ export async function convertQuoteToSale(input: {
         observation,
         receipt,
       });
+      await notifySaleRegistered(sale);
+      return sale;
     } catch (error) {
       await db.sale.delete({ where: { id: created.id } }).catch(() => undefined);
       throw error;
@@ -616,6 +633,7 @@ export async function createDirectSale(input: {
 
     if (paidAmount < 1) {
       const sale = toSaleRecord(created);
+      await notifySaleRegistered(sale);
       return sale;
     }
 
@@ -629,6 +647,7 @@ export async function createDirectSale(input: {
         receipt,
         paidAt: soldAt,
       });
+      await notifySaleRegistered(sale);
       return sale;
     } catch (error) {
       await db.sale.delete({ where: { id: created.id } }).catch(() => undefined);
