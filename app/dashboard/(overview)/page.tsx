@@ -11,18 +11,64 @@ import type { SalesSummary } from "@/lib/sales/summary";
 
 export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
+export default function DashboardPage({ searchParams }: { searchParams: DashboardSearchParams }) {
   return (
     <Suspense fallback={<OverviewPageSkeleton />}>
-      <DashboardOverview />
+      <DashboardOverview searchParams={searchParams} />
     </Suspense>
   );
 }
 
 const METHOD_ORDER: SalePaymentMethod[] = [...SALE_PAYMENT_METHODS];
+const BUSINESS_TIME_ZONE = "America/Santiago";
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("es-CL", {
+  month: "long",
+  timeZone: "UTC",
+});
+const MONTHS = Array.from({ length: 12 }, (_, index) => ({
+  value: index + 1,
+  label: MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(2026, index, 15))),
+}));
 
-async function DashboardOverview() {
+type DashboardSearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function currentBusinessPeriod() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(new Date());
+
+  return {
+    year: Number(parts.find((part) => part.type === "year")?.value),
+    month: Number(parts.find((part) => part.type === "month")?.value),
+  };
+}
+
+function getSingleParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getMonthLabel(month: number, year: number) {
+  const monthName = MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(year, month - 1, 15)));
+  return `${monthName} ${year}`;
+}
+
+async function DashboardOverview({ searchParams }: { searchParams: DashboardSearchParams }) {
   await requireAdminSession();
+
+  const query = await searchParams;
+  const currentPeriod = currentBusinessPeriod();
+  const requestedMonth = Number(getSingleParam(query.month));
+  const requestedYear = Number(getSingleParam(query.year));
+  const month = Number.isInteger(requestedMonth) && requestedMonth >= 1 && requestedMonth <= 12
+    ? requestedMonth
+    : currentPeriod.month;
+  const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= currentPeriod.year
+    ? requestedYear
+    : currentPeriod.year;
+  const period = { month, year };
+  const periodLabel = getMonthLabel(month, year);
 
   let summary: SalesSummary = {
     soldTotal: 0,
@@ -34,7 +80,7 @@ async function DashboardOverview() {
   };
 
   try {
-    summary = await getSalesSummary();
+    summary = await getSalesSummary(period);
   } catch (error) {
     console.error("[smartpro:dashboard:overview] No se pudo cargar el resumen comercial", error);
   }
@@ -50,16 +96,34 @@ async function DashboardOverview() {
         icon="dashboard"
         eyebrow="Gestión operativa"
         title="Resumen"
+        trailing={
+          <form method="get" action="/dashboard" aria-label="Filtrar resumen por mes y año" className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-muted">Mes</span>
+              <select name="month" defaultValue={String(month)} className="dashboard-field min-w-32 py-2 text-sm">
+                {MONTHS.map((entry) => (
+                  <option key={entry.value} value={entry.value}>{entry.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-muted">Año</span>
+              <select name="year" defaultValue={String(year)} className="dashboard-field min-w-24 py-2 text-sm">
+                {Array.from({ length: Math.max(1, currentPeriod.year - 2000 + 1) }, (_, index) => currentPeriod.year - index).map((optionYear) => (
+                  <option key={optionYear} value={optionYear}>{optionYear}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="min-h-10 rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white">
+              Ver periodo
+            </button>
+          </form>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-[24px] border border-border bg-white p-5 shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
-          <p className="text-sm text-muted">Ventas total</p>
-          <p className="mt-3 text-3xl font-bold tracking-[-0.05em] text-foreground">{formatCurrency(summary.soldTotal)}</p>
-        </div>
-
-        <div className="rounded-[24px] border border-border bg-white p-5 shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
-          <p className="text-sm text-muted">Ventas del mes</p>
+          <p className="text-sm text-muted">Ventas · {periodLabel}</p>
           <p className="mt-3 text-3xl font-bold tracking-[-0.05em] text-foreground">{formatCurrency(summary.soldMonth)}</p>
         </div>
         <div className="rounded-[24px] border border-border bg-white p-5 shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
@@ -68,14 +132,14 @@ async function DashboardOverview() {
         </div>
 
         <div className="rounded-[24px] border border-border bg-white p-5 shadow-[0_12px_30px_rgba(16,16,36,0.04)]">
-          <p className="text-sm text-muted">Cobrado del mes</p>
+          <p className="text-sm text-muted">Cobrado · {periodLabel}</p>
           <p className="mt-3 text-3xl font-bold tracking-[-0.05em] text-foreground">{formatCurrency(summary.collectedMonth)}</p>
         </div>
 
         <div className="rounded-[24px] border border-border bg-white p-5 shadow-[0_12px_30px_rgba(16,16,36,0.04)] md:col-span-2">
-          <p className="text-sm text-muted">Cómo nos pagaron este mes</p>
+          <p className="text-sm text-muted">Medios de pago · {periodLabel}</p>
           {methodEntries.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Aún no hay cobros registrados este mes.</p>
+            <p className="mt-3 text-sm text-muted">Aún no hay cobros registrados en {periodLabel}.</p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
               {methodEntries.map((entry) => (

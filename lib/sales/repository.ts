@@ -9,6 +9,7 @@ import { parseSalePaymentAmount } from "./balances";
 import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import { withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
+import type { SalesPeriod } from "./summary";
 import {
   isSaleManualPaymentMethod,
   isSalePaymentMethod,
@@ -264,8 +265,8 @@ export async function addSalePayment(
   });
 }
 
-export async function getSalesSummary() {
-  return buildSalesSummary(await listSales());
+export async function getSalesSummary(period?: SalesPeriod) {
+  return buildSalesSummary(await listSales(), new Date(), period);
 }
 
 export async function recordPaidOrderPayment(input: {
