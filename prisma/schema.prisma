@@ -418,6 +418,7 @@ model Order {
   apiExternalReference    String        @default("")
   items                   OrderItem[]
   sale                    Sale?
+  salePayments            SalePayment[]
 
   @@index([customerEmail])
   @@index([orderStatus])
@@ -573,10 +574,38 @@ model Sale {
   total            Decimal         @db.Decimal(12, 2)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
+  payments         SalePayment[]
 
   @@index([clientId])
   @@index([executiveId])
   @@index([status])
   @@index([soldAt])
   @@index([apiClientId])
+}
+
+enum SalePaymentSource {
+  ORDER_PAID
+  MANUAL
+  EXTERNAL_API
+}
+
+model SalePayment {
+  id              String            @id @default(cuid())
+  saleId          String
+  sale            Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount          Decimal           @db.Decimal(12, 2)
+  method          PaymentMethod
+  paidAt          DateTime          @default(now())
+  receiptPath     String            @default("")
+  receiptFileName String            @default("")
+  orderId         String?           @unique
+  order           Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  source          SalePaymentSource @default(MANUAL)
+  createdByEmail  String
+  observation     String            @default("") @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([saleId])
+  @@index([paidAt])
 }

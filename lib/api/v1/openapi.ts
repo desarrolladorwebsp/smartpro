@@ -697,6 +697,7 @@ export function buildOpenApiDocument(serverUrl: string) {
             source: { type: "string", enum: ["MANUAL", "QUOTE_ACCEPTED", "ORDER_PAID", "EXTERNAL_API"] },
             soldAt: { type: "string", format: "date-time" },
             paymentMethod: { type: ["string", "null"] },
+            paymentStatus: { type: "string", enum: ["UNPAID", "PARTIAL", "PAID"] },
             externalReference: { type: "string" },
             orderId: { type: ["string", "null"] },
             quoteNumber: { type: ["string", "null"] },
@@ -707,6 +708,8 @@ export function buildOpenApiDocument(serverUrl: string) {
                 subtotal: { $ref: "#/components/schemas/Money" },
                 tax: { $ref: "#/components/schemas/Money" },
                 total: { $ref: "#/components/schemas/Money" },
+                paid: { $ref: "#/components/schemas/Money" },
+                balance: { $ref: "#/components/schemas/Money" },
               },
             },
             client: {

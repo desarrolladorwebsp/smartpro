@@ -1,4 +1,13 @@
 import type { QuoteRecord } from "../quotes/types";
+import {
+  getBalanceDue,
+  getCollectionStatus,
+  sumPaidAmount,
+  type SaleCollectionStatus,
+} from "./balances";
+
+export type { SaleCollectionStatus } from "./balances";
+export { getSaleCollectionStatusLabel, SALE_COLLECTION_STATUSES, SALE_COLLECTION_STATUS_LABELS } from "./balances";
 
 export type QuoteForSaleConversion = {
   quote: QuoteRecord;
@@ -45,6 +54,34 @@ export function getSalePaymentMethodLabel(method: SalePaymentMethod | null | und
   return SALE_PAYMENT_METHOD_LABELS[method] ?? method;
 }
 
+export const SALE_MANUAL_PAYMENT_METHODS = ["transfer", "cash", "other"] as const;
+export type SaleManualPaymentMethod = (typeof SALE_MANUAL_PAYMENT_METHODS)[number];
+
+export function isSaleManualPaymentMethod(value: unknown): value is SaleManualPaymentMethod {
+  return SALE_MANUAL_PAYMENT_METHODS.includes(value as SaleManualPaymentMethod);
+}
+
+export const SALE_PAYMENT_SOURCES = ["ORDER_PAID", "MANUAL", "EXTERNAL_API"] as const;
+export type SalePaymentSource = (typeof SALE_PAYMENT_SOURCES)[number];
+
+export function isSalePaymentSource(value: unknown): value is SalePaymentSource {
+  return SALE_PAYMENT_SOURCES.includes(value as SalePaymentSource);
+}
+
+export type SalePaymentRecord = {
+  id: string;
+  saleId: string;
+  amount: number;
+  method: SalePaymentMethod;
+  paidAt: string;
+  receiptPath: string;
+  receiptFileName: string;
+  orderId: string | null;
+  source: SalePaymentSource;
+  createdByEmail: string;
+  observation: string;
+};
+
 export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
   REGISTERED: "Registrada",
   IN_PROGRESS: "En progreso",
@@ -76,9 +113,29 @@ export type SaleRecord = {
   subtotal: number;
   tax: number;
   total: number;
+  paidAmount: number;
+  balanceDue: number;
+  collectionStatus: SaleCollectionStatus;
+  payments: SalePaymentRecord[];
   createdAt: string;
   updatedAt: string;
 };
+
+export function withSalePaymentTotals<T extends Pick<SaleRecord, "total" | "payments" | "receiptPath" | "receiptFileName">>(
+  sale: T,
+): T & Pick<SaleRecord, "paidAmount" | "balanceDue" | "collectionStatus" | "receiptPath" | "receiptFileName"> {
+  const paidAmount = sumPaidAmount(sale.payments);
+  const lastReceipt = [...(sale.payments ?? [])].reverse().find((payment) => payment.receiptPath);
+
+  return {
+    ...sale,
+    paidAmount,
+    balanceDue: getBalanceDue(sale.total, paidAmount),
+    collectionStatus: getCollectionStatus(sale.total, paidAmount),
+    receiptPath: lastReceipt?.receiptPath || sale.receiptPath,
+    receiptFileName: lastReceipt?.receiptFileName || sale.receiptFileName,
+  };
+}
 
 export function isSaleStatus(value: unknown): value is SaleStatus {
   return SALE_STATUSES.includes(value as SaleStatus);

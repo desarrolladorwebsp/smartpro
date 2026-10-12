@@ -32,6 +32,8 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const quoteId = String(formData.get("quoteId") ?? "").trim();
     const observation = String(formData.get("observation") ?? "");
+    const paidAmount = String(formData.get("paidAmount") ?? "0");
+    const paymentMethod = String(formData.get("paymentMethod") ?? "").trim();
     const receiptValue = formData.get("receipt");
     const receipt = receiptValue instanceof File && receiptValue.size > 0 ? receiptValue : null;
 
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
       quoteId,
       observation,
       receipt,
+      paidAmount,
+      paymentMethod,
       createdByEmail: session.email,
       source: "MANUAL",
     });

@@ -3,6 +3,12 @@ import type { SalePaymentMethod, SaleSource } from "./types";
 
 export const ONLINE_SALE_CREATED_BY_EMAIL = "checkout@smartpro.cl";
 
+export type PaidOrderSaleAmounts = {
+  subtotal: number;
+  tax: number;
+  total: number;
+};
+
 export type PaidOrderSaleDraft = {
   orderId: string;
   quoteId: string | null;
@@ -16,6 +22,7 @@ export type PaidOrderSaleDraft = {
   subtotal: number;
   tax: number;
   total: number;
+  paymentAmount: number;
   soldAt: string;
   source: Extract<SaleSource, "ORDER_PAID">;
   createdByEmail: string;
@@ -78,7 +85,10 @@ export function isPaidOrderEligible(order: Pick<CustomerOrder, "paymentStatus"> 
   return order?.paymentStatus === "paid";
 }
 
-export function buildPaidOrderSaleDraft(order: CustomerOrder | null | undefined): PaidOrderSaleDraft {
+export function buildPaidOrderSaleDraft(
+  order: CustomerOrder | null | undefined,
+  saleAmounts?: PaidOrderSaleAmounts | null,
+): PaidOrderSaleDraft {
   if (!order || typeof order !== "object") {
     throw new PaidOrderSaleValidationError("La orden pagada no es válida.");
   }
@@ -114,6 +124,20 @@ export function buildPaidOrderSaleDraft(order: CustomerOrder | null | undefined)
     throw new PaidOrderSaleValidationError("Los montos de la orden no coinciden.");
   }
 
+  const dealSubtotal = saleAmounts ? asMoney(saleAmounts.subtotal, "El subtotal de la venta") : subtotal;
+  const dealTax = saleAmounts ? asMoney(saleAmounts.tax, "El IVA de la venta") : tax;
+  const dealTotal = saleAmounts ? asMoney(saleAmounts.total, "El total de la venta") : total;
+
+  if (dealTotal < 1) {
+    throw new PaidOrderSaleValidationError("El total de la venta debe ser mayor a 0.");
+  }
+
+  if (Math.round(dealSubtotal + dealTax) !== dealTotal) {
+    throw new PaidOrderSaleValidationError("Los montos de la cotización no coinciden.");
+  }
+
+  const paymentAmount = Math.min(total, dealTotal);
+
   const quoteIdRaw = order.quoteId == null || order.quoteId === "" ? null : order.quoteId;
   if (quoteIdRaw != null && typeof quoteIdRaw !== "string") {
     throw new PaidOrderSaleValidationError("La cotización asociada no es válida.");
@@ -135,9 +159,10 @@ export function buildPaidOrderSaleDraft(order: CustomerOrder | null | undefined)
     contactFirstName,
     contactLastName,
     paymentMethod: order.paymentMethod,
-    subtotal,
-    tax,
-    total,
+    subtotal: dealSubtotal,
+    tax: dealTax,
+    total: dealTotal,
+    paymentAmount,
     soldAt,
     source: "ORDER_PAID",
     createdByEmail: ONLINE_SALE_CREATED_BY_EMAIL,

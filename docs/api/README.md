@@ -434,8 +434,12 @@ Si el correo ya existe en el CRM se reutiliza la ficha en vez de duplicarla. Si 
 `externalReference` que ya se registró, la respuesta es `200` con `duplicate: true` y la venta
 existente.
 
+Una venta reportada por este endpoint queda cobrada al 100%: `amounts.paid` coincide con
+`amounts.total`, `amounts.balance` es `0` y `paymentStatus` es `PAID`.
+
 También hay `GET /api/v1/sales` y `GET /api/v1/sales/{id}`, que devuelven únicamente las ventas
-de esa aplicación.
+de esa aplicación. Además del total incluyen `amounts.paid`, `amounts.balance` y `paymentStatus`
+(`UNPAID`, `PARTIAL` o `PAID`).
 
 ---
 

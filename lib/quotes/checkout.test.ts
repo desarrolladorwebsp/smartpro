@@ -49,10 +49,19 @@ function makeQuote(overrides: Partial<QuoteRecord> = {}): QuoteRecord {
   };
 }
 
-test("buildQuoteCheckoutOrder usa montos y cliente de la cotización, no del request", () => {
+test("buildQuoteCheckoutOrder cobra solo el abono inicial de la cotización", () => {
   const checkout = buildQuoteCheckoutOrder(makeQuote());
 
   assert.equal(checkout.customer.email, "ana@empresa.cl");
+  assert.equal(checkout.total, 59500);
+  assert.equal(checkout.subtotal, 50000);
+  assert.equal(checkout.items[0]?.name.includes("Abono inicial 50%"), true);
+  assert.equal(checkout.items[0]?.source, "quote-abono");
+});
+
+test("buildQuoteCheckoutOrder cobra el total si el abono es 100%", () => {
+  const checkout = buildQuoteCheckoutOrder(makeQuote({ initialPaymentPercent: 100 }));
+
   assert.equal(checkout.total, 119000);
   assert.equal(checkout.items[0]?.unitPrice, 100000);
   assert.equal(checkout.items[0]?.source, "quote");
@@ -61,6 +70,7 @@ test("buildQuoteCheckoutOrder usa montos y cliente de la cotización, no del req
 test("buildQuoteCheckoutOrder acepta un servicio único sin plan de catálogo", () => {
   const checkout = buildQuoteCheckoutOrder(
     makeQuote({
+      initialPaymentPercent: 100,
       items: [
         {
           ...makeQuote().items[0],

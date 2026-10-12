@@ -5,14 +5,22 @@ import { getClientById } from "../clients/repository";
 import { getQuoteById, listQuotesByClientId } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
+import { parseSalePaymentAmount } from "./balances";
 import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
+import { buildSalesSummary } from "./summary";
 import {
+  isSaleManualPaymentMethod,
   isSalePaymentMethod,
+  isSalePaymentSource,
   isSaleSource,
   isSaleStatus,
   parseSaleObservation,
+  withSalePaymentTotals,
   type QuoteForSaleConversion,
+  type SaleManualPaymentMethod,
   type SalePaymentMethod,
+  type SalePaymentRecord,
+  type SalePaymentSource,
   type SaleRecord,
   type SaleSource,
 } from "./types";
@@ -25,6 +33,7 @@ type SaleRow = Prisma.SaleGetPayload<{
     quote: true;
     order: true;
     executive: true;
+    payments: true;
   };
 }>;
 
@@ -41,12 +50,32 @@ function decimalToNumber(value: Prisma.Decimal | number | null | undefined): num
   return Number(value);
 }
 
+function toPaymentRecord(row: SaleRow["payments"][number]): SalePaymentRecord {
+  return {
+    id: row.id,
+    saleId: row.saleId,
+    amount: decimalToNumber(row.amount),
+    method: isSalePaymentMethod(row.method) ? row.method : "other",
+    paidAt: row.paidAt.toISOString(),
+    receiptPath: row.receiptPath,
+    receiptFileName: row.receiptFileName,
+    orderId: row.orderId ?? null,
+    source: isSalePaymentSource(row.source) ? row.source : "MANUAL",
+    createdByEmail: row.createdByEmail,
+    observation: row.observation,
+  };
+}
+
 function toSaleRecord(row: SaleRow): SaleRecord {
   const executiveName = row.executive
     ? `${row.executive.firstName} ${row.executive.lastName ?? ""}`.trim() || row.executive.email
     : "Sin asignar";
 
-  return {
+  const payments = [...row.payments]
+    .sort((a, b) => a.paidAt.getTime() - b.paidAt.getTime())
+    .map(toPaymentRecord);
+
+  return withSalePaymentTotals({
     id: row.id,
     number: row.number,
     status: isSaleStatus(row.status) ? row.status : "REGISTERED",
@@ -70,9 +99,10 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     subtotal: decimalToNumber(row.subtotal),
     tax: decimalToNumber(row.tax),
     total: decimalToNumber(row.total),
+    payments,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-  };
+  });
 }
 
 const saleInclude = {
@@ -80,6 +110,7 @@ const saleInclude = {
   quote: true,
   order: true,
   executive: true,
+  payments: true,
 } as const;
 
 async function nextNumber(): Promise<string> {
@@ -101,6 +132,143 @@ async function resolveExecutiveId(assignedExecutiveId: string | null, createdByE
   });
 
   return user?.id ?? null;
+}
+
+export type SalePaymentInput = {
+  amount: number;
+  method: SalePaymentMethod;
+  source: SalePaymentSource;
+  createdByEmail: string;
+  observation?: string;
+  orderId?: string | null;
+  receipt?: File | null;
+  paidAt?: Date;
+};
+
+async function persistSalePayment(saleId: string, input: SalePaymentInput): Promise<SaleRecord> {
+  const db = getPrisma();
+  const created = await db.salePayment.create({
+    data: {
+      saleId,
+      amount: input.amount,
+      method: input.method,
+      source: input.source,
+      createdByEmail: input.createdByEmail,
+      observation: parseSaleObservation(input.observation),
+      orderId: input.orderId ?? null,
+      paidAt: input.paidAt ?? new Date(),
+    },
+  });
+
+  let receiptPath = "";
+  let receiptFileName = "";
+  if (input.receipt && input.receipt.size > 0) {
+    try {
+      const saved = await saveSaleReceiptUpload(created.id, input.receipt);
+      receiptPath = saved.path;
+      receiptFileName = saved.fileName;
+      await db.salePayment.update({
+        where: { id: created.id },
+        data: { receiptPath, receiptFileName },
+      });
+    } catch (error) {
+      await db.salePayment.delete({ where: { id: created.id } }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  await db.sale.update({
+    where: { id: saleId },
+    data: {
+      paymentMethod: input.method,
+      ...(receiptPath
+        ? { receiptPath, receiptFileName }
+        : {}),
+    },
+  });
+
+  const sale = await getSaleById(saleId);
+  if (!sale) {
+    throw new Error("No se pudo cargar la venta después de registrar el pago.");
+  }
+  return sale;
+}
+
+export async function addSalePayment(
+  saleId: string,
+  input: {
+    amount: unknown;
+    method: unknown;
+    createdByEmail: string;
+    observation?: string;
+    receipt?: File | null;
+  },
+): Promise<SaleRecord> {
+  const sale = await getSaleById(saleId);
+  if (!sale) {
+    throw new Error("La venta no existe.");
+  }
+  if (sale.status === "CANCELLED") {
+    throw new Error("No se pueden registrar abonos en una venta cancelada.");
+  }
+
+  const amount = parseSalePaymentAmount(input.amount, sale.balanceDue);
+  if (amount < 1) {
+    throw new Error("El abono debe ser mayor a 0.");
+  }
+  if (!isSaleManualPaymentMethod(input.method)) {
+    throw new Error("Selecciona un medio de pago válido.");
+  }
+
+  const receipt = input.receipt && input.receipt.size > 0 ? input.receipt : null;
+  if (receipt) {
+    validateSaleReceiptUpload(receipt);
+  }
+
+  return persistSalePayment(sale.id, {
+    amount,
+    method: input.method,
+    source: "MANUAL",
+    createdByEmail: String(input.createdByEmail ?? "").trim().toLowerCase(),
+    observation: input.observation,
+    receipt,
+  });
+}
+
+export async function getSalesSummary() {
+  return buildSalesSummary(await listSales());
+}
+
+export async function recordPaidOrderPayment(input: {
+  saleId: string;
+  amount: number;
+  method: SalePaymentMethod;
+  orderId: string;
+  createdByEmail: string;
+  observation: string;
+}): Promise<SaleRecord> {
+  const existing = await getPrisma().salePayment.findUnique({
+    where: { orderId: input.orderId },
+  });
+  if (existing) {
+    const sale = await getSaleById(input.saleId);
+    if (!sale) throw new Error("La venta no existe.");
+    return sale;
+  }
+
+  const sale = await getSaleById(input.saleId);
+  if (!sale) throw new Error("La venta no existe.");
+  const amount = parseSalePaymentAmount(input.amount, sale.balanceDue);
+  if (amount < 1) return sale;
+
+  return persistSalePayment(sale.id, {
+    amount,
+    method: input.method,
+    source: "ORDER_PAID",
+    createdByEmail: input.createdByEmail,
+    observation: input.observation,
+    orderId: input.orderId,
+  });
 }
 
 export async function listSales(): Promise<SaleRecord[]> {
@@ -200,7 +368,14 @@ export async function createExternalSale(input: ExternalSaleInput): Promise<Sale
     include: saleInclude,
   });
 
-  return toSaleRecord(created);
+  return persistSalePayment(created.id, {
+    amount: input.total,
+    method: input.paymentMethod,
+    source: "EXTERNAL_API",
+    createdByEmail: input.createdByEmail,
+    observation: input.observation,
+    paidAt: input.soldAt,
+  });
 }
 
 export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | null> {
@@ -235,6 +410,8 @@ export async function convertQuoteToSale(input: {
   observation?: string;
   receipt?: File | null;
   source?: SaleSource;
+  paidAmount?: unknown;
+  paymentMethod?: unknown;
 }): Promise<SaleRecord> {
   const source = input.source ?? "MANUAL";
   const createdByEmail = String(input.createdByEmail ?? "").trim().toLowerCase();
@@ -260,6 +437,14 @@ export async function convertQuoteToSale(input: {
   if (receipt) {
     validateSaleReceiptUpload(receipt);
   }
+  const paidAmount = parseSalePaymentAmount(input.paidAmount ?? 0, quote.total);
+  let paymentMethod: SaleManualPaymentMethod | null = null;
+  if (paidAmount > 0) {
+    if (!isSaleManualPaymentMethod(input.paymentMethod)) {
+      throw new Error("Selecciona un medio de pago para el monto recibido.");
+    }
+    paymentMethod = input.paymentMethod;
+  }
 
   const executiveId = await resolveExecutiveId(client.assignedExecutiveId, createdByEmail);
   const number = await nextNumber();
@@ -276,6 +461,7 @@ export async function convertQuoteToSale(input: {
         executiveId,
         createdByEmail,
         observation,
+        paymentMethod,
         subtotal: quote.subtotal,
         tax: quote.tax,
         total: quote.total,
@@ -283,18 +469,19 @@ export async function convertQuoteToSale(input: {
       include: saleInclude,
     });
 
-    if (!receipt) {
+    if (paidAmount < 1) {
       return toSaleRecord(created);
     }
 
     try {
-      const savedReceipt = await saveSaleReceiptUpload(created.id, receipt);
-      const updated = await db.sale.update({
-        where: { id: created.id },
-        data: { receiptPath: savedReceipt.path, receiptFileName: savedReceipt.fileName },
-        include: saleInclude,
+      return await persistSalePayment(created.id, {
+        amount: paidAmount,
+        method: paymentMethod ?? "other",
+        source: "MANUAL",
+        createdByEmail,
+        observation,
+        receipt,
       });
-      return toSaleRecord(updated);
     } catch (error) {
       await db.sale.delete({ where: { id: created.id } }).catch(() => undefined);
       throw error;

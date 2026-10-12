@@ -7,6 +7,7 @@ import { QuoteCommercialTerms } from "@/components/admin/QuoteCommercialTerms";
 import { QuotePaymentActions } from "@/components/quotes/QuotePaymentActions";
 import { SMARTPRO_COMPANY } from "@/lib/quotes/company";
 import { getQuotePaymentBlockReason } from "@/lib/quotes/checkout";
+import { quoteDepositAmounts } from "@/lib/quotes/fields";
 import { getQuoteForAccessToken } from "@/lib/quotes/pay";
 import { formatCurrency } from "@/lib/orders/service";
 import { getSaleByQuoteId } from "@/lib/sales/repository";
@@ -74,6 +75,7 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
 
   const blockReason = getQuotePaymentBlockReason(quote, alreadySold);
   const taxPercent = Math.round((quote.items[0]?.taxRate ?? 0.19) * 100);
+  const deposit = quoteDepositAmounts(quote);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -181,7 +183,15 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
           </div>
 
           <div className="mt-8">
-            <QuotePaymentActions token={token} autoPay={autoPay} disabled={Boolean(blockReason)} disabledReason={blockReason} />
+            <QuotePaymentActions
+              token={token}
+              autoPay={autoPay}
+              disabled={Boolean(blockReason)}
+              disabledReason={blockReason}
+              depositLabel={deposit.isFull ? null : `el abono inicial del ${deposit.percent}%`}
+              depositAmountLabel={formatCurrency(deposit.total)}
+              remainingAmountLabel={deposit.isFull ? null : formatCurrency(quote.total - deposit.total)}
+            />
           </div>
 
           {quote.notes ? (

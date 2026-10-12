@@ -11,16 +11,21 @@ import type { SaleRecord } from "@/lib/sales/types";
 
 export const dynamic = "force-dynamic";
 
-export default function SalesPage() {
+type SalesPageProps = {
+  searchParams: Promise<{ clientId?: string }>;
+};
+
+export default function SalesPage({ searchParams }: SalesPageProps) {
   return (
     <Suspense fallback={<SalesPageSkeleton />}>
-      <SalesPageContent />
+      <SalesPageContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function SalesPageContent() {
+async function SalesPageContent({ searchParams }: SalesPageProps) {
   await requireAdminSession();
+  const params = await searchParams;
 
   let sales: SaleRecord[] = [];
   let clients: ClientRecord[] = [];
@@ -44,5 +49,5 @@ async function SalesPageContent() {
     );
   }
 
-  return <SalesDashboard initialSales={sales} clients={clients} />;
+  return <SalesDashboard initialSales={sales} clients={clients} initialClientId={params.clientId} />;
 }

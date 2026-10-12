@@ -5,12 +5,16 @@ import { X } from "lucide-react";
 
 import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
+import { quoteDepositAmounts } from "@/lib/quotes/fields";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
 import {
+  getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
+  SALE_MANUAL_PAYMENT_METHODS,
   SALE_OBSERVATION_MAX_LENGTH,
   SALE_RECEIPT_ACCEPT,
   type QuoteForSaleConversion,
+  type SaleManualPaymentMethod,
   type SaleRecord,
 } from "@/lib/sales/types";
 
@@ -42,6 +46,8 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState("");
   const [observation, setObservation] = useState("");
+  const [paidAmount, setPaidAmount] = useState("0");
+  const [paymentMethod, setPaymentMethod] = useState<SaleManualPaymentMethod | "">("transfer");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -56,16 +62,22 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      quotesRequestRef.current += 1;
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      quotesRequestRef.current += 1;
+    };
+  }, []);
 
   async function loadQuotesForClient(nextClientId: string) {
     const requestId = ++quotesRequestRef.current;
     setClientId(nextClientId);
     setQuoteId("");
+    setPaidAmount("0");
     setQuotes([]);
     setQuotesError("");
     setSubmitError("");
@@ -104,6 +116,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     [quotes, quoteId],
   );
   const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
+  const deposit = selectedQuote ? quoteDepositAmounts(selectedQuote) : null;
 
   async function convert() {
     if (isSavingRef.current) return;
@@ -131,6 +144,8 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       const formData = new FormData();
       formData.append("quoteId", selectedQuote.id);
       formData.append("observation", observation);
+      formData.append("paidAmount", paidAmount);
+      formData.append("paymentMethod", paymentMethod);
       if (receipt && receipt.size > 0) {
         formData.append("receipt", receipt);
       }
@@ -165,7 +180,9 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
             <h2 id="sale-create-title" className="mt-1 text-2xl font-bold tracking-[-0.05em] text-foreground">
               Nueva venta
             </h2>
-            <p className="mt-1 text-sm text-muted">Selecciona un cliente, su cotización y adjunta el comprobante si corresponde.</p>
+            <p className="mt-1 text-sm text-muted">
+              Convierte la cotización y registra cuánto se recibió ahora. El saldo queda como cuenta por cobrar.
+            </p>
           </div>
           <button
             type="button"
@@ -203,8 +220,15 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
             <select
               value={quoteId}
               onChange={(event) => {
-                setQuoteId(event.target.value);
+                const nextId = event.target.value;
+                setQuoteId(nextId);
                 setSubmitError("");
+                const next = quotes.find((entry) => entry.quote.id === nextId);
+                if (next?.convertible) {
+                  setPaidAmount(String(quoteDepositAmounts(next.quote).total));
+                } else {
+                  setPaidAmount("0");
+                }
               }}
               className="dashboard-field"
               disabled={!clientId || isLoadingQuotes || isSaving}
@@ -261,9 +285,47 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 <div className="flex justify-between gap-3"><span className="text-muted">Subtotal</span><span>{formatCurrency(selectedQuote.subtotal)}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted">IVA</span><span>{formatCurrency(selectedQuote.tax)}</span></div>
                 <div className="flex justify-between gap-3 font-semibold"><span>Total</span><span className="text-primary">{formatCurrency(selectedQuote.total)}</span></div>
+                {deposit && !deposit.isFull ? (
+                  <div className="flex justify-between gap-3 text-muted">
+                    <span>Abono inicial ({deposit.percent}%)</span>
+                    <span>{formatCurrency(deposit.total)}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto recibido ahora</span>
+              <input
+                type="number"
+                min={0}
+                max={selectedQuote?.total ?? undefined}
+                step={1}
+                value={paidAmount}
+                onChange={(event) => setPaidAmount(event.target.value)}
+                className="dashboard-field"
+                disabled={isSaving || !selectedQuote}
+              />
+              <p className="mt-1.5 text-xs text-muted">0 deja la venta como deuda. Puedes registrar el abono o el total.</p>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-foreground">Medio de pago</span>
+              <select
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value as SaleManualPaymentMethod | "")}
+                className="dashboard-field"
+                disabled={isSaving || Number(paidAmount) <= 0}
+              >
+                {SALE_MANUAL_PAYMENT_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {getSalePaymentMethodLabel(method)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Observación</span>

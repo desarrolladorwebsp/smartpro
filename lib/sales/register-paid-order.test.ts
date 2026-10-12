@@ -17,7 +17,10 @@ test.afterEach(async () => {
   const prisma = getPrismaClient();
   while (created.saleIds.length) {
     const id = created.saleIds.pop();
-    if (id) await prisma?.sale.delete({ where: { id } }).catch(() => undefined);
+    if (id) {
+      await prisma?.salePayment.deleteMany({ where: { saleId: id } }).catch(() => undefined);
+      await prisma?.sale.delete({ where: { id } }).catch(() => undefined);
+    }
   }
   while (created.orderIds.length) {
     const id = created.orderIds.pop();
@@ -70,7 +73,10 @@ test("registra venta y crea cliente nuevo desde una orden pagada", async () => {
   assert.equal(result.sale?.clientId, result.client?.id);
   assert.equal(result.sale?.paymentMethod, "mercadopago");
   assert.equal(result.sale?.total, 119000);
+  assert.equal(result.sale?.paidAmount, 119000);
+  assert.equal(result.sale?.balanceDue, 0);
   assert.equal(result.sale?.source, "ORDER_PAID");
+  assert.equal(result.sale?.payments.length, 1);
   assert.ok(result.client?.id);
   created.clientIds.push(result.client.id);
   created.saleIds.push(result.sale.id);

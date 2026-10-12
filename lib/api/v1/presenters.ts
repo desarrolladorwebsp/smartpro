@@ -212,11 +212,12 @@ export type ApiSale = {
   source: SaleRecord["source"];
   soldAt: string;
   paymentMethod: SaleRecord["paymentMethod"];
+  paymentStatus: SaleRecord["collectionStatus"];
   externalReference: string;
   orderId: string | null;
   quoteNumber: string | null;
   observation: string;
-  amounts: { subtotal: ApiMoney; tax: ApiMoney; total: ApiMoney };
+  amounts: { subtotal: ApiMoney; tax: ApiMoney; total: ApiMoney; paid: ApiMoney; balance: ApiMoney };
   client: { id: string; company: string; contactName: string };
   createdAt: string;
 };
@@ -229,6 +230,7 @@ export function presentSale(sale: SaleRecord): ApiSale {
     source: sale.source,
     soldAt: sale.soldAt,
     paymentMethod: sale.paymentMethod,
+    paymentStatus: sale.collectionStatus,
     externalReference: sale.externalReference,
     orderId: sale.orderId,
     quoteNumber: sale.quoteNumber,
@@ -237,6 +239,8 @@ export function presentSale(sale: SaleRecord): ApiSale {
       subtotal: money(sale.subtotal),
       tax: money(sale.tax),
       total: money(sale.total),
+      paid: money(sale.paidAmount),
+      balance: money(sale.balanceDue),
     },
     client: {
       id: sale.clientId,

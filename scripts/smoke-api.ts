@@ -304,6 +304,8 @@ async function main() {
 
   check("la venta se registra con 201", sale.status === 201, sale.body);
   check("calcula el IVA al 19%", sale.body?.data?.sale?.amounts?.total?.amount === 119000, sale.body?.data?.sale?.amounts);
+  check("queda cobrada al 100%", sale.body?.data?.sale?.amounts?.balance?.amount === 0, sale.body?.data?.sale?.amounts);
+  check("reporta el estado de cobro", sale.body?.data?.sale?.paymentStatus === "PAID", sale.body?.data?.sale?.paymentStatus);
   check("queda atribuida a la API", sale.body?.data?.sale?.source === "EXTERNAL_API", sale.body?.data?.sale?.source);
 
   const duplicate = await callSecret(

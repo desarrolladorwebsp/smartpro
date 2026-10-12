@@ -42,6 +42,17 @@ test("buildPaidOrderSaleDraft arma una venta válida desde una orden pagada", ()
   assert.equal(draft.paymentMethod, "transbank");
   assert.equal(draft.source, "ORDER_PAID");
   assert.equal(draft.total, 119000);
+  assert.equal(draft.paymentAmount, 119000);
+});
+
+test("buildPaidOrderSaleDraft usa el total de la cotización y el cobro de la orden", () => {
+  const draft = buildPaidOrderSaleDraft(paidOrder({ subtotal: 50000, tax: 9500, total: 59500, quoteId: "quote-1" }), {
+    subtotal: 100000,
+    tax: 19000,
+    total: 119000,
+  });
+  assert.equal(draft.total, 119000);
+  assert.equal(draft.paymentAmount, 59500);
 });
 
 test("buildPaidOrderSaleDraft rechaza datos faltantes o tipos incorrectos", () => {

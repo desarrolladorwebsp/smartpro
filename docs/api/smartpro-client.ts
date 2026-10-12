@@ -205,11 +205,12 @@ export type Sale = {
   source: "MANUAL" | "QUOTE_ACCEPTED" | "ORDER_PAID" | "EXTERNAL_API";
   soldAt: string;
   paymentMethod: string | null;
+  paymentStatus: "UNPAID" | "PARTIAL" | "PAID";
   externalReference: string;
   orderId: string | null;
   quoteNumber: string | null;
   observation: string;
-  amounts: { subtotal: Money; tax: Money; total: Money };
+  amounts: { subtotal: Money; tax: Money; total: Money; paid: Money; balance: Money };
   client: { id: string; company: string; contactName: string };
   createdAt: string;
 };

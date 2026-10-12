@@ -11,9 +11,8 @@ import {
   PaidOrderSaleValidationError,
   type PaidOrderSaleDraft,
 } from "./from-order";
-import { getSaleByOrderId, getSaleByQuoteId, type SaleRecord } from "./repository";
+import { getSaleByOrderId, getSaleByQuoteId, recordPaidOrderPayment, type SaleRecord } from "./repository";
 import { nextSaleNumber } from "./numbering";
-import { isSalePaymentMethod, isSaleSource, isSaleStatus } from "./types";
 
 export type RegisterPaidOrderSaleResult = {
   sale: SaleRecord | null;
@@ -30,45 +29,15 @@ function getPrisma() {
   return prisma;
 }
 
-const saleInclude = {
-  client: true,
-  quote: true,
-  order: true,
-  executive: true,
-} as const;
-
-function toSaleRecordFromRow(row: Prisma.SaleGetPayload<{ include: typeof saleInclude }>): SaleRecord {
-  const executiveName = row.executive
-    ? `${row.executive.firstName} ${row.executive.lastName ?? ""}`.trim() || row.executive.email
-    : "Sin asignar";
-
-  return {
-    id: row.id,
-    number: row.number,
-    status: isSaleStatus(row.status) ? row.status : "REGISTERED",
-    source: isSaleSource(row.source) ? row.source : "ORDER_PAID",
-    clientId: row.clientId,
-    clientCompany: row.client.companyName,
-    clientName: `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
-    quoteId: row.quoteId ?? null,
-    quoteNumber: row.quote?.number ?? null,
-    orderId: row.orderId ?? row.order?.id ?? null,
-    paymentMethod: isSalePaymentMethod(row.paymentMethod) ? row.paymentMethod : null,
-    executiveId: row.executiveId,
-    executiveName,
-    apiClientId: row.apiClientId ?? null,
-    externalReference: row.externalReference,
-    createdByEmail: row.createdByEmail,
-    soldAt: row.soldAt.toISOString(),
-    observation: row.observation,
-    receiptPath: row.receiptPath,
-    receiptFileName: row.receiptFileName,
-    subtotal: Number(row.subtotal),
-    tax: Number(row.tax),
-    total: Number(row.total),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+async function applyPaidOrderPayment(saleId: string, draft: PaidOrderSaleDraft): Promise<SaleRecord> {
+  return recordPaidOrderPayment({
+    saleId,
+    amount: draft.paymentAmount,
+    method: draft.paymentMethod,
+    orderId: draft.orderId,
+    createdByEmail: draft.createdByEmail,
+    observation: draft.observation,
+  });
 }
 
 async function nextNumber(): Promise<string> {
@@ -104,17 +73,16 @@ async function ensureClientForPaidOrder(draft: PaidOrderSaleDraft): Promise<Clie
 }
 
 async function attachOrderToSale(saleId: string, draft: PaidOrderSaleDraft): Promise<SaleRecord> {
-  const updated = await getPrisma().sale.update({
+  await getPrisma().sale.update({
     where: { id: saleId },
     data: {
       orderId: draft.orderId,
       paymentMethod: draft.paymentMethod,
       observation: draft.observation,
     },
-    include: saleInclude,
   });
 
-  return toSaleRecordFromRow(updated);
+  return applyPaidOrderPayment(saleId, draft);
 }
 
 async function markQuoteAccepted(quoteId: string) {
@@ -149,17 +117,29 @@ async function resolveClientForSale(draft: PaidOrderSaleDraft): Promise<ClientRe
 }
 
 export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<RegisterPaidOrderSaleResult> {
-  const draft = buildPaidOrderSaleDraft(order);
+  let quoteAmounts: { subtotal: number; tax: number; total: number } | null = null;
+  if (order.quoteId) {
+    const quote = await getQuoteById(order.quoteId);
+    if (!quote) {
+      throw new PaidOrderSaleValidationError("La cotización asociada no existe.");
+    }
+    quoteAmounts = { subtotal: quote.subtotal, tax: quote.tax, total: quote.total };
+  }
+
+  const draft = buildPaidOrderSaleDraft(order, quoteAmounts);
 
   const existingByOrder = await getSaleByOrderId(draft.orderId);
   if (existingByOrder) {
-    return { sale: existingByOrder, client: null, duplicate: true, skipped: false };
+    const sale = await applyPaidOrderPayment(existingByOrder.id, draft);
+    return { sale, client: null, duplicate: true, skipped: false };
   }
 
   if (draft.quoteId) {
     const existingByQuote = await getSaleByQuoteId(draft.quoteId);
     if (existingByQuote) {
-      const sale = existingByQuote.orderId ? existingByQuote : await attachOrderToSale(existingByQuote.id, draft);
+      const sale = existingByQuote.orderId
+        ? await applyPaidOrderPayment(existingByQuote.id, draft)
+        : await attachOrderToSale(existingByQuote.id, draft);
       await markQuoteAccepted(draft.quoteId).catch((error) => {
         console.error("[smartpro:sales:from-order:quote]", error);
       });
@@ -196,10 +176,10 @@ export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<R
         tax: draft.tax,
         total: draft.total,
       },
-      include: saleInclude,
     });
 
-    return { sale: toSaleRecordFromRow(created), client, duplicate: false, skipped: false };
+    const sale = await applyPaidOrderPayment(created.id, draft);
+    return { sale, client, duplicate: false, skipped: false };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const duplicate =

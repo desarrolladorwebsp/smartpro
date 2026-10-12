@@ -22,6 +22,9 @@ type QuotePaymentActionsProps = {
   autoPay?: string;
   disabled?: boolean;
   disabledReason?: string | null;
+  depositLabel?: string | null;
+  depositAmountLabel?: string | null;
+  remainingAmountLabel?: string | null;
 };
 
 type PaymentErrorState = {
@@ -29,7 +32,15 @@ type PaymentErrorState = {
   debug?: string;
 };
 
-export function QuotePaymentActions({ token, autoPay, disabled, disabledReason }: QuotePaymentActionsProps) {
+export function QuotePaymentActions({
+  token,
+  autoPay,
+  disabled,
+  disabledReason,
+  depositLabel,
+  depositAmountLabel,
+  remainingAmountLabel,
+}: QuotePaymentActionsProps) {
   const [processing, setProcessing] = useState<QuoteOnlinePaymentMethod | null>(null);
   const [paymentError, setPaymentError] = useState<PaymentErrorState | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -96,7 +107,17 @@ export function QuotePaymentActions({ token, autoPay, disabled, disabledReason }
     <div className="rounded-[24px] border border-primary/10 bg-gradient-to-br from-[#F8F4FF] to-[#FFF5FB] p-5 sm:p-6 print:hidden">
       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Pagos online</p>
       <h2 className="mt-2 text-xl font-bold tracking-[-0.05em] text-foreground">Elige cómo pagar tu cotización</h2>
-      <p className="mt-2 text-sm text-muted">Paga fácil, seguro y 100% online. El monto se toma de esta cotización y no se puede modificar.</p>
+      <p className="mt-2 text-sm text-muted">
+        {depositLabel
+          ? `En línea se cobra ${depositLabel}. El saldo se registra después como cuenta por cobrar.`
+          : "Paga fácil, seguro y 100% online. El monto se toma de esta cotización y no se puede modificar."}
+      </p>
+      {depositAmountLabel ? (
+        <p className="mt-3 text-sm font-semibold text-foreground">
+          A pagar ahora: {depositAmountLabel}
+          {remainingAmountLabel ? <span className="font-normal text-muted"> · Saldo {remainingAmountLabel}</span> : null}
+        </p>
+      ) : null}
 
       {preferred && !disabled ? (
         <p className="mt-3 text-sm font-medium text-primary">

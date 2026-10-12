@@ -1,5 +1,6 @@
 import { CheckoutValidationError, normalizeCustomer } from "../orders/checkout";
-import { buildOrderTotals, formatCurrency, type CartItemDraft } from "../orders/service";
+import { buildOrderTotals, formatCurrency, TAX_RATE, type CartItemDraft } from "../orders/service";
+import { quoteDepositAmounts } from "./fields";
 import { canPayQuote, isQuoteExpired } from "./status";
 import type { QuoteRecord } from "./types";
 
@@ -68,11 +69,33 @@ export function buildQuoteCheckoutOrder(quote: QuoteRecord): QuoteCheckoutOrder 
     throw new CheckoutValidationError("Los montos de la cotización no coinciden con los registrados.");
   }
 
+  const deposit = quoteDepositAmounts(quote);
+  if (deposit.isFull) {
+    return {
+      customer,
+      items,
+      subtotal: quote.subtotal,
+      tax: quote.tax,
+      total: quote.total,
+    };
+  }
+
   return {
     customer,
-    items,
-    subtotal: quote.subtotal,
-    tax: quote.tax,
-    total: quote.total,
+    items: [
+      {
+        id: `abono-${quote.id}`,
+        name: `Abono inicial ${deposit.percent}% — ${quote.number}`,
+        category: "Abono",
+        quantity: 1,
+        unitPrice: deposit.subtotal,
+        priceDisplay: formatCurrency(deposit.subtotal),
+        taxRate: deposit.subtotal > 0 ? deposit.tax / deposit.subtotal : TAX_RATE,
+        source: "quote-abono",
+      },
+    ],
+    subtotal: deposit.subtotal,
+    tax: deposit.tax,
+    total: deposit.total,
   };
 }

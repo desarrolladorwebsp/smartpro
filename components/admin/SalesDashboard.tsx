@@ -7,12 +7,16 @@ import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { SaleCreateModal } from "@/components/admin/SaleCreateModal";
+import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
 import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
+import { summarizeFilteredSales } from "@/lib/sales/summary";
 import {
+  getSaleCollectionStatusLabel,
   getSalePaymentMethodLabel,
   getSaleStatusLabel,
   SALE_STATUSES,
+  type SaleCollectionStatus,
   type SaleRecord,
   type SaleStatus,
 } from "@/lib/sales/types";
@@ -22,6 +26,12 @@ const statusStyles: Record<SaleStatus, string> = {
   IN_PROGRESS: "bg-violet-100 text-violet-700",
   COMPLETED: "bg-emerald-100 text-emerald-700",
   CANCELLED: "bg-rose-100 text-rose-700",
+};
+
+const collectionStyles: Record<SaleCollectionStatus, string> = {
+  UNPAID: "bg-rose-100 text-rose-700",
+  PARTIAL: "bg-amber-100 text-amber-800",
+  PAID: "bg-emerald-100 text-emerald-700",
 };
 
 function formatDate(value: string | null): string {
@@ -34,19 +44,24 @@ function formatDate(value: string | null): string {
 type SalesDashboardProps = {
   initialSales: SaleRecord[];
   clients: ClientRecord[];
+  initialClientId?: string;
 };
 
-export function SalesDashboard({ initialSales, clients: initialClients }: SalesDashboardProps) {
+export function SalesDashboard({ initialSales, clients: initialClients, initialClientId }: SalesDashboardProps) {
   const [sales, setSales] = useState(initialSales);
   const [clients, setClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaleStatus | "ALL">("ALL");
-  const [clientFilter, setClientFilter] = useState("ALL");
+  const [collectionFilter, setCollectionFilter] = useState<"ALL" | "DUE">("ALL");
+  const [clientFilter, setClientFilter] = useState(initialClientId || "ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [paymentSale, setPaymentSale] = useState<SaleRecord | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
+  const closeCreate = useCallback(() => setIsCreateOpen(false), []);
+  const closePayment = useCallback(() => setPaymentSale(null), []);
 
   const refreshSales = useCallback(async () => {
     try {
@@ -98,13 +113,16 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
           .toLowerCase()
           .includes(query);
       const matchesStatus = statusFilter === "ALL" || sale.status === statusFilter;
+      const matchesCollection = collectionFilter === "ALL" || (sale.status !== "CANCELLED" && sale.balanceDue > 0);
       const matchesClient = clientFilter === "ALL" || sale.clientId === clientFilter;
       const soldAt = new Date(sale.soldAt);
       const matchesFrom = !fromDate || soldAt >= fromDate;
       const matchesTo = !toDate || soldAt <= toDate;
-      return matchesSearch && matchesStatus && matchesClient && matchesFrom && matchesTo;
+      return matchesSearch && matchesStatus && matchesCollection && matchesClient && matchesFrom && matchesTo;
     });
-  }, [sales, search, statusFilter, clientFilter, from, to]);
+  }, [sales, search, statusFilter, collectionFilter, clientFilter, from, to]);
+
+  const listTotals = useMemo(() => summarizeFilteredSales(filteredSales), [filteredSales]);
 
   return (
     <div className="space-y-6">
@@ -120,8 +138,23 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
         }
       />
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-[20px] border border-border bg-white p-4">
+          <p className="text-xs text-muted">Vendido</p>
+          <p className="mt-1 text-xl font-bold tracking-[-0.04em]">{formatCurrency(listTotals.sold)}</p>
+        </div>
+        <div className="rounded-[20px] border border-border bg-white p-4">
+          <p className="text-xs text-muted">Cobrado</p>
+          <p className="mt-1 text-xl font-bold tracking-[-0.04em]">{formatCurrency(listTotals.collected)}</p>
+        </div>
+        <div className="rounded-[20px] border border-border bg-white p-4">
+          <p className="text-xs text-muted">Por cobrar</p>
+          <p className="mt-1 text-xl font-bold tracking-[-0.04em]">{formatCurrency(listTotals.receivable)}</p>
+        </div>
+      </div>
+
       <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -135,6 +168,10 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
                 {getSaleStatusLabel(status)}
               </option>
             ))}
+          </select>
+          <select value={collectionFilter} onChange={(event) => setCollectionFilter(event.target.value as "ALL" | "DUE")} className="dashboard-field">
+            <option value="ALL">Todos los cobros</option>
+            <option value="DUE">Con saldo</option>
           </select>
           <select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} className="dashboard-field">
             <option value="ALL">Todos los clientes</option>
@@ -167,11 +204,14 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
                   <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Cotización / Orden</th>
                   <th className="px-4 py-3 font-medium">Pago</th>
-                  <th className="px-4 py-3 font-medium">Ejecutivo</th>
                   <th className="px-4 py-3 font-medium">Fecha</th>
                   <th className="px-4 py-3 font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">Pagado</th>
+                  <th className="px-4 py-3 font-medium">Saldo</th>
+                  <th className="px-4 py-3 font-medium">Cobro</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 font-medium">Comprobante</th>
+                  <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -196,9 +236,15 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
                       )}
                     </td>
                     <td className="px-4 py-3">{getSalePaymentMethodLabel(sale.paymentMethod)}</td>
-                    <td className="px-4 py-3">{sale.executiveName}</td>
                     <td className="px-4 py-3">{formatDate(sale.soldAt)}</td>
                     <td className="px-4 py-3 font-semibold">{formatCurrency(sale.total)}</td>
+                    <td className="px-4 py-3">{formatCurrency(sale.paidAmount)}</td>
+                    <td className="px-4 py-3 font-semibold">{formatCurrency(sale.balanceDue)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${collectionStyles[sale.collectionStatus]}`}>
+                        {getSaleCollectionStatusLabel(sale.collectionStatus)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[sale.status]}`}>
                         {getSaleStatusLabel(sale.status)}
@@ -218,6 +264,17 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
                         <span className="text-muted">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {sale.status !== "CANCELLED" && sale.balanceDue > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentSale(sale)}
+                          className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold hover:border-primary/30 hover:text-primary"
+                        >
+                          Abono
+                        </button>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -228,7 +285,7 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
 
       <SaleCreateModal
         open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={closeCreate}
         clients={clients}
         onCreated={(sale) => {
           setSales((current) => [sale, ...current.filter((entry) => entry.id !== sale.id)]);
@@ -238,6 +295,15 @@ export function SalesDashboard({ initialSales, clients: initialClients }: SalesD
           setFrom("");
           setTo("");
           setSuccessMessage(`Venta ${sale.number} registrada correctamente.`);
+          void refreshSales();
+        }}
+      />
+      <SalePaymentModal
+        sale={paymentSale}
+        onClose={closePayment}
+        onSaved={(sale) => {
+          setSales((current) => current.map((entry) => (entry.id === sale.id ? sale : entry)));
+          setSuccessMessage(`Abono registrado en ${sale.number}.`);
           void refreshSales();
         }}
       />
