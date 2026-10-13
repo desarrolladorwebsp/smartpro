@@ -10,6 +10,7 @@ import { buildCustomQuoteItemRecord } from "./custom-item";
 import { parseQuoteValidUntil } from "./dates";
 import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "./fields";
 import { applyQuoteDiscount, parseQuoteDiscount, quoteItemsGross, type QuoteDiscountInput } from "./pricing";
+import { ensureQuoteSchema } from "./schema";
 import { createQuoteNumber } from "./numbering";
 import { assertQuoteStatusTransition, canEditQuote, nextQuoteStatusAfterEdit, parseQuoteStatus } from "./status";
 import type {
@@ -238,12 +239,15 @@ function quoteItemCreateData(items: QuoteItemRecord[]) {
 
 
 export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteRecord[]> {
+  const prisma = getPrisma();
+  await ensureQuoteSchema(prisma);
+
   const query = filters.query?.trim();
   const from = parseDateFilter(filters.from);
   const to = parseDateFilter(filters.to, true);
   const status = filters.status && filters.status !== "ALL" ? filters.status : undefined;
 
-  const rows = await getPrisma().quote.findMany({
+  const rows = await prisma.quote.findMany({
     where: {
       ...(status ? { status } : {}),
       ...(filters.clientId ? { clientId: filters.clientId } : {}),
