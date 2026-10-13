@@ -23,9 +23,12 @@ export async function createDefaultLiorenInvoiceDraft(sale: SaleRecord): Promise
   if (!client) throw new Error("No se encontró el cliente asociado a la venta.");
 
   const serviceName = sale.observation.match(/^Servicio:\s*(.+)$/m)?.[1]?.trim() || `Servicios Smartpro - ${sale.number}`;
-  const exempt = sale.tax === 0;
+  // All SmartPro invoices are taxable (SII type 33). For legacy/direct sales
+  // recorded with zero tax, treat the agreed sale total as VAT-inclusive and
+  // back-calculate the net so the invoice total remains equal to the sale.
+  const netPrice = sale.tax === 0 ? Math.round(sale.total / (1 + IVA_RATE)) : sale.subtotal;
   return {
-    tipoDocumento: exempt ? "34" : "33",
+    tipoDocumento: "33",
     fecha: dateOnly(sale.soldAt),
     vencimiento: "",
     observaciones: "",
@@ -39,7 +42,7 @@ export async function createDefaultLiorenInvoiceDraft(sale: SaleRecord): Promise
       email: client.email,
       telefono: client.phone,
     },
-    detalles: [{ codigo: "SRV", nombre: serviceName.slice(0, 80), cantidad: 1, unidad: "UN", precio: sale.subtotal, exento: exempt }],
+    detalles: [{ codigo: "SRV", nombre: serviceName.slice(0, 80), cantidad: 1, unidad: "UN", precio: netPrice, exento: false }],
   };
 }
 
@@ -65,8 +68,8 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
   const receptorInput = input.receptor && typeof input.receptor === "object"
     ? input.receptor as Record<string, unknown>
     : {};
-  const tipoDocumento = input.tipoDocumento === "34" ? "34" : input.tipoDocumento === "33" ? "33" : null;
-  if (!tipoDocumento) throw new Error("Selecciona factura afecta (33) o exenta (34).");
+  if (input.tipoDocumento !== "33") throw new Error("SmartPro solo emite facturas afectas con IVA (tipo 33).");
+  const tipoDocumento = "33" as const;
 
   if (!Array.isArray(input.detalles) || input.detalles.length < 1 || input.detalles.length > MAX_DETAILS) {
     throw new Error(`La factura debe tener entre 1 y ${MAX_DETAILS} ítems.`);
@@ -74,6 +77,7 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
   const detalles: LiorenInvoiceDetail[] = input.detalles.map((entry, index) => {
     if (!entry || typeof entry !== "object") throw new Error(`Revisa el ítem ${index + 1}.`);
     const item = entry as Record<string, unknown>;
+    if (item.exento === true) throw new Error(`El ítem ${index + 1} no puede ser exento; todas las facturas SmartPro llevan IVA.`);
     const cantidad = Number(item.cantidad);
     const precio = Number(item.precio);
     if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > 999999999) throw new Error(`Cantidad inválida en el ítem ${index + 1}.`);
@@ -84,7 +88,7 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
       cantidad,
       unidad: String(item.unidad ?? "UN").trim().slice(0, 4) || "UN",
       precio,
-      exento: item.exento === true,
+      exento: false,
     };
   });
 
@@ -119,11 +123,8 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
 }
 
 function assertInvoiceMatchesSale(draft: LiorenInvoiceDraft, sale: SaleRecord) {
-  if (draft.tipoDocumento === "34" && draft.detalles.some((item) => !item.exento)) {
-    throw new Error("La factura exenta (34) requiere marcar todos los ítems como exentos.");
-  }
-  if (draft.tipoDocumento === "33" && draft.detalles.every((item) => item.exento)) {
-    throw new Error("Si todos los ítems son exentos, selecciona factura exenta (34).");
+  if (draft.tipoDocumento !== "33" || draft.detalles.some((item) => item.exento)) {
+    throw new Error("SmartPro solo emite facturas afectas con IVA (tipo 33); revisa el detalle.");
   }
   const neto = draft.detalles.reduce((total, item) => total + item.cantidad * item.precio, 0);
   const afecto = draft.detalles.reduce((total, item) => total + (item.exento ? 0 : item.cantidad * item.precio), 0);

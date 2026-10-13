@@ -17,7 +17,11 @@ export async function GET(_request: Request, context: RouteContext) {
     const { id } = await context.params;
     const sale = await getSaleById(id);
     if (!sale) return NextResponse.json({ error: "La venta no existe." }, { status: 404 });
-    const draft = sale.liorenInvoice.draft ?? await createDefaultLiorenInvoiceDraft(sale);
+    const savedDraft = sale.liorenInvoice.draft;
+    // Discard legacy exempt drafts now that SmartPro issues only taxable invoices.
+    const draft = savedDraft?.tipoDocumento === "33" && savedDraft.detalles.every((item) => !item.exento)
+      ? savedDraft
+      : await createDefaultLiorenInvoiceDraft(sale);
     return NextResponse.json({ draft, configured: getLiorenConfig().configured, sale }, {
       headers: { "Cache-Control": "no-store" },
     });

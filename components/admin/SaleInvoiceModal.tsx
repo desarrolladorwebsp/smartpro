@@ -123,10 +123,7 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
 
           {draft ? <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <label className="block"><span className="mb-1.5 block text-sm font-semibold">Tipo de factura</span><select value={draft.tipoDocumento} onChange={(event) => {
-                const tipoDocumento = event.target.value as LiorenInvoiceDraft["tipoDocumento"];
-                updateDraft((current) => ({ ...current, tipoDocumento, detalles: current.detalles.map((item) => ({ ...item, exento: tipoDocumento === "34" })) }));
-              }} className="dashboard-field" disabled={isIssuing}><option value="33">Afecta (33)</option><option value="34">Exenta (34)</option></select></label>
+              <div className="block"><span className="mb-1.5 block text-sm font-semibold">Tipo de factura</span><div className="dashboard-field flex items-center text-sm font-medium">Factura afecta con IVA (33)</div></div>
               <label className="block"><span className="mb-1.5 block text-sm font-semibold">Fecha de emisión</span><input type="date" value={draft.fecha} onChange={(event) => updateDraft((current) => ({ ...current, fecha: event.target.value }))} className="dashboard-field" disabled={isIssuing} /></label>
               <label className="block"><span className="mb-1.5 block text-sm font-semibold">Vencimiento (opcional)</span><input type="date" value={draft.vencimiento} onChange={(event) => updateDraft((current) => ({ ...current, vencimiento: event.target.value }))} className="dashboard-field" disabled={isIssuing} /></label>
             </div>
@@ -151,13 +148,13 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
                 <label className="block sm:col-span-5"><span className="mb-1 block text-xs font-semibold">Descripción</span><input value={item.nombre} onChange={(event) => updateDetail(index, "nombre", event.target.value)} maxLength={80} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block sm:col-span-2"><span className="mb-1 block text-xs font-semibold">Cantidad</span><input type="number" min="0.000001" step="any" value={item.cantidad} onChange={(event) => updateDetail(index, "cantidad", Number(event.target.value))} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block sm:col-span-3"><span className="mb-1 block text-xs font-semibold">Precio neto unitario</span><input type="number" min="0" step="1" value={item.precio} onChange={(event) => updateDetail(index, "precio", Number(event.target.value))} className="dashboard-field" disabled={isIssuing} /></label>
-                <label className="flex items-end gap-2 pb-2 text-xs font-semibold sm:col-span-1"><input type="checkbox" checked={item.exento} onChange={(event) => updateDetail(index, "exento", event.target.checked)} disabled={isIssuing || draft.tipoDocumento === "34"} /> Exento</label>
+                <div className="flex items-end pb-2 text-xs font-semibold text-emerald-700 sm:col-span-1">Afecto a IVA</div>
                 <button type="button" aria-label="Quitar ítem" onClick={() => updateDraft((current) => ({ ...current, detalles: current.detalles.filter((_, itemIndex) => itemIndex !== index) }))} disabled={isIssuing || draft.detalles.length <= 1} className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:text-red-600 disabled:opacity-40"><Trash2 size={16} /></button>
               </div>)}
             </section>
 
             <label className="block"><span className="mb-1.5 block text-sm font-semibold">Observaciones (opcional)</span><textarea value={draft.observaciones} onChange={(event) => updateDraft((current) => ({ ...current, observaciones: event.target.value.slice(0, 250) }))} maxLength={250} className="dashboard-field min-h-20 resize-y" disabled={isIssuing} /></label>
-            <div className="ml-auto max-w-sm space-y-1 rounded-2xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span>Neto</span><span>{formatCurrency(totals.net)}</span></div><div className="flex justify-between"><span>IVA estimado (19%)</span><span>{formatCurrency(totals.tax)}</span></div><div className="flex justify-between border-t border-border pt-2 font-bold"><span>Total factura</span><span>{formatCurrency(totals.total)}</span></div><p className={`pt-1 text-xs ${matchesTotal ? "text-emerald-700" : "text-amber-800"}`}>{matchesTotal ? "Coincide con la venta." : `Debe coincidir con la venta: ${formatCurrency(sale.total)}.`}</p></div>
+            <div className="ml-auto max-w-sm space-y-1 rounded-2xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span>Neto</span><span>{formatCurrency(totals.net)}</span></div><div className="flex justify-between"><span>IVA estimado (19%)</span><span>{formatCurrency(totals.tax)}</span></div><div className="flex justify-between border-t border-border pt-2 font-bold"><span>Total factura</span><span>{formatCurrency(totals.total)}</span></div><p className={`pt-1 text-xs ${matchesTotal ? "text-emerald-700" : "text-amber-800"}`}>{matchesTotal ? "Coincide con la venta." : `Debe coincidir con la venta: ${formatCurrency(sale.total)}.`}</p>{sale.tax === 0 ? <p className="pt-1 text-xs text-muted">El total registrado se considera IVA incluido; el neto se calcula para emitir factura afecta.</p> : null}</div>
           </> : null}
         </div>
 

@@ -20,6 +20,7 @@ export type SaleStatus = (typeof SALE_STATUSES)[number];
 
 export const LIOREN_INVOICE_STATUSES = ["NOT_ISSUED", "ISSUING", "ISSUED", "ERROR"] as const;
 export type LiorenInvoiceStatus = (typeof LIOREN_INVOICE_STATUSES)[number];
+/** Includes type 34 for historical records; new SmartPro drafts use type 33 only. */
 export type LiorenInvoiceType = "33" | "34";
 
 export type LiorenInvoiceDetail = {

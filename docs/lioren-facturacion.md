@@ -4,11 +4,11 @@
 
 1. Crear la venta no genera un documento tributario.
 2. En **Ventas**, usar **Emitir factura** para abrir el borrador editable.
-3. Revisar tipo de documento, fechas, RUT, razón social, giro, domicilio tributario y detalle.
+3. Revisar fechas, RUT, razón social, giro, domicilio tributario y detalle. SmartPro emite exclusivamente factura afecta con IVA (tipo SII `33`); no ofrece facturas exentas.
 4. Completar los códigos numéricos de ciudad y comuna consultados en Lioren. Smartpro guarda las etiquetas del cliente, pero Lioren requiere identificadores numéricos.
 5. **Confirmar y emitir factura** envía la solicitud desde el servidor. Smartpro conserva el estado, tipo, identificador, folio, borrador enviado y último error.
 
-La factura afecta usa código SII `33`; la exenta usa `34`. El total calculado debe coincidir con el total de la venta antes de emitir. Una venta cancelada o ya facturada no se puede volver a emitir desde este flujo.
+Todas las facturas de SmartPro son afectas al IVA del 19%, tipo SII `33`. El total calculado debe coincidir con el total de la venta antes de emitir. Si una venta antigua tiene IVA registrado en cero, el borrador considera su total como IVA incluido y calcula el neto correspondiente. Una venta cancelada o ya facturada no se puede volver a emitir desde este flujo.
 
 ## API y autenticación
 
@@ -33,12 +33,11 @@ Lioren confirmó que el ambiente productivo está habilitado para la empresa y q
 
 1. En el panel de Lioren, ir a **APIs → Administrar APIs → Registrar** y crear un cliente API para producción. El token de ese cliente debe configurarse en Vercel como secreto `LIOREN_API_TOKEN` en el entorno **Production**; no se debe copiar el token de pruebas ni guardarlo en Git o en variables `NEXT_PUBLIC_*`.
 2. Mantener `LIOREN_API_BASE_URL=https://cl.lioren.enterprises/api`, salvo que Lioren entregue otra URL productiva.
-3. La cuenta aún no incluye **Factura exenta**. Solicitar a la ejecutiva de Lioren que active ese producto antes de emitir documentos tipo `34`. Hasta entonces, no emitir facturas exentas desde SmartPro.
-4. En **Timbraje de Folios → Solicitar Folios**, solicitar los folios productivos necesarios para factura electrónica antes de la primera emisión.
-5. Revisar en Lioren que la razón social productiva no conserve el prefijo `PRUEBAS API:`. La razón social informada para las pruebas es `EMPRESA COMERCIAL LYV SPA`; confirmar que esa sea también la razón social tributaria de producción.
-6. Después de guardar el secreto en Vercel, crear un nuevo despliegue de producción para que las funciones reciban el token. Verificar autenticación con `GET /whoami` y revisar los datos de emisor/receptor en SmartPro. No usar `POST /dtes` como prueba de conectividad: esa ruta emite un documento tributario real cuando se configura el token productivo.
+3. En **Timbraje de Folios → Solicitar Folios**, solicitar los folios productivos necesarios para factura afecta antes de la primera emisión.
+4. Revisar en Lioren que la razón social productiva no conserve el prefijo `PRUEBAS API:`. La razón social informada para las pruebas es `EMPRESA COMERCIAL LYV SPA`; confirmar que esa sea también la razón social tributaria de producción.
+5. Después de guardar el secreto en Vercel, crear un nuevo despliegue de producción para que las funciones reciban el token. Verificar autenticación con `GET /whoami` y revisar los datos de emisor/receptor en SmartPro. No usar `POST /dtes` como prueba de conectividad: esa ruta emite un documento tributario real cuando se configura el token productivo.
 
-La confirmación de disponibilidad del ambiente no equivale a contar con token, folios ni suscripción a Factura exenta. La emisión sigue siendo manual desde el detalle de cada venta y solo debe confirmarse cuando el operador haya revisado el borrador.
+La emisión sigue siendo manual desde el detalle de cada venta y solo debe confirmarse cuando el operador haya revisado el borrador. SmartPro no requiere habilitación de Factura exenta, ya que no emite documentos tipo `34`.
 
 ### Estado de integración (13-10-2026)
 
@@ -46,7 +45,7 @@ La confirmación de disponibilidad del ambiente no equivale a contar con token, 
 - `LIOREN_API_BASE_URL` está configurada en Production como `https://cl.lioren.enterprises/api`.
 - El despliegue de producción quedó **Ready**. La verificación no emitió ningún DTE.
 - La credencial `LIOREN_API_KEY` se guarda localmente porque Lioren la entregó junto al token; la integración actual autentica con Bearer y no envía esa clave.
-- Pendiente en la cuenta Lioren: solicitar folios productivos y activar Factura exenta antes de emitir documentos exentos.
+- Pendiente en la cuenta Lioren: solicitar folios productivos para facturas afectas.
 
 ## Pruebas
 
