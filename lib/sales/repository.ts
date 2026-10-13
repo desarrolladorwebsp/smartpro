@@ -37,7 +37,7 @@ export { getSaleStatusLabel, type QuoteForSaleConversion, type SaleRecord, type 
 type SaleRow = Prisma.SaleGetPayload<{
   include: {
     client: true;
-    quote: true;
+    quote: { select: { id: true; number: true } };
     order: true;
     executive: true;
     payments: true;
@@ -134,7 +134,9 @@ function toSaleRecord(row: SaleRow): SaleRecord {
 
 const saleInclude = {
   client: true,
-  quote: true,
+  // Sales only needs the quote identifier and number. Selecting the full row
+  // would also require optional quote schema changes to be deployed first.
+  quote: { select: { id: true, number: true } },
   order: true,
   executive: true,
   payments: true,
