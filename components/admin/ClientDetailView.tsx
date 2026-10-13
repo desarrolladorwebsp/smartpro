@@ -364,7 +364,7 @@ export function ClientDetailView({ initialClient, executives, initialQuotes, not
         client={client}
         onCreated={(quote) => {
           setQuotes((current) => [quote, ...current.filter((entry) => entry.id !== quote.id)]);
-          setSuccessMessage(`Cotización ${quote.number} creada correctamente.`);
+          setSuccessMessage(`Cotización ${quote.number} guardada. Aún no se envió al cliente.`);
         }}
       />
 

@@ -5,6 +5,7 @@ import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { QuoteDetailPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { QuoteCommercialTerms } from "@/components/admin/QuoteCommercialTerms";
+import { QuoteMoneySummary } from "@/components/quotes/QuoteMoneySummary";
 import { QuoteDetailActions } from "@/components/admin/QuoteDetailActions";
 import { requireAdminSession } from "@/lib/auth";
 import { formatCurrency } from "@/lib/orders/service";
@@ -142,19 +143,8 @@ async function QuoteDetailContent({ params }: { params: Promise<{ id: string }> 
             </table>
           </div>
 
-          <div className="rounded-2xl border border-border bg-slate-50 p-4 text-sm">
-            <div className="flex items-center justify-between text-muted">
-              <span>Subtotal</span>
-              <span>{formatCurrency(quote.subtotal)}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-muted">
-              <span>IVA</span>
-              <span>{formatCurrency(quote.tax)}</span>
-            </div>
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-base font-bold text-foreground">
-              <span>Total</span>
-              <span>{formatCurrency(quote.total)}</span>
-            </div>
+          <div className="rounded-2xl border border-border bg-slate-50 p-4">
+            <QuoteMoneySummary quote={quote} taxPercent={Math.round((quote.items[0]?.taxRate ?? 0.19) * 100)} />
           </div>
 
           {quote.notes ? (

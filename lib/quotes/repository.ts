@@ -9,8 +9,9 @@ import { QUOTE_DEFAULT_DELIVERY_DAYS, QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT, QUO
 import { buildCustomQuoteItemRecord } from "./custom-item";
 import { parseQuoteValidUntil } from "./dates";
 import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "./fields";
+import { applyQuoteDiscount, parseQuoteDiscount, quoteItemsGross, type QuoteDiscountInput } from "./pricing";
 import { createQuoteNumber } from "./numbering";
-import { assertQuoteStatusTransition, parseQuoteStatus } from "./status";
+import { assertQuoteStatusTransition, canEditQuote, nextQuoteStatusAfterEdit, parseQuoteStatus } from "./status";
 import type {
   QuoteItemInput,
   QuoteItemRecord,
@@ -92,6 +93,9 @@ function toQuoteRecord(row: QuoteRow): QuoteRecord {
     validUntil: row.validUntil ? row.validUntil.toISOString() : null,
     deliveryBusinessDays: row.deliveryBusinessDays,
     initialPaymentPercent: row.initialPaymentPercent,
+    discountType: row.discountType === "PERCENT" || row.discountType === "AMOUNT" ? row.discountType : "NONE",
+    discountValue: decimalToNumber(row.discountValue),
+    discountAmount: decimalToNumber(row.discountAmount),
     subtotal: decimalToNumber(row.subtotal),
     tax: decimalToNumber(row.tax),
     total: decimalToNumber(row.total),
@@ -133,13 +137,29 @@ function withQuantity(item: QuoteItemRecord, quantity: number): QuoteItemRecord 
   };
 }
 
-async function resolveQuoteItems(inputItems: QuoteItemInput[]): Promise<QuoteItemRecord[]> {
+function snapshotCatalogItem(existing: QuoteItemRecord, quantity: number): QuoteItemRecord {
+  return withQuantity(
+    {
+      ...existing,
+      id: "",
+    },
+    quantity,
+  );
+}
+
+async function resolveQuoteItems(
+  inputItems: QuoteItemInput[],
+  existingItems: QuoteItemRecord[] = [],
+): Promise<QuoteItemRecord[]> {
   if (inputItems.length === 0) {
     throw new Error("Selecciona al menos un plan o servicio.");
   }
 
   const items: QuoteItemRecord[] = [];
   const catalogIndex = new Map<string, number>();
+  const existingByPlanId = new Map(
+    existingItems.filter((item) => item.planId).map((item) => [item.planId as string, item]),
+  );
 
   for (const input of inputItems) {
     if (input.kind === "custom") {
@@ -156,12 +176,20 @@ async function resolveQuoteItems(inputItems: QuoteItemInput[]): Promise<QuoteIte
       continue;
     }
 
+    const snapshot = existingByPlanId.get(input.planId);
+    if (snapshot) {
+      catalogIndex.set(input.planId, items.length);
+      const priced = input.unitPrice != null ? { ...snapshot, unitPrice: input.unitPrice } : snapshot;
+      items.push(snapshotCatalogItem(priced, input.quantity));
+      continue;
+    }
+
     const plan = await getServicePlanById(input.planId);
     if (!plan || plan.status !== "ACTIVE") {
       throw new Error("Uno de los planes seleccionados ya no está disponible.");
     }
 
-    const unitPrice = Math.max(0, plan.price);
+    const unitPrice = Math.max(0, input.unitPrice ?? plan.price);
     const taxRate = Number.isFinite(plan.taxRate) ? plan.taxRate : TAX_RATE;
     const subtotal = unitPrice * input.quantity;
     const tax = subtotal * taxRate;
@@ -186,6 +214,28 @@ async function resolveQuoteItems(inputItems: QuoteItemInput[]): Promise<QuoteIte
 
   return items.map((item, sortOrder) => ({ ...item, sortOrder }));
 }
+
+function pricedQuoteTotals(items: QuoteItemRecord[], discount?: QuoteDiscountInput) {
+  return applyQuoteDiscount(quoteItemsGross(items), discount ?? { type: "NONE", value: 0 });
+}
+
+function quoteItemCreateData(items: QuoteItemRecord[]) {
+  return items.map((item) => ({
+    planId: item.planId,
+    planName: item.planName,
+    categoryName: item.categoryName,
+    subcategoryName: item.subcategoryName,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    taxRate: item.taxRate,
+    includedItems: item.includedItems,
+    subtotal: item.subtotal,
+    tax: item.tax,
+    total: item.total,
+    sortOrder: item.sortOrder,
+  }));
+}
+
 
 export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteRecord[]> {
   const query = filters.query?.trim();
@@ -250,6 +300,7 @@ export async function createQuoteRecord(input: {
   validUntil?: string | null;
   deliveryBusinessDays?: number | string;
   initialPaymentPercent?: number | string;
+  discount?: QuoteDiscountInput;
   status?: QuoteStatus;
   createdByEmail: string;
 }): Promise<QuoteRecord> {
@@ -264,11 +315,8 @@ export async function createQuoteRecord(input: {
   }
 
   const items = await resolveQuoteItems(input.items);
-  const totals = {
-    subtotal: items.reduce((sum, item) => sum + item.subtotal, 0),
-    tax: items.reduce((sum, item) => sum + item.tax, 0),
-    total: items.reduce((sum, item) => sum + item.total, 0),
-  };
+  const discount = parseQuoteDiscount(input.discount);
+  const totals = pricedQuoteTotals(items, discount);
 
   let validUntil: Date | null = defaultValidUntil();
   if (input.validUntil === null) {
@@ -306,24 +354,14 @@ export async function createQuoteRecord(input: {
           validUntil,
           deliveryBusinessDays,
           initialPaymentPercent,
+          discountType: totals.discountType,
+          discountValue: totals.discountValue,
+          discountAmount: totals.discountAmount,
           subtotal: totals.subtotal,
           tax: totals.tax,
           total: totals.total,
           items: {
-            create: items.map((item) => ({
-              planId: item.planId,
-              planName: item.planName,
-              categoryName: item.categoryName,
-              subcategoryName: item.subcategoryName,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              taxRate: item.taxRate,
-              includedItems: item.includedItems,
-              subtotal: item.subtotal,
-              tax: item.tax,
-              total: item.total,
-              sortOrder: item.sortOrder,
-            })),
+            create: quoteItemCreateData(items),
           },
         },
         include: quoteInclude,
@@ -346,6 +384,88 @@ export async function createQuoteRecord(input: {
   }
 
   throw new Error("No se pudo asignar un número de cotización.");
+}
+
+export async function updateQuoteRecord(
+  id: string,
+  input: {
+    items: QuoteItemInput[];
+    notes?: string;
+    validUntil?: string | null;
+    deliveryBusinessDays?: number | string;
+    initialPaymentPercent?: number | string;
+    discount?: QuoteDiscountInput;
+    status?: QuoteStatus;
+  },
+): Promise<QuoteRecord> {
+  const existing = await getQuoteById(id);
+  if (!existing) {
+    throw new Error("La cotización no existe.");
+  }
+
+  if (!canEditQuote(existing.status)) {
+    throw new Error("Esta cotización ya no se puede modificar.");
+  }
+
+  const sale = await getPrisma().sale.findUnique({
+    where: { quoteId: existing.id },
+    select: { id: true },
+  });
+  if (sale) {
+    throw new Error("No se puede modificar una cotización convertida en venta.");
+  }
+
+  const status = nextQuoteStatusAfterEdit(existing.status, input.status);
+  const items = await resolveQuoteItems(input.items, existing.items);
+  const discount = parseQuoteDiscount(
+    input.discount ?? { type: existing.discountType, value: existing.discountValue },
+  );
+  const totals = pricedQuoteTotals(items, discount);
+
+  let validUntil: Date | null = existing.validUntil ? new Date(existing.validUntil) : null;
+  if (input.validUntil === null) {
+    validUntil = null;
+  } else if (input.validUntil) {
+    validUntil = parseQuoteValidUntil(input.validUntil);
+  }
+
+  const notes = String(input.notes ?? existing.notes).trim();
+  const deliveryBusinessDays =
+    input.deliveryBusinessDays == null || input.deliveryBusinessDays === ""
+      ? existing.deliveryBusinessDays
+      : parseDeliveryBusinessDays(input.deliveryBusinessDays);
+  const initialPaymentPercent =
+    input.initialPaymentPercent == null || input.initialPaymentPercent === ""
+      ? existing.initialPaymentPercent
+      : parseInitialPaymentPercent(input.initialPaymentPercent);
+
+  const updated = await getPrisma().$transaction(async (tx) => {
+    await tx.quoteItem.deleteMany({ where: { quoteId: existing.id } });
+
+    return tx.quote.update({
+      where: { id: existing.id },
+      data: {
+        status,
+        notes,
+        validUntil,
+        deliveryBusinessDays,
+        initialPaymentPercent,
+        discountType: totals.discountType,
+        discountValue: totals.discountValue,
+        discountAmount: totals.discountAmount,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        total: totals.total,
+        sentAt: status === "SENT" ? existing.sentAt : null,
+        items: {
+          create: quoteItemCreateData(items),
+        },
+      },
+      include: quoteInclude,
+    });
+  });
+
+  return toQuoteRecord(updated);
 }
 
 export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<QuoteRecord> {

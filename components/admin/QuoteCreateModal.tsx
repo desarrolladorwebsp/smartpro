@@ -3,20 +3,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
+import { ConfirmActionModal } from "@/components/admin/ConfirmActionModal";
 import type { ClientRecord } from "@/lib/clients/types";
-import { formatCurrency, TAX_RATE } from "@/lib/orders/service";
+import { formatCurrency, parseMoney, TAX_RATE } from "@/lib/orders/service";
 import {
   QUOTE_DEFAULT_DELIVERY_DAYS,
   QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT,
   QUOTE_DEFAULT_VALIDITY_DAYS,
 } from "@/lib/quotes/company";
 import { CUSTOM_QUOTE_SERVICE_LABEL, parseCustomQuoteItemInput } from "@/lib/quotes/custom-item";
+import {
+  applyQuoteDiscount,
+  formatQuoteDiscountLabel,
+  formatQuoteDiscountValue,
+  parseQuoteDiscount,
+  type QuoteDiscountType,
+} from "@/lib/quotes/pricing";
 import type { QuoteCatalogGroup, QuoteCatalogPlan, QuoteRecord } from "@/lib/quotes/types";
 
 type SelectedCatalogPlan = {
   kind: "catalog";
   plan: QuoteCatalogPlan;
   quantity: number;
+  unitPrice: number;
 };
 
 type SelectedCustomService = {
@@ -42,6 +51,7 @@ type QuoteCreateModalProps = {
   onClose: () => void;
   client?: ClientRecord | null;
   clients?: ClientRecord[];
+  quote?: QuoteRecord | null;
   onCreated?: (quote: QuoteRecord) => void;
 };
 
@@ -55,6 +65,33 @@ function emptyCustomDraft(): CustomDraft {
   return { id: null, name: "", price: "", items: [""] };
 }
 
+function toDateInputValue(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(date);
+}
+
+function selectedFromQuote(quote: QuoteRecord, catalog: QuoteCatalogGroup[]): SelectedEntry[] {
+  const plansById = new Map(catalog.flatMap((group) => group.plans.map((plan) => [plan.id, plan] as const)));
+
+  return quote.items.map((item) => {
+    const plan = item.planId ? plansById.get(item.planId) : undefined;
+    if (plan) {
+      return { kind: "catalog" as const, plan, quantity: item.quantity, unitPrice: item.unitPrice };
+    }
+
+    return {
+      kind: "custom" as const,
+      id: item.id || crypto.randomUUID(),
+      name: item.planName,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      includedItems: item.includedItems.length > 0 ? item.includedItems : [item.planName],
+    };
+  });
+}
+
 function customDraftIsDirty(draft: CustomDraft): boolean {
   return Boolean(draft.name.trim() || draft.price.trim() || draft.items.some((item) => item.trim()));
 }
@@ -64,13 +101,12 @@ function selectedKey(entry: SelectedEntry): string {
 }
 
 function lineSubtotal(entry: SelectedEntry): number {
-  if (entry.kind === "catalog") return entry.plan.price * entry.quantity;
   return entry.unitPrice * entry.quantity;
 }
 
 function lineTax(entry: SelectedEntry): number {
-  if (entry.kind === "catalog") return entry.plan.price * entry.quantity * entry.plan.taxRate;
-  return entry.unitPrice * entry.quantity * TAX_RATE;
+  const rate = entry.kind === "catalog" ? entry.plan.taxRate : TAX_RATE;
+  return entry.unitPrice * entry.quantity * rate;
 }
 
 export function QuoteCreateModal({ open, ...props }: QuoteCreateModalProps) {
@@ -78,12 +114,13 @@ export function QuoteCreateModal({ open, ...props }: QuoteCreateModalProps) {
   return <QuoteCreateForm {...props} />;
 }
 
-function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<QuoteCreateModalProps, "open">) {
+function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Omit<QuoteCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
+  const hydratedQuoteId = useRef<string | null>(null);
   const [catalog, setCatalog] = useState<QuoteCatalogGroup[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
-  const [clientId, setClientId] = useState(client?.id ?? "");
+  const [clientId, setClientId] = useState(quote?.clientId ?? client?.id ?? "");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedEntry[]>([]);
   const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
@@ -91,12 +128,21 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
   const [customFocusToken, setCustomFocusToken] = useState(0);
   const customSectionRef = useRef<HTMLElement>(null);
   const customNameRef = useRef<HTMLInputElement>(null);
-  const [notes, setNotes] = useState("");
-  const [validUntil, setValidUntil] = useState(defaultValidUntil);
-  const [deliveryBusinessDays, setDeliveryBusinessDays] = useState(String(QUOTE_DEFAULT_DELIVERY_DAYS));
-  const [initialPaymentPercent, setInitialPaymentPercent] = useState(String(QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT));
+  const [notes, setNotes] = useState(quote?.notes ?? "");
+  const [validUntil, setValidUntil] = useState(quote ? toDateInputValue(quote.validUntil) : defaultValidUntil);
+  const [deliveryBusinessDays, setDeliveryBusinessDays] = useState(
+    String(quote?.deliveryBusinessDays ?? QUOTE_DEFAULT_DELIVERY_DAYS),
+  );
+  const [initialPaymentPercent, setInitialPaymentPercent] = useState(
+    String(quote?.initialPaymentPercent ?? QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT),
+  );
+  const [discountType, setDiscountType] = useState<QuoteDiscountType>(quote?.discountType ?? "NONE");
+  const [discountValue, setDiscountValue] = useState(
+    quote?.discountType && quote.discountType !== "NONE" ? String(quote.discountValue) : "",
+  );
   const [submitError, setSubmitError] = useState("");
   const [isSaving, setIsSaving] = useState<"DRAFT" | "CREATED" | null>(null);
+  const [pendingSaveStatus, setPendingSaveStatus] = useState<"DRAFT" | "CREATED" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +170,12 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!quote || isLoadingCatalog || hydratedQuoteId.current === quote.id) return;
+    hydratedQuoteId.current = quote.id;
+    setSelected(selectedFromQuote(quote, catalog));
+  }, [quote, catalog, isLoadingCatalog]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -155,10 +207,18 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
   }, [catalog, search]);
 
   const totals = useMemo(() => {
-    const subtotal = selected.reduce((sum, item) => sum + lineSubtotal(item), 0);
-    const tax = selected.reduce((sum, item) => sum + lineTax(item), 0);
-    return { subtotal, tax, total: subtotal + tax };
-  }, [selected]);
+    const gross = {
+      subtotal: selected.reduce((sum, item) => sum + lineSubtotal(item), 0),
+      tax: selected.reduce((sum, item) => sum + lineTax(item), 0),
+      total: 0,
+    };
+    gross.total = gross.subtotal + gross.tax;
+    try {
+      return applyQuoteDiscount(gross, parseQuoteDiscount({ type: discountType, value: discountValue }));
+    } catch {
+      return { ...gross, discountType: "NONE" as const, discountValue: 0, discountAmount: 0 };
+    }
+  }, [selected, discountType, discountValue]);
 
   useEffect(() => {
     if (!customFocusToken) return;
@@ -176,7 +236,7 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
   function addPlan(plan: QuoteCatalogPlan) {
     setSelected((current) => {
       if (current.some((entry) => entry.kind === "catalog" && entry.plan.id === plan.id)) return current;
-      return [...current, { kind: "catalog", plan, quantity: 1 }];
+      return [...current, { kind: "catalog", plan, quantity: 1, unitPrice: plan.price }];
     });
     setSubmitError("");
   }
@@ -185,6 +245,13 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
     setSelected((current) => current.filter((entry) => selectedKey(entry) !== key));
     setCustomDraft((current) => (current?.id === key ? null : current));
     setCustomError("");
+  }
+
+  function updateUnitPrice(key: string, value: string) {
+    const unitPrice = Math.max(0, Math.round(parseMoney(value)));
+    setSelected((current) =>
+      current.map((entry) => (selectedKey(entry) === key ? { ...entry, unitPrice } : entry)),
+    );
   }
 
   function updateQuantity(key: string, quantity: number) {
@@ -256,49 +323,87 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
     }
   }
 
-  async function save(status: "DRAFT" | "CREATED") {
-    if (isSavingRef.current) return;
+  function canSubmit(): boolean {
     if (!clientId) {
       setSubmitError("Selecciona un cliente.");
-      return;
+      return false;
     }
     if (customDraft && customDraftIsDirty(customDraft)) {
       setSubmitError("Guarda o cancela el servicio único que estás editando.");
       setCustomError("Guarda o cancela este servicio antes de crear la cotización.");
       setCustomFocusToken((current) => current + 1);
-      return;
+      return false;
     }
     if (selected.length === 0) {
       setSubmitError("Agrega al menos un plan o servicio.");
+      return false;
+    }
+    if (selected.some((entry) => entry.unitPrice < 1)) {
+      setSubmitError("Cada servicio debe tener un precio mayor a 0.");
+      return false;
+    }
+    try {
+      applyQuoteDiscount(
+        {
+          subtotal: selected.reduce((sum, item) => sum + lineSubtotal(item), 0),
+          tax: selected.reduce((sum, item) => sum + lineTax(item), 0),
+          total: 0,
+        },
+        parseQuoteDiscount({ type: discountType, value: discountValue }),
+      );
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Revisa el descuento.");
+      return false;
+    }
+    return true;
+  }
+
+  function requestSave(status: "DRAFT" | "CREATED") {
+    if (!canSubmit()) return;
+
+    if (quote?.status === "SENT") {
+      setPendingSaveStatus(status);
       return;
     }
 
+    void save(status);
+  }
+
+  async function save(status: "DRAFT" | "CREATED") {
+    if (isSavingRef.current) return;
+    if (!canSubmit()) return;
+
     isSavingRef.current = true;
     setIsSaving(status);
+    setPendingSaveStatus(null);
     setSubmitError("");
 
+    const payload = {
+      clientId,
+      status,
+      notes,
+      validUntil: validUntil || null,
+      deliveryBusinessDays,
+      initialPaymentPercent,
+      discountType,
+      discountValue,
+      items: selected.map((item) =>
+        item.kind === "catalog"
+          ? { planId: item.plan.id, quantity: item.quantity, unitPrice: item.unitPrice }
+          : {
+              name: item.name,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              includedItems: item.includedItems,
+            },
+      ),
+    };
+
     try {
-      const response = await fetch("/api/quotes", {
-        method: "POST",
+      const response = await fetch(quote ? `/api/quotes/${quote.id}` : "/api/quotes", {
+        method: quote ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          status,
-          notes,
-          validUntil: validUntil || null,
-          deliveryBusinessDays,
-          initialPaymentPercent,
-          items: selected.map((item) =>
-            item.kind === "catalog"
-              ? { planId: item.plan.id, quantity: item.quantity }
-              : {
-                  name: item.name,
-                  unitPrice: item.unitPrice,
-                  quantity: item.quantity,
-                  includedItems: item.includedItems,
-                },
-          ),
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await response.json().catch(() => ({}))) as { quote?: QuoteRecord; error?: string };
 
@@ -329,10 +434,14 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">Cotizaciones</p>
             <h2 id="quote-create-title" className="mt-1 text-2xl font-bold tracking-[-0.05em] text-foreground">
-              Nueva cotización
+              {quote ? `Modificar ${quote.number}` : "Nueva cotización"}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {client ? `${client.companyName} · ${client.contactFirstName} ${client.contactLastName}` : "Selecciona cliente, planes y condiciones."}
+              {quote
+                ? `${quote.clientCompany} · ${quote.clientName}`
+                : client
+                  ? `${client.companyName} · ${client.contactFirstName} ${client.contactLastName}`
+                  : "Selecciona cliente, planes y condiciones."}
             </p>
           </div>
           <button
@@ -349,7 +458,7 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
             <div className="space-y-4">
-              {!client ? (
+              {!client && !quote ? (
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-foreground">Cliente</span>
                   <select value={clientId} onChange={(event) => setClientId(event.target.value)} className="dashboard-field">
@@ -546,7 +655,8 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
                     {selected.map((item) => {
                       const key = selectedKey(item);
                       const name = item.kind === "catalog" ? item.plan.name : item.name;
-                      const price = item.kind === "catalog" ? item.plan.price : item.unitPrice;
+                      const listPrice = item.kind === "catalog" ? item.plan.price : null;
+                      const priceModified = listPrice != null && item.unitPrice !== listPrice;
                       const isEditing = item.kind === "custom" && customDraft?.id === item.id;
 
                       return (
@@ -558,8 +668,8 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-foreground">{name}</p>
                               <p className="text-xs text-muted">
-                                {formatCurrency(price)}
-                                {item.kind === "custom" ? ` · ${CUSTOM_QUOTE_SERVICE_LABEL}` : ""}
+                                {item.kind === "custom" ? CUSTOM_QUOTE_SERVICE_LABEL : item.plan.subcategoryName}
+                                {priceModified ? ` · lista ${formatCurrency(listPrice)}` : ""}
                               </p>
                             </div>
                             <div className="flex shrink-0">
@@ -597,17 +707,29 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
                               ))}
                             </ul>
                           ) : null}
-                          <label className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-foreground">
-                            Cantidad
-                            <input
-                              type="number"
-                              min={1}
-                              max={item.kind === "custom" ? 99 : undefined}
-                              value={item.quantity}
-                              onChange={(event) => updateQuantity(key, Number(event.target.value))}
-                              className="dashboard-field h-9 w-20 px-2"
-                            />
-                          </label>
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <label className="block text-xs font-medium text-foreground">
+                              Precio neto
+                              <input
+                                inputMode="numeric"
+                                value={item.unitPrice || ""}
+                                onChange={(event) => updateUnitPrice(key, event.target.value)}
+                                className="dashboard-field mt-1 h-9 px-2"
+                                aria-label={`Precio de ${name}`}
+                              />
+                            </label>
+                            <label className="block text-xs font-medium text-foreground">
+                              Cantidad
+                              <input
+                                type="number"
+                                min={1}
+                                max={item.kind === "custom" ? 99 : undefined}
+                                value={item.quantity}
+                                onChange={(event) => updateQuantity(key, Number(event.target.value))}
+                                className="dashboard-field mt-1 h-9 px-2"
+                              />
+                            </label>
+                          </div>
                         </li>
                       );
                     })}
@@ -615,11 +737,65 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
                 )}
               </div>
 
+              <div className="rounded-[20px] border border-border bg-white p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Descuento</p>
+                <div className="mt-3 grid grid-cols-3 gap-1 rounded-full border border-border p-1">
+                  {(
+                    [
+                      { id: "NONE", label: "Sin" },
+                      { id: "PERCENT", label: "%" },
+                      { id: "AMOUNT", label: "$" },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        setDiscountType(option.id);
+                        if (option.id === "NONE") setDiscountValue("");
+                      }}
+                      className={`min-h-9 rounded-full text-xs font-semibold ${
+                        discountType === option.id
+                          ? "bg-gradient-to-r from-primary to-magenta text-white"
+                          : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {discountType !== "NONE" ? (
+                  <label className="mt-3 block">
+                    <span className="mb-1.5 block text-sm font-semibold text-foreground">
+                      {discountType === "PERCENT" ? "Porcentaje" : "Monto en pesos"}
+                    </span>
+                    <input
+                      inputMode="decimal"
+                      value={discountValue}
+                      onChange={(event) => setDiscountValue(event.target.value)}
+                      className="dashboard-field"
+                      placeholder={discountType === "PERCENT" ? "10" : "20000"}
+                    />
+                  </label>
+                ) : (
+                  <p className="mt-3 text-xs text-muted">Opcional. Aplica sobre el subtotal neto, antes de IVA.</p>
+                )}
+              </div>
+
               <div className="rounded-[20px] border border-border bg-slate-50/80 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Resumen</p>
                 <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between gap-3"><span className="text-muted">Ítems</span><span>{selected.length}</span></div>
-                  <div className="flex justify-between gap-3"><span className="text-muted">Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted">Subtotal</span>
+                    <span>{formatCurrency(selected.reduce((sum, item) => sum + lineSubtotal(item), 0))}</span>
+                  </div>
+                  {formatQuoteDiscountLabel(totals) ? (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted">{formatQuoteDiscountLabel(totals)}</span>
+                      <span>{formatQuoteDiscountValue(totals)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-3"><span className="text-muted">IVA</span><span>{formatCurrency(totals.tax)}</span></div>
                   <div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>Total</span><span className="text-primary">{formatCurrency(totals.total)}</span></div>
                 </div>
@@ -669,19 +845,44 @@ function QuoteCreateForm({ onClose, client, clients = [], onCreated }: Omit<Quot
 
         <div className="shrink-0 space-y-3 border-t border-border px-5 py-4 sm:px-6">
           {submitError ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{submitError}</p> : null}
+          <p className="text-xs leading-5 text-muted">
+            {quote
+              ? "Los cambios se guardan en SmartPro. El correo al cliente solo se envía si confirmas Enviar cotización."
+              : "Crear o guardar no envía el correo. El envío se hace después, desde el detalle, con confirmación."}
+          </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={Boolean(isSaving)} className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">
               Cancelar
             </button>
-            <button type="button" onClick={() => void save("DRAFT")} disabled={Boolean(isSaving)} className="min-h-11 rounded-full border border-primary/25 px-4 text-sm font-semibold text-primary disabled:opacity-60">
-              {isSaving === "DRAFT" ? "Guardando..." : "Guardar borrador"}
-            </button>
-            <button type="button" onClick={() => void save("CREATED")} disabled={Boolean(isSaving)} className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60">
-              {isSaving === "CREATED" ? "Creando..." : "Crear cotización"}
+            {!quote || quote.status === "DRAFT" ? (
+              <button type="button" onClick={() => requestSave("DRAFT")} disabled={Boolean(isSaving)} className="min-h-11 rounded-full border border-primary/25 px-4 text-sm font-semibold text-primary disabled:opacity-60">
+                {isSaving === "DRAFT" ? "Guardando..." : "Guardar borrador"}
+              </button>
+            ) : null}
+            <button type="button" onClick={() => requestSave("CREATED")} disabled={Boolean(isSaving)} className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60">
+              {isSaving === "CREATED"
+                ? quote && quote.status !== "DRAFT"
+                  ? "Guardando..."
+                  : "Creando..."
+                : quote && quote.status !== "DRAFT"
+                  ? "Guardar cambios"
+                  : "Crear cotización"}
             </button>
           </div>
         </div>
       </div>
+      <ConfirmActionModal
+        open={pendingSaveStatus !== null}
+        title="Confirmar cambios"
+        description={`Al guardar, ${quote?.number ?? "esta cotización"} dejará de figurar como enviada. El cliente no recibirá el PDF actualizado hasta que confirmes Enviar cotización.`}
+        confirmLabel="Guardar cambios"
+        busyLabel="Guardando..."
+        isBusy={Boolean(isSaving)}
+        onCancel={() => setPendingSaveStatus(null)}
+        onConfirm={() => {
+          if (pendingSaveStatus) void save(pendingSaveStatus);
+        }}
+      />
     </div>
   );
 }

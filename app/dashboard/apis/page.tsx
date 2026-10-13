@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ApiConnectionsList, type ApiConnectionItem } from "@/components/admin/ApiConnectionsView";
 import { DashboardDataError } from "@/components/admin/DashboardDataError";
+import { ApiConnectionsPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 import { listApiClients } from "@/lib/api/v1/repository";
 import { inspectApiConnection } from "@/lib/api/v1/site-health";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default function ApisPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-muted">Comprobando las conexiones...</p>}>
+    <Suspense fallback={<ApiConnectionsPageSkeleton />}>
       <ApisPageContent />
     </Suspense>
   );

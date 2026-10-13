@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
 import { parseQuoteItemInputs } from "@/lib/quotes/custom-item";
+import { parseQuoteDiscount } from "@/lib/quotes/pricing";
 import { createQuoteRecord, listQuotes } from "@/lib/quotes/repository";
 import { isQuoteStatus, type QuoteStatus } from "@/lib/quotes/types";
 
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
       validUntil?: unknown;
       deliveryBusinessDays?: unknown;
       initialPaymentPercent?: unknown;
+      discountType?: unknown;
+      discountValue?: unknown;
       status?: unknown;
     };
 
@@ -52,6 +55,7 @@ export async function POST(request: Request) {
       validUntil: body.validUntil === null ? null : typeof body.validUntil === "string" ? body.validUntil : undefined,
       deliveryBusinessDays: body.deliveryBusinessDays as number | string | undefined,
       initialPaymentPercent: body.initialPaymentPercent as number | string | undefined,
+      discount: parseQuoteDiscount({ type: body.discountType, value: body.discountValue }),
       status: body.status === "DRAFT" ? "DRAFT" : "CREATED",
       createdByEmail: session.email,
     });

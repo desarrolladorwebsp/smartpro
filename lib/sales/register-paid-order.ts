@@ -14,6 +14,7 @@ import {
 } from "./from-order";
 import { getSaleByOrderId, getSaleByQuoteId, recordPaidOrderPayment, type SaleRecord } from "./repository";
 import { nextSaleNumber } from "./numbering";
+import { ensureSalePaymentTable } from "./schema";
 
 export type RegisterPaidOrderSaleResult = {
   sale: SaleRecord | null;
@@ -118,6 +119,7 @@ async function resolveClientForSale(draft: PaidOrderSaleDraft): Promise<ClientRe
 }
 
 export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<RegisterPaidOrderSaleResult> {
+  await ensureSalePaymentTable();
   let quoteAmounts: { subtotal: number; tax: number; total: number } | null = null;
   if (order.quoteId) {
     const quote = await getQuoteById(order.quoteId);

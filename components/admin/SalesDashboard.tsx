@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { SaleCreateModal } from "@/components/admin/SaleCreateModal";
+import { SaleInvoiceModal } from "@/components/admin/SaleInvoiceModal";
 import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
 import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
@@ -48,6 +50,7 @@ type SalesDashboardProps = {
 };
 
 export function SalesDashboard({ initialSales, clients: initialClients, initialClientId }: SalesDashboardProps) {
+  const router = useRouter();
   const [sales, setSales] = useState(initialSales);
   const [clients, setClients] = useState(initialClients);
   const [search, setSearch] = useState("");
@@ -57,6 +60,7 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [invoiceSale, setInvoiceSale] = useState<SaleRecord | null>(null);
   const [paymentSale, setPaymentSale] = useState<SaleRecord | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
@@ -211,24 +215,29 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                   <th className="px-4 py-3 font-medium">Cobro</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 font-medium">Comprobante</th>
+                  <th className="px-4 py-3 font-medium">Factura</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSales.map((sale) => (
-                  <tr key={sale.id} className="border-t border-border">
-                    <td className="px-4 py-3 font-semibold">{sale.number}</td>
+                  <tr
+                    key={sale.id}
+                    onClick={() => router.push(`/dashboard/ventas/${encodeURIComponent(sale.id)}`)}
+                    className="cursor-pointer border-t border-border transition-colors hover:bg-slate-50"
+                  >
+                    <td className="px-4 py-3 font-semibold"><Link href={`/dashboard/ventas/${encodeURIComponent(sale.id)}`} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>{sale.number}</Link></td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{sale.clientCompany}</div>
                       <div className="text-xs text-muted">{sale.clientName}</div>
                     </td>
                     <td className="px-4 py-3">
                       {sale.quoteId && sale.quoteNumber ? (
-                        <Link href={`/dashboard/cotizaciones/${sale.quoteId}`} className="font-medium text-primary hover:underline">
+                        <Link href={`/dashboard/cotizaciones/${sale.quoteId}`} onClick={(event) => event.stopPropagation()} className="font-medium text-primary hover:underline">
                           {sale.quoteNumber}
                         </Link>
                       ) : sale.orderId ? (
-                        <Link href={`/dashboard/compras/${sale.orderId}`} className="font-medium text-primary hover:underline">
+                        <Link href={`/dashboard/compras/${sale.orderId}`} onClick={(event) => event.stopPropagation()} className="font-medium text-primary hover:underline">
                           {sale.orderId}
                         </Link>
                       ) : sale.source === "MANUAL" ? (
@@ -260,6 +269,7 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                           href={sale.receiptPath}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
                           className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold"
                         >
                           Ver archivo
@@ -269,10 +279,27 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {sale.liorenInvoice.status === "ISSUED" ? (
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                          Emitida{sale.liorenInvoice.folio ? ` · ${sale.liorenInvoice.folio}` : ""}
+                        </span>
+                      ) : sale.liorenInvoice.status === "ISSUING" ? (
+                        <span className="text-xs text-muted">Procesando…</span>
+                      ) : sale.status !== "CANCELLED" ? (
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); setInvoiceSale(sale); }}
+                          className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold hover:border-primary/30 hover:text-primary"
+                        >
+                          {sale.liorenInvoice.status === "ERROR" ? "Revisar / reintentar" : "Emitir factura"}
+                        </button>
+                      ) : <span className="text-muted">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
                       {sale.status !== "CANCELLED" && sale.balanceDue > 0 ? (
                         <button
                           type="button"
-                          onClick={() => setPaymentSale(sale)}
+                          onClick={(event) => { event.stopPropagation(); setPaymentSale(sale); }}
                           className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold hover:border-primary/30 hover:text-primary"
                         >
                           Abono
@@ -309,6 +336,19 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
           setSales((current) => current.map((entry) => (entry.id === sale.id ? sale : entry)));
           setSuccessMessage(`Abono registrado en ${sale.number}.`);
           void refreshSales();
+        }}
+      />
+      <SaleInvoiceModal
+        sale={invoiceSale}
+        onClose={() => setInvoiceSale(null)}
+        onIssued={(sale) => {
+          setSales((current) => current.map((entry) => entry.id === sale.id ? sale : entry));
+          setSuccessMessage(`Factura ${sale.liorenInvoice.folio ? `folio ${sale.liorenInvoice.folio}` : ""} emitida en Lioren para ${sale.number}.`);
+          void refreshSales();
+        }}
+        onFailed={(sale) => {
+          setSales((current) => current.map((entry) => entry.id === sale.id ? sale : entry));
+          setInvoiceSale(sale);
         }}
       />
       {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}

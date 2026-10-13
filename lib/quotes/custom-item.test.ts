@@ -4,18 +4,28 @@ import assert from "node:assert/strict";
 import { buildServiceScope } from "./terms";
 import { buildCustomQuoteItemRecord, parseQuoteItemInputs } from "./custom-item";
 
-test("parseQuoteItemInputs conserva un plan de catálogo e ignora precio o ítems enviados aparte", () => {
+test("parseQuoteItemInputs conserva un plan de catálogo y permite precio manual", () => {
   assert.deepEqual(
     parseQuoteItemInputs([
       {
         planId: "plan-1",
         quantity: 2,
         name: "No debe usarse",
-        unitPrice: 1,
         includedItems: ["Tampoco"],
       },
     ]),
     [{ kind: "catalog", planId: "plan-1", quantity: 2 }],
+  );
+
+  assert.deepEqual(
+    parseQuoteItemInputs([
+      {
+        planId: "plan-1",
+        quantity: 1,
+        unitPrice: "180.000",
+      },
+    ]),
+    [{ kind: "catalog", planId: "plan-1", quantity: 1, unitPrice: 180000 }],
   );
 });
 

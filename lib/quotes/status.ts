@@ -20,6 +20,26 @@ export function canSendQuote(status: QuoteStatus): boolean {
   return status === "SENT" || TRANSITIONS[status].includes("SENT");
 }
 
+export function canEditQuote(status: QuoteStatus): boolean {
+  return status === "DRAFT" || status === "CREATED" || status === "SENT";
+}
+
+export function canSetQuoteStatusManually(status: QuoteStatus): boolean {
+  return status !== "SENT";
+}
+
+export function nextQuoteStatusAfterEdit(existing: QuoteStatus, requested?: QuoteStatus): QuoteStatus {
+  if (!canEditQuote(existing)) {
+    throw new Error("Esta cotización ya no se puede modificar.");
+  }
+
+  if (existing === "DRAFT") {
+    return requested === "CREATED" ? "CREATED" : "DRAFT";
+  }
+
+  return "CREATED";
+}
+
 export function canPayQuote(status: QuoteStatus): boolean {
   return status === "CREATED" || status === "SENT" || status === "ACCEPTED";
 }

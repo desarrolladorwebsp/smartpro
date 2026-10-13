@@ -42,7 +42,7 @@ export type ApiRouteConfig<Params> = {
   handler: (context: ApiRouteContext<Params>) => Promise<ApiRouteResult>;
 };
 
-type NextRouteContext<Params> = { params?: Promise<Params> } | undefined;
+type NextRouteContext<Params> = { params: Promise<Params> };
 
 const METHODS_WITH_BODY = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -148,7 +148,7 @@ export function createApiRoute<Params = Record<string, string>>(config: ApiRoute
         }
       }
 
-      const resolvedParams = ((await context?.params) ?? {}) as Params;
+      const resolvedParams = await context.params;
 
       const result = await config.handler({
         request,

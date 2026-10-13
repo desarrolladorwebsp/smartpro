@@ -1,6 +1,7 @@
 import { CheckoutValidationError, normalizeCustomer } from "../orders/checkout";
 import { buildOrderTotals, formatCurrency, TAX_RATE, type CartItemDraft } from "../orders/service";
 import { quoteDepositAmounts } from "./fields";
+import { applyQuoteDiscount } from "./pricing";
 import { canPayQuote, isQuoteExpired } from "./status";
 import type { QuoteRecord } from "./types";
 
@@ -63,7 +64,10 @@ export function buildQuoteCheckoutOrder(quote: QuoteRecord): QuoteCheckoutOrder 
     throw new CheckoutValidationError("La cotización no incluye servicios pagables.");
   }
 
-  const totals = buildOrderTotals(items);
+  const totals = applyQuoteDiscount(buildOrderTotals(items), {
+    type: quote.discountType,
+    value: quote.discountValue,
+  });
 
   if (Math.round(totals.total) !== Math.round(quote.total)) {
     throw new CheckoutValidationError("Los montos de la cotización no coinciden con los registrados.");

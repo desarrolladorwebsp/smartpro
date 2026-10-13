@@ -1,0 +1,15 @@
+---
+description: Tras cada push a GitHub, validar en Vercel MCP que el commit quedó desplegado.
+alwaysApply: true
+---
+
+# Validar deploy en Vercel
+
+Después de `git push` (o crear/actualizar un PR que dispare deploy), usa el MCP `user-vercel` y confirma que el commit está en Vercel.
+
+1. Localiza el proyecto SmartPro (repo `desarrolladorwebsp/smartpro`), no otros equipos como Appsfly.
+2. Lista el deployment de producción (y preview si aplica) filtrando por SHA del commit recén empujado.
+3. Reporta estado (`READY`, `ERROR`, `BUILDING`), URL e inspector.
+4. Si está `ERROR` o no aparece, revisa logs/runtime errors y avisa. No asumas que el push alcanzó producción.
+
+Si el MCP no está autenticado o no ve el proyecto SmartPro, autenticar de nuevo (`mcp_auth` en `user-vercel`) con la cuenta/equipo dueño de SmartPro antes de dar por bueno el deploy.

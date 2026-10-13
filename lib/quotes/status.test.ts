@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { assertQuoteStatusTransition, canPayQuote, canSendQuote, canTransitionQuoteStatus, isQuoteExpired } from "./status";
+import {
+  assertQuoteStatusTransition,
+  canEditQuote,
+  canPayQuote,
+  canSendQuote,
+  canSetQuoteStatusManually,
+  canTransitionQuoteStatus,
+  isQuoteExpired,
+  nextQuoteStatusAfterEdit,
+} from "./status";
 
 test("permite las transiciones de estado comerciales", () => {
   assert.equal(canTransitionQuoteStatus("DRAFT", "CREATED"), true);
@@ -19,6 +28,28 @@ test("canSendQuote cubre borrador, creada y reenvío, no estados terminales", ()
   assert.equal(canSendQuote("SENT"), true);
   assert.equal(canSendQuote("ACCEPTED"), false);
   assert.equal(canSendQuote("REJECTED"), false);
+});
+
+test("canEditQuote permite ajustar borradores, creadas y enviadas, no estados terminales", () => {
+  assert.equal(canEditQuote("DRAFT"), true);
+  assert.equal(canEditQuote("CREATED"), true);
+  assert.equal(canEditQuote("SENT"), true);
+  assert.equal(canEditQuote("ACCEPTED"), false);
+  assert.equal(canEditQuote("REJECTED"), false);
+});
+
+test("el estado Enviada solo se aplica al confirmar el envío por correo", () => {
+  assert.equal(canSetQuoteStatusManually("SENT"), false);
+  assert.equal(canSetQuoteStatusManually("CREATED"), true);
+  assert.equal(canSetQuoteStatusManually("ACCEPTED"), true);
+});
+
+test("editar una cotización enviada la deja creada para volver a confirmar el envío", () => {
+  assert.equal(nextQuoteStatusAfterEdit("DRAFT", "DRAFT"), "DRAFT");
+  assert.equal(nextQuoteStatusAfterEdit("DRAFT", "CREATED"), "CREATED");
+  assert.equal(nextQuoteStatusAfterEdit("CREATED"), "CREATED");
+  assert.equal(nextQuoteStatusAfterEdit("SENT"), "CREATED");
+  assert.throws(() => nextQuoteStatusAfterEdit("ACCEPTED"), /ya no se puede modificar/);
 });
 
 test("canPayQuote permite cobro de cotizaciones vigentes y no de borradores o rechazadas", () => {

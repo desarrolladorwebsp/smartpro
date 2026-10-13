@@ -60,6 +60,41 @@ async function foreignKeyExists(prisma: PrismaClient, table: string, constraint:
   return rows.length > 0;
 }
 
+/** Adds the Lioren invoice state to existing Sale tables without replacing data. */
+export async function ensureLiorenInvoiceColumns(client?: PrismaClient | null): Promise<void> {
+  const prisma = client ?? getPrismaClient();
+  if (!prisma) throw new Error("No hay conexión a la base de datos.");
+
+  const columns = (await prisma.$queryRawUnsafe(`
+    SELECT COLUMN_NAME
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Sale'
+  `)) as Array<{ COLUMN_NAME: string }>;
+  const existing = new Set(columns.map((column) => column.COLUMN_NAME));
+  const additions = [
+    ["liorenInvoiceStatus", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceStatus` ENUM('NOT_ISSUED', 'ISSUING', 'ISSUED', 'ERROR') NOT NULL DEFAULT 'NOT_ISSUED'"],
+    ["liorenInvoiceType", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceType` VARCHAR(3) NULL"],
+    ["liorenInvoiceDocumentId", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceDocumentId` INTEGER NULL"],
+    ["liorenInvoiceFolio", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceFolio` INTEGER NULL"],
+    ["liorenInvoiceIssuedAt", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceIssuedAt` DATETIME(3) NULL"],
+    ["liorenInvoiceDraft", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceDraft` LONGTEXT NULL"],
+    ["liorenInvoiceError", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceError` TEXT NULL"],
+  ] as const;
+
+  for (const [column, sql] of additions) {
+    if (existing.has(column)) continue;
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch (error) {
+      const latest = (await prisma.$queryRawUnsafe(`
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Sale' AND COLUMN_NAME = '${column}'
+      `)) as Array<{ COLUMN_NAME: string }>;
+      if (latest.length === 0) throw error;
+    }
+  }
+}
+
 async function addForeignKey(prisma: PrismaClient, table: string, constraint: string, sql: string) {
   if (await foreignKeyExists(prisma, table, constraint)) {
     return;
@@ -95,6 +130,8 @@ export async function ensureSalePaymentTable(client?: PrismaClient | null): Prom
     if (!(await tableExists(prisma, "SalePayment"))) {
       await prisma.$executeRawUnsafe(CREATE_SALE_PAYMENT_TABLE_SQL);
     }
+
+    await ensureLiorenInvoiceColumns(prisma);
 
     await addForeignKey(
       prisma,

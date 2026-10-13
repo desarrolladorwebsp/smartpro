@@ -15,6 +15,23 @@ function parseCatalogQuantity(value: unknown): number {
   return Math.max(1, Number.isFinite(parsed) ? parsed : 1);
 }
 
+export function parseOptionalUnitPrice(value: unknown): number | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  const unitPrice = Math.round(parseMoney(value as string | number | null | undefined));
+  if (!Number.isFinite(unitPrice) || unitPrice < 1) {
+    throw new Error("El precio del servicio debe ser mayor a 0.");
+  }
+
+  if (unitPrice > MAX_UNIT_PRICE) {
+    throw new Error("El precio del servicio es demasiado alto.");
+  }
+
+  return unitPrice;
+}
+
 function parseCustomQuantity(value: unknown): number {
   if (value == null || value === "") {
     return 1;
@@ -122,10 +139,12 @@ export function parseQuoteItemInputs(value: unknown): QuoteItemInput[] {
         throw new Error("Uno de los planes seleccionados no es válido.");
       }
 
+      const unitPrice = parseOptionalUnitPrice(record.unitPrice);
       return {
         kind: "catalog" as const,
         planId,
         quantity: parseCatalogQuantity(record.quantity),
+        ...(unitPrice != null ? { unitPrice } : {}),
       };
     }
 

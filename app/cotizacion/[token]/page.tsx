@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { QuoteCommercialTerms } from "@/components/admin/QuoteCommercialTerms";
+import { QuoteMoneySummary } from "@/components/quotes/QuoteMoneySummary";
 import { QuotePaymentActions } from "@/components/quotes/QuotePaymentActions";
 import { SMARTPRO_COMPANY } from "@/lib/quotes/company";
 import { getQuotePaymentBlockReason } from "@/lib/quotes/checkout";
@@ -166,20 +167,8 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
             </table>
           </div>
 
-          <div className="mt-5 ml-auto max-w-sm space-y-2 text-sm">
-            <div className="flex items-center justify-between text-muted">
-              <span>Subtotal</span>
-              <span>{formatCurrency(quote.subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between text-muted">
-              <span>IVA ({taxPercent}%)</span>
-              <span>{formatCurrency(quote.tax)}</span>
-            </div>
-            <div className="flex items-end justify-between border-t border-border pt-3">
-              <span className="text-sm font-bold uppercase tracking-[0.08em] text-navy">Inversión total</span>
-              <span className="text-2xl font-bold tracking-[-0.05em] text-magenta">{formatCurrency(quote.total)}</span>
-            </div>
-            <p className="text-right text-xs text-muted">IVA incluido</p>
+          <div className="mt-5 ml-auto max-w-sm">
+            <QuoteMoneySummary quote={quote} taxPercent={taxPercent} />
           </div>
 
           <div className="mt-8">

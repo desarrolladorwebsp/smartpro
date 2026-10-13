@@ -5,6 +5,7 @@ import { formatCurrency } from "../orders/service";
 import { buildQuotePaymentUrls } from "./access";
 import { SMARTPRO_COMPANY } from "./company";
 import { buildQuotePdf } from "./pdf";
+import { formatQuoteDiscountLabel } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
 
 function formatDate(value: string | null): string {
@@ -43,6 +44,9 @@ export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
       { label: "Emisión", value: formatDate(quote.createdAt) },
       { label: "Vencimiento", value: formatDate(quote.validUntil) },
       { label: "Servicios", value: String(quote.items.length) },
+      ...(formatQuoteDiscountLabel(quote)
+        ? [{ label: "Descuento", value: `${formatQuoteDiscountLabel(quote)} (${formatCurrency(quote.discountAmount)})` }]
+        : []),
     ],
     notices: ["Este correo incluye la cotización en PDF como archivo adjunto."],
     closing: "Quedamos atentos para resolver cualquier consulta y coordinar el siguiente paso.",

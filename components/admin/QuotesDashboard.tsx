@@ -178,7 +178,7 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
           setClientFilter("ALL");
           setFrom("");
           setTo("");
-          setSuccessMessage(`Cotización ${quote.number} creada correctamente.`);
+          setSuccessMessage(`Cotización ${quote.number} guardada. Aún no se envió al cliente.`);
         }}
       />
       {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}

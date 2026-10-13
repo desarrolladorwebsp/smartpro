@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { ConfirmActionModal } from "@/components/admin/ConfirmActionModal";
+import { QuoteCreateModal } from "@/components/admin/QuoteCreateModal";
 import { formatCurrency } from "@/lib/orders/service";
-import { canSendQuote, canTransitionQuoteStatus } from "@/lib/quotes/status";
+import { canEditQuote, canSendQuote, canSetQuoteStatusManually, canTransitionQuoteStatus } from "@/lib/quotes/status";
 import {
   QUOTE_STATUSES,
   getQuoteStatusLabel,
@@ -24,6 +26,12 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrent(quote);
+  }, [quote]);
 
   async function sendQuote() {
     if (isSending) return;
@@ -41,6 +49,7 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
       }
 
       setCurrent(data.quote);
+      setIsSendConfirmOpen(false);
       setMessage(`Cotización enviada a ${data.quote.clientEmail}.`);
       router.refresh();
     } catch {
@@ -52,6 +61,11 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
 
   async function changeStatus(status: QuoteStatus) {
     if (isUpdating || status === current.status) return;
+    if (!canSetQuoteStatusManually(status)) {
+      setError("La cotización solo se marca como enviada al confirmar el envío por correo.");
+      return;
+    }
+
     setIsUpdating(true);
     setError("");
     setMessage("");
@@ -79,6 +93,17 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
     }
   }
 
+  const sendDisabled = isSending || !current.clientEmail || !canSendQuote(current.status);
+  const sendLabel = isSending
+    ? "Enviando..."
+    : !canSendQuote(current.status)
+      ? "No se puede enviar"
+      : current.clientEmail
+        ? current.status === "SENT"
+          ? "Reenviar cotización"
+          : "Enviar cotización"
+        : "Cliente sin correo";
+
   return (
     <aside className="space-y-4 rounded-[26px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
       <div>
@@ -95,6 +120,16 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
         <p className="mt-1 text-sm text-muted">{getQuoteStatusLabel(current.status)}</p>
       </div>
 
+      {canEditQuote(current.status) ? (
+        <button
+          type="button"
+          onClick={() => setIsEditOpen(true)}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:border-primary/30 hover:text-primary"
+        >
+          Modificar cotización
+        </button>
+      ) : null}
+
       <a
         href={`/api/quotes/${current.id}/pdf`}
         className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border px-4 text-sm font-semibold text-foreground transition hover:border-primary/30 hover:text-primary"
@@ -104,18 +139,15 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
 
       <button
         type="button"
-        onClick={() => void sendQuote()}
-        disabled={isSending || !current.clientEmail || !canSendQuote(current.status)}
+        onClick={() => setIsSendConfirmOpen(true)}
+        disabled={sendDisabled}
         className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {isSending
-          ? "Enviando..."
-          : !canSendQuote(current.status)
-            ? "No se puede enviar"
-            : current.clientEmail
-              ? "Enviar al cliente"
-              : "Cliente sin correo"}
+        {sendLabel}
       </button>
+      <p className="text-xs leading-5 text-muted">
+        El correo con el PDF solo se envía después de confirmar esta acción.
+      </p>
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-semibold text-foreground">Cambiar estado</span>
@@ -126,7 +158,14 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
           className="dashboard-field"
         >
           {QUOTE_STATUSES.map((status) => (
-            <option key={status} value={status} disabled={!canTransitionQuoteStatus(current.status, status)}>
+            <option
+              key={status}
+              value={status}
+              disabled={
+                !canTransitionQuoteStatus(current.status, status) ||
+                (status !== current.status && !canSetQuoteStatusManually(status))
+              }
+            >
               {getQuoteStatusLabel(status)}
             </option>
           ))}
@@ -136,6 +175,31 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
       <Link href={`/dashboard/clientes/${current.clientId}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border px-4 text-sm font-semibold">
         Ver cliente
       </Link>
+
+      <QuoteCreateModal
+        open={isEditOpen}
+        quote={current}
+        onClose={() => setIsEditOpen(false)}
+        onCreated={(nextQuote) => {
+          setCurrent(nextQuote);
+          setMessage(`Cotización ${nextQuote.number} actualizada. Aún no se envió al cliente.`);
+          setError("");
+          router.refresh();
+        }}
+      />
+
+      <ConfirmActionModal
+        open={isSendConfirmOpen}
+        title={current.status === "SENT" ? "Reenviar cotización" : "Enviar cotización"}
+        description={`Se enviará ${current.number} a ${current.clientEmail || "el cliente"} con el PDF adjunto. Revisa que el contenido esté listo antes de confirmar.`}
+        confirmLabel={current.status === "SENT" ? "Confirmar reenvío" : "Confirmar envío"}
+        busyLabel="Enviando..."
+        isBusy={isSending}
+        onCancel={() => {
+          if (!isSending) setIsSendConfirmOpen(false);
+        }}
+        onConfirm={() => void sendQuote()}
+      />
     </aside>
   );
 }

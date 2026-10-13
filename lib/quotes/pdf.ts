@@ -8,6 +8,7 @@ import { buildQuotePaymentUrls } from "./access";
 import { SMARTPRO_COMPANY } from "./company";
 import { formatQuoteDateLabel } from "./dates";
 import { buildQuoteCommercialTerms } from "./terms";
+import { formatQuoteDiscountLabel, formatQuoteDiscountValue, quoteItemsGross } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
 
 const COLORS = {
@@ -360,10 +361,12 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   }
 
   y += 14;
-  ensureSpace(92);
+  const discountLabel = formatQuoteDiscountLabel(quote);
+  ensureSpace(discountLabel ? 108 : 92);
   const totalsWidth = 230;
   const totalsX = PAGE.width - PAGE.margin - totalsWidth;
   const taxPercent = Math.round((quote.items[0]?.taxRate ?? TAX_RATE) * 100);
+  const gross = quoteItemsGross(quote.items);
 
   const drawTotalRow = (label: string, value: string, muted = true) => {
     doc.fillColor(muted ? COLORS.muted : COLORS.ink).font("Helvetica").fontSize(9).text(label, totalsX, y, { width: 110 });
@@ -371,7 +374,10 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     y += 16;
   };
 
-  drawTotalRow("Subtotal", formatCurrency(quote.subtotal));
+  drawTotalRow("Subtotal", formatCurrency(gross.subtotal));
+  if (discountLabel) {
+    drawTotalRow(discountLabel, formatQuoteDiscountValue(quote));
+  }
   drawTotalRow(`IVA (${taxPercent}%)`, formatCurrency(quote.tax));
   doc.moveTo(totalsX, y).lineTo(PAGE.width - PAGE.margin, y).strokeColor(COLORS.border).lineWidth(1).stroke();
   y += 10;

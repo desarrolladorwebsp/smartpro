@@ -29,6 +29,7 @@ function sale(overrides: Partial<SaleRecord>): SaleRecord {
     subtotal: 100000,
     tax: 19000,
     total: 119000,
+    liorenInvoice: { status: "NOT_ISSUED", type: null, documentId: null, folio: null, issuedAt: null, error: "", draft: null },
     paidAmount: 0,
     balanceDue: 119000,
     collectionStatus: "UNPAID",

@@ -10,10 +10,13 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   REJECTED: "Rechazada",
 };
 
+export type QuoteDiscountType = "NONE" | "PERCENT" | "AMOUNT";
+
 export type QuoteCatalogItemInput = {
   kind: "catalog";
   planId: string;
   quantity: number;
+  unitPrice?: number;
 };
 
 export type QuoteCustomItemInput = {
@@ -58,6 +61,9 @@ export type QuoteRecord = {
   validUntil: string | null;
   deliveryBusinessDays: number;
   initialPaymentPercent: number;
+  discountType: QuoteDiscountType;
+  discountValue: number;
+  discountAmount: number;
   subtotal: number;
   tax: number;
   total: number;

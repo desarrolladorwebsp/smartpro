@@ -196,8 +196,72 @@ export function SalesPageSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-live="polite">
       <DashboardPageHeaderSkeleton />
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <div key={index} className="rounded-[20px] border border-border bg-white p-4">
+            <Pulse className="h-3 w-24 rounded-full" />
+            <Pulse className="mt-3 h-7 w-28 rounded-full" />
+          </div>
+        ))}
+      </div>
       <FilterBarSkeleton />
-      <TableSkeleton columns={8} />
+      <TableSkeleton columns={13} />
+    </div>
+  );
+}
+
+export function SaleDetailPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap justify-between gap-4">
+          <div className="space-y-3">
+            <Pulse className="h-2.5 w-16 rounded-full" />
+            <Pulse className="h-7 w-56 max-w-[70vw] rounded-full" />
+            <Pulse className="h-3 w-32 rounded-full" />
+          </div>
+          <div className="flex gap-2"><Pulse className="h-10 w-32 rounded-full" /><Pulse className="h-10 w-32 rounded-full" /></div>
+        </div>
+        <div className="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }, (_, index) => <div key={index} className="space-y-2"><Pulse className="h-2.5 w-24 rounded-full" /><Pulse className="h-4 w-32 max-w-full rounded-full" /></div>)}
+        </div>
+      </section>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => <div key={index} className="rounded-[24px] border border-border bg-white p-5"><Pulse className="h-3 w-16 rounded-full" /><Pulse className="mt-3 h-8 w-32 rounded-full" /></div>)}
+      </div>
+      <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6"><Pulse className="h-2.5 w-24 rounded-full" /><Pulse className="mt-3 h-6 w-48 rounded-full" /><div className="mt-5 space-y-3">{Array.from({ length: 2 }, (_, index) => <Pulse key={index} className="h-16 w-full rounded-2xl" />)}</div></section>
+      <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6"><Pulse className="h-2.5 w-32 rounded-full" /><Pulse className="mt-3 h-6 w-48 rounded-full" /><Pulse className="mt-5 h-24 w-full rounded-2xl" /></section>
+    </div>
+  );
+}
+
+export function ApiConnectionsPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => (
+          <section key={index} className="rounded-[24px] border border-border bg-white p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4"><Pulse className="h-6 w-40 rounded-full" /><Pulse className="h-7 w-24 rounded-full" /></div>
+            <Pulse className="mt-4 h-4 w-3/4 rounded-full" />
+            <div className="mt-6 space-y-3">{Array.from({ length: 3 }, (_, row) => <Pulse key={row} className="h-12 w-full rounded-2xl" />)}</div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ApiConnectionDetailPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <DashboardPageHeaderSkeleton />
+      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6"><Pulse className="h-2.5 w-28 rounded-full" /><Pulse className="mt-3 h-7 w-52 rounded-full" /><Pulse className="mt-4 h-4 w-3/4 rounded-full" /><div className="mt-6 grid gap-3 sm:grid-cols-2">{Array.from({ length: 6 }, (_, index) => <Pulse key={index} className="h-12 w-full rounded-xl" />)}</div></section>
+        <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6"><Pulse className="h-5 w-36 rounded-full" /><div className="mt-5 space-y-3">{Array.from({ length: 5 }, (_, index) => <Pulse key={index} className="h-12 w-full rounded-xl" />)}</div></section>
+      </div>
+      <section className="rounded-[24px] border border-border bg-white p-5 sm:p-6"><Pulse className="h-5 w-40 rounded-full" /><div className="mt-5"><TableSkeleton columns={5} rows={5} /></div></section>
     </div>
   );
 }

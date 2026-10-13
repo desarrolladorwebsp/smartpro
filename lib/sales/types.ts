@@ -18,6 +18,47 @@ export type QuoteForSaleConversion = {
 export const SALE_STATUSES = ["REGISTERED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 export type SaleStatus = (typeof SALE_STATUSES)[number];
 
+export const LIOREN_INVOICE_STATUSES = ["NOT_ISSUED", "ISSUING", "ISSUED", "ERROR"] as const;
+export type LiorenInvoiceStatus = (typeof LIOREN_INVOICE_STATUSES)[number];
+export type LiorenInvoiceType = "33" | "34";
+
+export type LiorenInvoiceDetail = {
+  codigo: string;
+  nombre: string;
+  cantidad: number;
+  unidad: string;
+  precio: number;
+  exento: boolean;
+};
+
+export type LiorenInvoiceDraft = {
+  tipoDocumento: LiorenInvoiceType;
+  fecha: string;
+  vencimiento: string;
+  observaciones: string;
+  receptor: {
+    rut: string;
+    rs: string;
+    giro: string;
+    comuna: string;
+    ciudad: string;
+    direccion: string;
+    email: string;
+    telefono: string;
+  };
+  detalles: LiorenInvoiceDetail[];
+};
+
+export type LiorenInvoiceRecord = {
+  status: LiorenInvoiceStatus;
+  type: LiorenInvoiceType | null;
+  documentId: number | null;
+  folio: number | null;
+  issuedAt: string | null;
+  error: string;
+  draft: LiorenInvoiceDraft | null;
+};
+
 export const SALE_RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
 export const SALE_RECEIPT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 export const SALE_RECEIPT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
@@ -113,6 +154,7 @@ export type SaleRecord = {
   subtotal: number;
   tax: number;
   total: number;
+  liorenInvoice: LiorenInvoiceRecord;
   paidAmount: number;
   balanceDue: number;
   collectionStatus: SaleCollectionStatus;

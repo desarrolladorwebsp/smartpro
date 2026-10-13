@@ -91,6 +91,18 @@ async function ensureQuoteColumns() {
       column: "initialPaymentPercent",
       sql: "ALTER TABLE `Quote` ADD COLUMN `initialPaymentPercent` INTEGER NOT NULL DEFAULT 50",
     },
+    {
+      column: "discountType",
+      sql: "ALTER TABLE `Quote` ADD COLUMN `discountType` ENUM('NONE', 'PERCENT', 'AMOUNT') NOT NULL DEFAULT 'NONE'",
+    },
+    {
+      column: "discountValue",
+      sql: "ALTER TABLE `Quote` ADD COLUMN `discountValue` DECIMAL(12, 2) NOT NULL DEFAULT 0",
+    },
+    {
+      column: "discountAmount",
+      sql: "ALTER TABLE `Quote` ADD COLUMN `discountAmount` DECIMAL(12, 2) NOT NULL DEFAULT 0",
+    },
   ];
 
   for (const addition of additions) {

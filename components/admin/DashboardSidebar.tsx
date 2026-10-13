@@ -303,12 +303,9 @@ function NavLinkInner({
         className={active ? "text-white" : "text-white/45 transition group-hover:text-white"}
       />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      <span
-        aria-hidden="true"
-        className={`h-1.5 w-1.5 shrink-0 rounded-full bg-current transition-opacity duration-200 ${
-          pending && !active ? "animate-pulse opacity-70" : "opacity-0"
-        }`}
-      />
+      <span aria-hidden="true" className="h-1 w-4 shrink-0 overflow-hidden rounded-full bg-white/15">
+        <span className={`block h-full w-1/2 rounded-full bg-current transition-opacity duration-150 ${pending && !active ? "dashboard-nav-pending opacity-100" : "opacity-0"}`} />
+      </span>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { ApiConnectionDetail } from "@/components/admin/ApiConnectionsView";
+import { ApiConnectionDetailPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 import { getPrismaClient } from "@/lib/db";
 import { listApiClients } from "@/lib/api/v1/repository";
@@ -15,7 +16,7 @@ type ApiConnectionPageProps = {
 
 export default function ApiConnectionPage({ params }: ApiConnectionPageProps) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted">Comprobando la conexión...</p>}>
+    <Suspense fallback={<ApiConnectionDetailPageSkeleton />}>
       <ApiConnectionPageContent params={params} />
     </Suspense>
   );

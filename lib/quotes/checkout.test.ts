@@ -22,6 +22,9 @@ function makeQuote(overrides: Partial<QuoteRecord> = {}): QuoteRecord {
     validUntil: "2027-09-24T23:59:59.000Z",
     deliveryBusinessDays: 15,
     initialPaymentPercent: 50,
+    discountType: "NONE",
+    discountValue: 0,
+    discountAmount: 0,
     subtotal: 100000,
     tax: 19000,
     total: 119000,
@@ -87,6 +90,23 @@ test("buildQuoteCheckoutOrder acepta un servicio único sin plan de catálogo", 
   assert.equal(checkout.items[0]?.id, "item-1");
   assert.equal(checkout.items[0]?.name, "Campaña a medida");
   assert.equal(checkout.items[0]?.category, "Servicio único");
+});
+
+test("buildQuoteCheckoutOrder aplica el descuento al validar y cobrar el total", () => {
+  const checkout = buildQuoteCheckoutOrder(
+    makeQuote({
+      initialPaymentPercent: 100,
+      discountType: "PERCENT",
+      discountValue: 10,
+      discountAmount: 10000,
+      subtotal: 90000,
+      tax: 17100,
+      total: 107100,
+    }),
+  );
+
+  assert.equal(checkout.total, 107100);
+  assert.equal(checkout.subtotal, 90000);
 });
 
 test("buildQuoteCheckoutOrder rechaza si el total no coincide con los ítems", () => {

@@ -485,6 +485,12 @@ enum QuoteStatus {
   REJECTED
 }
 
+enum QuoteDiscountType {
+  NONE
+  PERCENT
+  AMOUNT
+}
+
 model Quote {
   id             String      @id @default(cuid())
   number         String      @unique
@@ -496,6 +502,9 @@ model Quote {
   validUntil              DateTime?
   deliveryBusinessDays    Int         @default(15)
   initialPaymentPercent   Int         @default(50)
+  discountType            QuoteDiscountType @default(NONE)
+  discountValue           Decimal     @default(0) @db.Decimal(12, 2)
+  discountAmount          Decimal     @default(0) @db.Decimal(12, 2)
   subtotal                Decimal     @db.Decimal(12, 2)
   tax            Decimal     @db.Decimal(12, 2)
   total          Decimal     @db.Decimal(12, 2)
@@ -547,6 +556,13 @@ enum SaleSource {
   EXTERNAL_API
 }
 
+enum LiorenInvoiceStatus {
+  NOT_ISSUED
+  ISSUING
+  ISSUED
+  ERROR
+}
+
 model Sale {
   id               String          @id @default(cuid())
   number           String          @unique
@@ -572,9 +588,17 @@ model Sale {
   subtotal         Decimal         @db.Decimal(12, 2)
   tax              Decimal         @db.Decimal(12, 2)
   total            Decimal         @db.Decimal(12, 2)
+  liorenInvoiceStatus       LiorenInvoiceStatus @default(NOT_ISSUED)
+  liorenInvoiceType         String?             @db.VarChar(3)
+  liorenInvoiceDocumentId   Int?
+  liorenInvoiceFolio        Int?
+  liorenInvoiceIssuedAt     DateTime?
+  liorenInvoiceDraft        String?             @db.LongText
+  liorenInvoiceError        String?             @db.Text
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   payments         SalePayment[]
+  internalComments SaleInternalComment[]
 
   @@index([clientId])
   @@index([executiveId])
@@ -608,6 +632,18 @@ model SalePayment {
 
   @@index([saleId])
   @@index([paidAt])
+}
+
+/// Comentarios internos visibles solo para usuarios del panel.
+model SaleInternalComment {
+  id             String   @id @default(cuid())
+  saleId         String
+  sale           Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  authorEmail    String
+  body           String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([saleId, createdAt])
 }
 
 enum AdminNotificationType {

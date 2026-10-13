@@ -8,7 +8,7 @@ import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversio
 import { nextSaleNumber } from "./numbering";
 import { parseSalePaymentAmount } from "./balances";
 import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
-import { withSalePaymentTable } from "./schema";
+import { ensureSalePaymentTable, withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
 import type { SalesPeriod } from "./summary";
 import {
@@ -17,6 +17,7 @@ import {
   isSalePaymentSource,
   isSaleSource,
   isSaleStatus,
+  LIOREN_INVOICE_STATUSES,
   parseSaleObservation,
   withSalePaymentTotals,
   type QuoteForSaleConversion,
@@ -26,6 +27,9 @@ import {
   type SalePaymentSource,
   type SaleRecord,
   type SaleSource,
+  type LiorenInvoiceDraft,
+  type LiorenInvoiceStatus,
+  type LiorenInvoiceType,
 } from "./types";
 
 export { getSaleStatusLabel, type QuoteForSaleConversion, type SaleRecord, type SaleSource, type SaleStatus } from "./types";
@@ -78,6 +82,13 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     .sort((a, b) => a.paidAt.getTime() - b.paidAt.getTime())
     .map(toPaymentRecord);
 
+  let invoiceDraft: LiorenInvoiceDraft | null = null;
+  try {
+    invoiceDraft = row.liorenInvoiceDraft ? JSON.parse(row.liorenInvoiceDraft) as LiorenInvoiceDraft : null;
+  } catch {
+    invoiceDraft = null;
+  }
+
   return withSalePaymentTotals({
     id: row.id,
     number: row.number,
@@ -102,6 +113,19 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     subtotal: decimalToNumber(row.subtotal),
     tax: decimalToNumber(row.tax),
     total: decimalToNumber(row.total),
+    liorenInvoice: {
+      status: LIOREN_INVOICE_STATUSES.includes(row.liorenInvoiceStatus as LiorenInvoiceStatus)
+        ? row.liorenInvoiceStatus as LiorenInvoiceStatus
+        : "NOT_ISSUED",
+      type: row.liorenInvoiceType === "33" || row.liorenInvoiceType === "34"
+        ? row.liorenInvoiceType as LiorenInvoiceType
+        : null,
+      documentId: row.liorenInvoiceDocumentId ?? null,
+      folio: row.liorenInvoiceFolio ?? null,
+      issuedAt: row.liorenInvoiceIssuedAt?.toISOString() ?? null,
+      error: row.liorenInvoiceError ?? "",
+      draft: invoiceDraft,
+    },
     payments,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -408,6 +432,7 @@ export type ExternalSaleInput = {
 /// Registra una venta cerrada fuera del pago en línea (transferencia, efectivo
 /// o acuerdo directo) reportada por una aplicación externa autorizada.
 export async function createExternalSale(input: ExternalSaleInput): Promise<SaleRecord> {
+  await ensureSalePaymentTable();
   const number = await nextNumber();
 
   const created = await getPrisma().sale.create({
@@ -479,6 +504,7 @@ export async function convertQuoteToSale(input: {
   paidAmount?: unknown;
   paymentMethod?: unknown;
 }): Promise<SaleRecord> {
+  await ensureSalePaymentTable();
   const source = input.source ?? "MANUAL";
   const createdByEmail = String(input.createdByEmail ?? "").trim().toLowerCase();
   if (!createdByEmail) {
@@ -578,6 +604,7 @@ export async function createDirectSale(input: {
   paymentMethod?: unknown;
 }): Promise<SaleRecord> {
   return withSalePaymentTable(async () => {
+    await ensureSalePaymentTable();
     const clientId = String(input.clientId ?? "").trim();
     if (!clientId) throw new Error("Selecciona un cliente.");
 
