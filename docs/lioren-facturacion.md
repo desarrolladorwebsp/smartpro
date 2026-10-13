@@ -18,17 +18,18 @@ La integración es server-side. No uses prefijos `NEXT_PUBLIC_` para las credenc
 
 | Variable | Uso |
 | --- | --- |
-| `LIOREN_API_BASE_URL` | URL base de la API. En la documentación consultada: `https://cl.lioren.enterprises/api`. Se deja vacía hasta que Lioren confirme el entorno que debe usarse. |
+| `LIOREN_API_BASE_URL` | URL base de la API. Para esta integración: `https://cl.lioren.enterprises/api`. |
 | `LIOREN_API_TOKEN` | Token de acceso del cliente API; se envía como Bearer. |
+| `LIOREN_API_KEY` | Credencial adicional recibida junto al token de prueba. Se conserva localmente, pero la integración actual no la envía: Lioren autentica estas llamadas con el token Bearer. |
 | `LIOREN_ISSUER_EMAIL` | Opcional: correo de contacto del emisor que acompaña el DTE. |
 | `LIOREN_ISSUER_PHONE` | Opcional: teléfono de contacto del emisor. |
 | `LIOREN_ISSUER_ACTIVITY_CODE` | Opcional: actividad económica SII del emisor. Si se omite, Lioren usa la primera actividad registrada. |
 
-La URL base se puede cambiar por otra entregada por Lioren. SmartPro exige HTTPS y no activa una URL por defecto para evitar enviar documentos a producción por error. No hay claves Lioren en los `.env` locales revisados al implementar esto; solicita a Lioren el token y cualquier URL de pruebas que habiliten para la empresa.
+La URL base se puede cambiar por otra entregada por Lioren. SmartPro exige HTTPS. Lioren indica que el token determina la empresa y el entorno; el token configurado localmente corresponde a **PRUEBAS API: SMARTPRO**, por lo que las consultas de verificación y documentos de prueba pertenecen a ese entorno. Para producción debe configurarse el token productivo entregado por Lioren. No reutilices el token de pruebas en producción.
 
 ## Pruebas
 
-La documentación de Lioren describe `GET /api/whoami` como una ruta gratuita para comprobar autenticación y detectar la empresa asociada al token. No documenta en esa sección una ruta de sandbox para emitir DTE. Por eso, no hay una variable `LIOREN_ENV=sandbox` ni debe usarse `POST /dtes` para una prueba hasta que Lioren confirme una URL y credenciales de pruebas que no emitan documentos tributarios reales.
+La ruta `GET /whoami` permite verificar autenticación sin emitir documentos. Lioren ofrece un entorno de pruebas que se inicializa desde el panel de empresa y se accede con el token asociado a ese entorno; la URL de API se mantiene y el token selecciona la empresa/entorno. Para validaciones iniciales usa consultas GET. `POST /dtes` crea un documento dentro del entorno seleccionado, así que solo debe probarse con el token de pruebas y después de confirmar los datos del borrador.
 
 El botón de emisión permanece deshabilitado mientras falte `LIOREN_API_BASE_URL` o `LIOREN_API_TOKEN`. Las ventas guardadas antes de la integración aparecen como `NOT_ISSUED`. El esquema agrega las columnas de factura de forma idempotente al ejecutar el inicializador de ventas o al cargar/registrar ventas.
 
