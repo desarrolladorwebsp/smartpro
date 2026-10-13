@@ -13,6 +13,7 @@ import {
   getSaleCollectionStatusLabel,
   getSalePaymentMethodLabel,
   getSaleStatusLabel,
+  type SalePaymentRecord,
   type SaleRecord,
 } from "@/lib/sales/types";
 
@@ -35,6 +36,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<SalePaymentRecord | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -143,12 +145,21 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
           <p className="text-sm text-muted">{sale.payments.length} {sale.payments.length === 1 ? "pago" : "pagos"}</p>
         </div>
         {sale.payments.length ? (
-          <div className="mt-4 divide-y divide-border">
+          <div className="mt-4 space-y-3">
             {sale.payments.map((payment) => (
-              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0 last:pb-0">
-                <div><p className="font-semibold">{formatCurrency(payment.amount)} <span className="font-normal text-muted">· {getSalePaymentMethodLabel(payment.method)}</span></p><p className="mt-1 text-xs text-muted">{formatDate(payment.paidAt)} · {payment.createdByEmail || "Pago asociado a la venta"}</p>{payment.observation ? <p className="mt-1 text-sm text-muted">{payment.observation}</p> : null}</div>
-                {payment.receiptPath ? <a href={payment.receiptPath} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-xs font-semibold hover:border-primary/30 hover:text-primary">Ver comprobante{payment.receiptFileName ? ` · ${payment.receiptFileName}` : ""}</a> : <span className="text-sm text-muted">Sin comprobante adjunto</span>}
-              </div>
+              <article key={payment.id} className="rounded-2xl border border-border bg-slate-50/70 p-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.1fr_0.8fr_1fr_1.4fr_auto]">
+                  <div><p className={labelClass}>Fecha</p><p className="mt-1 text-sm font-medium">{formatDate(payment.paidAt)}</p></div>
+                  <div><p className={labelClass}>Monto</p><p className="mt-1 text-sm font-semibold">{formatCurrency(payment.amount)}</p></div>
+                  <div><p className={labelClass}>Medio</p><p className="mt-1 text-sm font-medium">{getSalePaymentMethodLabel(payment.method)}</p></div>
+                  <div><p className={labelClass}>Descripción</p><p className="mt-1 whitespace-pre-wrap text-sm">{payment.observation || "—"}</p></div>
+                  <div className="flex flex-wrap items-end gap-2 lg:justify-end">
+                    {payment.receiptPath ? <a href={payment.receiptPath} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-full border border-border bg-white px-3 text-xs font-semibold hover:border-primary/30 hover:text-primary">Ver archivo{payment.receiptFileName ? ` · ${payment.receiptFileName}` : ""}</a> : <span className="text-xs text-muted">Sin archivo</span>}
+                    {sale.status !== "CANCELLED" ? <button type="button" onClick={() => setEditingPayment(payment)} className="inline-flex min-h-9 items-center rounded-full bg-white px-3 text-xs font-semibold text-primary ring-1 ring-border hover:ring-primary/40">Editar</button> : null}
+                  </div>
+                </div>
+                <p className="mt-3 border-t border-border/70 pt-2 text-xs text-muted">Registrado por {payment.createdByEmail || "pago asociado a la venta"}</p>
+              </article>
             ))}
           </div>
         ) : receipts.length ? <a className="mt-4 inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold" href={receipts[0].receiptPath} target="_blank" rel="noreferrer">Ver comprobante{receipts[0].receiptFileName ? ` · ${receipts[0].receiptFileName}` : ""}</a>
@@ -177,8 +188,10 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         </div>
       </section>
 
-      <SalePaymentModal sale={paymentOpen ? sale : null} onClose={() => setPaymentOpen(false)} onSaved={(updated) => {
-        setSale(updated); setPaymentOpen(false); setSuccessMessage(`Abono registrado en ${updated.number}.`);
+      <SalePaymentModal sale={paymentOpen || editingPayment ? sale : null} payment={editingPayment} onClose={() => { setPaymentOpen(false); setEditingPayment(null); }} onSaved={(updated) => {
+        const wasEditing = Boolean(editingPayment);
+        setSale(updated); setPaymentOpen(false); setEditingPayment(null);
+        setSuccessMessage(wasEditing ? "Pago y comprobante actualizados." : `Abono registrado en ${updated.number}.`);
       }} />
       <SaleInvoiceModal sale={invoiceOpen ? sale : null} onClose={() => setInvoiceOpen(false)} onIssued={(updated) => {
         setSale(updated); setInvoiceOpen(false); setSuccessMessage(`Factura emitida para ${updated.number}.`);

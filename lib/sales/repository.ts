@@ -7,7 +7,7 @@ import { getQuoteById, listQuotesByClientId } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
 import { parseSalePaymentAmount } from "./balances";
-import { saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
+import { removeSaleReceiptUpload, saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import { ensureSalePaymentTable, withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
 import type { SalesPeriod } from "./summary";
@@ -176,6 +176,19 @@ function parseDirectSaleDate(value: unknown): Date {
   throw new Error("Ingresa una fecha de venta válida.");
 }
 
+function parseSalePaymentDate(value: unknown): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  const raw = String(value ?? "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (match) {
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
+    if (date.toISOString().slice(0, 10) === raw) return date;
+  }
+
+  throw new Error("Ingresa una fecha de pago válida.");
+}
+
 async function resolveExecutiveId(assignedExecutiveId: string | null, createdByEmail: string): Promise<string | null> {
   if (assignedExecutiveId) return assignedExecutiveId;
 
@@ -268,6 +281,7 @@ export async function addSalePayment(
     method: unknown;
     createdByEmail: string;
     observation?: string;
+    paidAt?: unknown;
     receipt?: File | null;
   },
 ): Promise<SaleRecord> {
@@ -299,7 +313,92 @@ export async function addSalePayment(
     createdByEmail: String(input.createdByEmail ?? "").trim().toLowerCase(),
     observation: input.observation,
     receipt,
+    paidAt: input.paidAt == null || input.paidAt === "" ? new Date() : parseSalePaymentDate(input.paidAt),
   });
+}
+
+export async function updateSalePayment(
+  saleId: string,
+  paymentId: string,
+  input: {
+    amount: unknown;
+    method: unknown;
+    paidAt: unknown;
+    observation?: unknown;
+    receipt?: File | null;
+    removeReceipt?: boolean;
+  },
+): Promise<SaleRecord> {
+  const sale = await getSaleById(saleId);
+  if (!sale) throw new Error("La venta no existe.");
+  if (sale.status === "CANCELLED") throw new Error("No se pueden modificar pagos de una venta cancelada.");
+
+  const payment = sale.payments.find((entry) => entry.id === paymentId);
+  if (!payment) throw new Error("El pago no pertenece a esta venta.");
+
+  const otherPayments = sale.payments
+    .filter((entry) => entry.id !== paymentId)
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const maximumAmount = Math.max(0, sale.total - otherPayments);
+  const amount = parseSalePaymentAmount(input.amount, maximumAmount);
+  if (amount < 1) throw new Error("El monto del pago debe ser mayor a 0.");
+  const method = input.method;
+  if (!isSalePaymentMethod(method)) throw new Error("Selecciona un medio de pago válido.");
+
+  const paidAt = parseSalePaymentDate(input.paidAt);
+
+  const receipt = input.receipt && input.receipt.size > 0 ? input.receipt : null;
+  if (receipt) validateSaleReceiptUpload(receipt);
+
+  let uploaded: { path: string; fileName: string } | null = null;
+  if (receipt) {
+    uploaded = await saveSaleReceiptUpload(`${payment.id}-${crypto.randomUUID()}`, receipt);
+  }
+
+  try {
+    await getPrisma().$transaction(async (transaction) => {
+      await transaction.salePayment.update({
+        where: { id: payment.id, saleId },
+        data: {
+          amount,
+          method,
+          paidAt,
+          observation: parseSaleObservation(input.observation),
+          ...(uploaded
+            ? { receiptPath: uploaded.path, receiptFileName: uploaded.fileName }
+            : input.removeReceipt
+              ? { receiptPath: "", receiptFileName: "" }
+              : {}),
+        },
+      });
+
+      const payments = await transaction.salePayment.findMany({
+        where: { saleId },
+        orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+        select: { method: true, receiptPath: true, receiptFileName: true },
+      });
+      const latestReceipt = payments.find((entry) => entry.receiptPath);
+      await transaction.sale.update({
+        where: { id: saleId },
+        data: {
+          paymentMethod: payments[0]?.method ?? null,
+          receiptPath: latestReceipt?.receiptPath ?? "",
+          receiptFileName: latestReceipt?.receiptFileName ?? "",
+        },
+      });
+    });
+  } catch (error) {
+    if (uploaded) await removeSaleReceiptUpload(uploaded.path);
+    throw error;
+  }
+
+  if ((uploaded || input.removeReceipt) && payment.receiptPath) {
+    await removeSaleReceiptUpload(payment.receiptPath);
+  }
+
+  const updated = await getSaleById(saleId);
+  if (!updated) throw new Error("No se pudo cargar la venta después de actualizar el pago.");
+  return updated;
 }
 
 export async function getSalesSummary(period?: SalesPeriod) {

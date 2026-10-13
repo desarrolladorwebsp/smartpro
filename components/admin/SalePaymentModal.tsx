@@ -7,30 +7,43 @@ import { formatCurrency } from "@/lib/orders/service";
 import {
   getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
-  SALE_MANUAL_PAYMENT_METHODS,
   SALE_OBSERVATION_MAX_LENGTH,
+  SALE_PAYMENT_METHODS,
   SALE_RECEIPT_ACCEPT,
-  type SaleManualPaymentMethod,
+  type SalePaymentRecord,
+  type SalePaymentMethod,
   type SaleRecord,
 } from "@/lib/sales/types";
 
 type SalePaymentModalProps = {
   sale: SaleRecord | null;
+  payment?: SalePaymentRecord | null;
   onClose: () => void;
   onSaved?: (sale: SaleRecord) => void;
 };
 
-export function SalePaymentModal({ sale, onClose, onSaved }: SalePaymentModalProps) {
-  if (!sale) return null;
-  return <SalePaymentForm sale={sale} onClose={onClose} onSaved={onSaved} />;
+function toDateInputValue(value?: string | null) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose: () => void; onSaved?: (sale: SaleRecord) => void }) {
+export function SalePaymentModal({ sale, payment = null, onClose, onSaved }: SalePaymentModalProps) {
+  if (!sale) return null;
+  return <SalePaymentForm key={payment?.id ?? "new-payment"} sale={sale} payment={payment} onClose={onClose} onSaved={onSaved} />;
+}
+
+function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord; payment: SalePaymentRecord | null; onClose: () => void; onSaved?: (sale: SaleRecord) => void }) {
   const isSavingRef = useRef(false);
-  const [amount, setAmount] = useState(String(sale.balanceDue));
-  const [paymentMethod, setPaymentMethod] = useState<SaleManualPaymentMethod>("transfer");
-  const [observation, setObservation] = useState("");
+  const [amount, setAmount] = useState(String(payment?.amount ?? sale.balanceDue));
+  const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>(payment?.method ?? "transfer");
+  const [paidAt, setPaidAt] = useState(() => toDateInputValue(payment?.paidAt));
+  const [observation, setObservation] = useState(payment?.observation ?? "");
   const [receipt, setReceipt] = useState<File | null>(null);
+  const [removeReceipt, setRemoveReceipt] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -63,20 +76,24 @@ function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose
       const formData = new FormData();
       formData.append("amount", amount);
       formData.append("paymentMethod", paymentMethod);
+      formData.append("paidAt", paidAt);
       formData.append("observation", observation);
-      if (receipt && receipt.size > 0) {
-        formData.append("receipt", receipt);
-      }
+      if (payment) formData.append("paymentId", payment.id);
+      if (removeReceipt) formData.append("removeReceipt", "true");
+      if (receipt && receipt.size > 0) formData.append("receipt", receipt);
 
-      const response = await fetch(`/api/sales/${sale.id}/payments`, { method: "POST", body: formData });
+      const response = await fetch(`/api/sales/${sale.id}/payments`, {
+        method: payment ? "PATCH" : "POST",
+        body: formData,
+      });
       const data = (await response.json().catch(() => ({}))) as { sale?: SaleRecord; error?: string };
       if (!response.ok || !data.sale) {
-        throw new Error(data.error ?? "No se pudo registrar el abono.");
+        throw new Error(data.error ?? (payment ? "No se pudo actualizar el pago." : "No se pudo registrar el abono."));
       }
       onSaved?.(data.sale);
       onClose();
     } catch (error: unknown) {
-      setSubmitError(error instanceof Error ? error.message : "No se pudo registrar el abono.");
+      setSubmitError(error instanceof Error ? error.message : "No se pudo guardar el pago.");
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
@@ -89,13 +106,13 @@ function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose
         role="dialog"
         aria-modal="true"
         aria-labelledby="sale-payment-title"
-        className="flex w-full max-w-lg flex-col overflow-hidden rounded-[26px] border border-border bg-white shadow-[0_24px_64px_rgba(16,16,36,0.20)]"
+        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[26px] border border-border bg-white shadow-[0_24px_64px_rgba(16,16,36,0.20)]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">Cuentas por cobrar</p>
             <h2 id="sale-payment-title" className="mt-1 text-2xl font-bold tracking-[-0.05em] text-foreground">
-              Registrar abono
+              {payment ? "Editar pago y comprobante" : "Registrar abono"}
             </h2>
             <p className="mt-1 text-sm text-muted">
               {sale.number} · saldo {formatCurrency(sale.balanceDue)}
@@ -112,47 +129,63 @@ function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 overflow-y-auto px-5 py-4">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-foreground">Fecha del pago</span>
+            <input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} className="dashboard-field" disabled={isSaving} required />
+          </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto</span>
             <input
               type="number"
               min={1}
-              max={sale.balanceDue}
+              max={payment ? sale.balanceDue + payment.amount : sale.balanceDue}
               step={1}
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               className="dashboard-field"
               disabled={isSaving}
+              required
             />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Medio de pago</span>
             <select
               value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value as SaleManualPaymentMethod)}
+              onChange={(event) => setPaymentMethod(event.target.value as SalePaymentMethod)}
               className="dashboard-field"
               disabled={isSaving}
             >
-              {SALE_MANUAL_PAYMENT_METHODS.map((method) => (
-                <option key={method} value={method}>
-                  {getSalePaymentMethodLabel(method)}
-                </option>
+              {SALE_PAYMENT_METHODS.map((method) => (
+                <option key={method} value={method}>{getSalePaymentMethodLabel(method)}</option>
               ))}
             </select>
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-foreground">Observación</span>
+            <span className="mb-1.5 block text-sm font-semibold text-foreground">Descripción</span>
             <textarea
               value={observation}
               onChange={(event) => setObservation(event.target.value.slice(0, SALE_OBSERVATION_MAX_LENGTH))}
               className="dashboard-field min-h-20 resize-y"
               disabled={isSaving}
               maxLength={SALE_OBSERVATION_MAX_LENGTH}
+              placeholder="Detalle o referencia del pago"
             />
+            <span className="mt-1 block text-xs text-muted">{observation.length}/{SALE_OBSERVATION_MAX_LENGTH} caracteres</span>
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-foreground">Comprobante</span>
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-foreground">Comprobante · imagen o PDF</span>
+            {payment?.receiptPath ? (
+              <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
+                <a href={payment.receiptPath} target="_blank" rel="noreferrer" className="font-medium text-primary underline">
+                  Ver actual{payment.receiptFileName ? ` · ${payment.receiptFileName}` : ""}
+                </a>
+                <label className="inline-flex items-center gap-2 text-muted">
+                  <input type="checkbox" checked={removeReceipt} onChange={(event) => setRemoveReceipt(event.target.checked)} disabled={isSaving || Boolean(receipt)} />
+                  Quitar archivo actual
+                </label>
+              </div>
+            ) : null}
             <input
               type="file"
               accept={SALE_RECEIPT_ACCEPT}
@@ -160,12 +193,15 @@ function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose
               onChange={(event) => {
                 const file = event.target.files?.[0] ?? null;
                 setReceipt(file);
+                if (file) setRemoveReceipt(false);
                 setSubmitError(getSaleReceiptValidationError(file) ?? "");
               }}
               className="dashboard-field file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-sm file:font-semibold file:text-primary"
             />
-            <p className="mt-1.5 text-xs text-muted">PDF o imagen. Máximo 5 MB. Opcional.</p>
-          </label>
+            <p className="mt-1.5 text-xs text-muted">
+              PDF, JPG, PNG o WEBP. Máximo 5 MB. {payment ? "Déjalo vacío para conservar el archivo actual." : "Opcional."}
+            </p>
+          </div>
         </div>
 
         <div className="space-y-3 border-t border-border px-5 py-4">
@@ -177,10 +213,10 @@ function SalePaymentForm({ sale, onClose, onSaved }: { sale: SaleRecord; onClose
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={isSaving}
+              disabled={isSaving || !paidAt || !amount}
               className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isSaving ? "Guardando..." : "Registrar abono"}
+              {isSaving ? "Guardando..." : payment ? "Guardar cambios" : "Registrar abono"}
             </button>
           </div>
         </div>

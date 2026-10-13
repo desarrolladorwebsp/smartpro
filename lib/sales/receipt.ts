@@ -79,3 +79,14 @@ export async function saveSaleReceiptUpload(saleId: string, file: File): Promise
     fileName: originalName || fileName,
   };
 }
+
+/** Removes only receipt files created in the managed sales upload directory. */
+export async function removeSaleReceiptUpload(receiptPath: string | null | undefined): Promise<void> {
+  const normalized = String(receiptPath ?? "").trim();
+  if (!isManagedSaleReceiptPath(normalized)) return;
+
+  const fileName = normalized.slice(`${SALE_RECEIPT_UPLOAD_DIR}/`.length);
+  if (!fileName || path.basename(fileName) !== fileName) return;
+
+  await fs.unlink(path.join(getUploadAbsoluteDir(), fileName)).catch(() => undefined);
+}
