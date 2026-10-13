@@ -27,6 +27,27 @@ La integración es server-side. No uses prefijos `NEXT_PUBLIC_` para las credenc
 
 La URL base se puede cambiar por otra entregada por Lioren. SmartPro exige HTTPS. Lioren indica que el token determina la empresa y el entorno; el token configurado localmente corresponde a **PRUEBAS API: SMARTPRO**, por lo que las consultas de verificación y documentos de prueba pertenecen a ese entorno. Para producción debe configurarse el token productivo entregado por Lioren. No reutilices el token de pruebas en producción.
 
+## Habilitación de producción informada por Lioren
+
+Lioren confirmó que el ambiente productivo está habilitado para la empresa y que se debe operar con la cuenta administradora. Antes de emitir documentos reales:
+
+1. En el panel de Lioren, ir a **APIs → Administrar APIs → Registrar** y crear un cliente API para producción. El token de ese cliente debe configurarse en Vercel como secreto `LIOREN_API_TOKEN` en el entorno **Production**; no se debe copiar el token de pruebas ni guardarlo en Git o en variables `NEXT_PUBLIC_*`.
+2. Mantener `LIOREN_API_BASE_URL=https://cl.lioren.enterprises/api`, salvo que Lioren entregue otra URL productiva.
+3. La cuenta aún no incluye **Factura exenta**. Solicitar a la ejecutiva de Lioren que active ese producto antes de emitir documentos tipo `34`. Hasta entonces, no emitir facturas exentas desde SmartPro.
+4. En **Timbraje de Folios → Solicitar Folios**, solicitar los folios productivos necesarios para factura electrónica antes de la primera emisión.
+5. Revisar en Lioren que la razón social productiva no conserve el prefijo `PRUEBAS API:`. La razón social informada para las pruebas es `EMPRESA COMERCIAL LYV SPA`; confirmar que esa sea también la razón social tributaria de producción.
+6. Después de guardar el secreto en Vercel, crear un nuevo despliegue de producción para que las funciones reciban el token. Verificar autenticación con `GET /whoami` y revisar los datos de emisor/receptor en SmartPro. No usar `POST /dtes` como prueba de conectividad: esa ruta emite un documento tributario real cuando se configura el token productivo.
+
+La confirmación de disponibilidad del ambiente no equivale a contar con token, folios ni suscripción a Factura exenta. La emisión sigue siendo manual desde el detalle de cada venta y solo debe confirmarse cuando el operador haya revisado el borrador.
+
+### Estado de integración (13-10-2026)
+
+- El token productivo fue validado con `GET /whoami` (HTTP 200) y guardado localmente en `.env.local` y en Vercel Production como secreto `LIOREN_API_TOKEN`.
+- `LIOREN_API_BASE_URL` está configurada en Production como `https://cl.lioren.enterprises/api`.
+- El despliegue de producción quedó **Ready**. La verificación no emitió ningún DTE.
+- La credencial `LIOREN_API_KEY` se guarda localmente porque Lioren la entregó junto al token; la integración actual autentica con Bearer y no envía esa clave.
+- Pendiente en la cuenta Lioren: solicitar folios productivos y activar Factura exenta antes de emitir documentos exentos.
+
 ## Pruebas
 
 La ruta `GET /whoami` permite verificar autenticación sin emitir documentos. Lioren ofrece un entorno de pruebas que se inicializa desde el panel de empresa y se accede con el token asociado a ese entorno; la URL de API se mantiene y el token selecciona la empresa/entorno. Para validaciones iniciales usa consultas GET. `POST /dtes` crea un documento dentro del entorno seleccionado, así que solo debe probarse con el token de pruebas y después de confirmar los datos del borrador.
