@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
-import { getLiorenConfig, createDefaultLiorenInvoiceDraft, issueLiorenInvoice } from "@/lib/sales/lioren";
+import { getLiorenConfig, createDefaultLiorenInvoiceDraft, getLiorenInvoicePdf, issueLiorenInvoice, resendLiorenInvoiceEmail } from "@/lib/sales/lioren";
 import { getSaleById } from "@/lib/sales/repository";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -15,6 +15,17 @@ export async function GET(_request: Request, context: RouteContext) {
 
   try {
     const { id } = await context.params;
+    if (new URL(_request.url).searchParams.get("format") === "pdf") {
+      const { pdf, filename } = await getLiorenInvoicePdf(id);
+      return new NextResponse(new Uint8Array(pdf), {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${filename}"`,
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
     const sale = await getSaleById(id);
     if (!sale) return NextResponse.json({ error: "La venta no existe." }, { status: 404 });
     const savedDraft = sale.liorenInvoice.draft;
@@ -38,14 +49,17 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
-  if (!getLiorenConfig().configured) {
-    return NextResponse.json({ error: "Lioren no está configurado. Añade LIOREN_API_BASE_URL y LIOREN_API_TOKEN en las variables de entorno del servidor." }, { status: 503 });
-  }
-
   let id = "";
   try {
     id = (await context.params).id;
-    const body = await request.json().catch(() => ({})) as { draft?: unknown };
+    const body = await request.json().catch(() => ({})) as { action?: string; draft?: unknown };
+    if (body.action === "resend_email") {
+      const sale = await resendLiorenInvoiceEmail(id);
+      return NextResponse.json({ sale }, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (!getLiorenConfig().configured) {
+      return NextResponse.json({ error: "Lioren no está configurado. Añade LIOREN_API_BASE_URL y LIOREN_API_TOKEN en las variables de entorno del servidor." }, { status: 503 });
+    }
     const sale = await issueLiorenInvoice(id, body.draft);
     return NextResponse.json({ sale }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

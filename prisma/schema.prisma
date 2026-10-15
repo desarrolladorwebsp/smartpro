@@ -595,6 +595,9 @@ model Sale {
   liorenInvoiceIssuedAt     DateTime?
   liorenInvoiceDraft        String?             @db.LongText
   liorenInvoiceError        String?             @db.Text
+  liorenInvoicePdf          String?             @db.LongText
+  liorenInvoiceEmailSentAt  DateTime?
+  liorenInvoiceEmailError   String?             @db.Text
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   payments         SalePayment[]

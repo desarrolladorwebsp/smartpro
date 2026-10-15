@@ -74,6 +74,11 @@ function toPaymentRecord(row: SaleRow["payments"][number]): SalePaymentRecord {
 }
 
 function toSaleRecord(row: SaleRow): SaleRecord {
+  const invoiceDelivery = row as SaleRow & {
+    liorenInvoicePdf?: string | null;
+    liorenInvoiceEmailSentAt?: Date | null;
+    liorenInvoiceEmailError?: string | null;
+  };
   const executiveName = row.executive
     ? `${row.executive.firstName} ${row.executive.lastName ?? ""}`.trim() || row.executive.email
     : "Sin asignar";
@@ -124,6 +129,9 @@ function toSaleRecord(row: SaleRow): SaleRecord {
       folio: row.liorenInvoiceFolio ?? null,
       issuedAt: row.liorenInvoiceIssuedAt?.toISOString() ?? null,
       error: row.liorenInvoiceError ?? "",
+      pdfAvailable: Boolean(invoiceDelivery.liorenInvoicePdf),
+      emailSentAt: invoiceDelivery.liorenInvoiceEmailSentAt?.toISOString() ?? null,
+      emailError: invoiceDelivery.liorenInvoiceEmailError ?? "",
       draft: invoiceDraft,
     },
     payments,

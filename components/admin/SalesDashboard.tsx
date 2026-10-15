@@ -280,9 +280,13 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                     </td>
                     <td className="px-4 py-3">
                       {sale.liorenInvoice.status === "ISSUED" ? (
-                        <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                          Emitida{sale.liorenInvoice.folio ? ` · ${sale.liorenInvoice.folio}` : ""}
-                        </span>
+                        <div className="flex flex-col items-start gap-1.5">
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                            Emitida{sale.liorenInvoice.folio ? ` · ${sale.liorenInvoice.folio}` : ""}
+                          </span>
+                          {sale.liorenInvoice.pdfAvailable ? <a href={`/api/sales/${encodeURIComponent(sale.id)}/invoice?format=pdf`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="text-xs font-semibold text-primary underline">Ver factura</a> : null}
+                          {sale.liorenInvoice.emailError ? <span title={sale.liorenInvoice.emailError} className="text-[11px] text-amber-800">Correo pendiente</span> : null}
+                        </div>
                       ) : sale.liorenInvoice.status === "ISSUING" ? (
                         <span className="text-xs text-muted">Procesando…</span>
                       ) : sale.status !== "CANCELLED" ? (

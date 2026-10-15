@@ -6,13 +6,14 @@
 2. En **Ventas**, usar **Emitir factura** para abrir el borrador editable.
 3. Revisar fechas, RUT, razón social, giro, domicilio tributario y detalle. El precio del detalle se ingresa como neto; SmartPro calcula y muestra automáticamente el IVA del 19%. SmartPro emite exclusivamente factura afecta con IVA (tipo SII `33`); no ofrece facturas exentas.
 4. Seleccionar región, ciudad y comuna. El catálogo se consulta con `GET https://www.lioren.cl/api/regiones`, `GET /api/ciudades?region_id=…` y `GET /api/comunas?region_id=…`; el formulario limita ciudades y comunas a la región elegida y envía a Lioren los códigos numéricos de ciudad y comuna.
-5. **Confirmar y emitir factura** envía la solicitud desde el servidor. Smartpro conserva el estado, tipo, identificador, folio, borrador enviado y último error.
+5. **Confirmar y emitir factura** envía la solicitud desde el servidor. Se exige el correo del receptor. Lioren devuelve el PDF de la factura con `expects: "pdf"`; SmartPro lo guarda de forma privada y lo envía al cliente con `contacto@smartpro.cl` en copia oculta.
+6. Desde el panel administrativo se puede abrir el PDF de la factura y reenviarla por correo sin volver a emitir el DTE. Si falla el envío, la factura permanece emitida y el panel ofrece reintentar el correo.
 
 Todas las facturas de SmartPro son afectas al IVA del 19%, tipo SII `33`. El total calculado debe coincidir con el total de la venta antes de emitir. Si una venta antigua tiene IVA registrado en cero, el borrador considera su total como IVA incluido y calcula el neto correspondiente. Una venta cancelada o ya facturada no se puede volver a emitir desde este flujo.
 
 ## API y autenticación
 
-La emisión usa `POST /dtes` bajo la URL base configurada y envía `Authorization: Bearer <token>`, `Content-Type: application/json` y una llave `X-Idempotency-Check` derivada del ID de venta para que una repetición de la misma venta no genere otro DTE. El catálogo de regiones, ciudades y comunas usa los endpoints públicos documentados bajo `https://www.lioren.cl/api` con el mismo Bearer. La respuesta de emisión permite guardar el identificador y folio devueltos por Lioren.
+La emisión usa `POST /dtes` bajo la URL base configurada y envía `Authorization: Bearer <token>`, `Content-Type: application/json` y una llave `X-Idempotency-Check` derivada del ID de venta para que una repetición de la misma venta no genere otro DTE. Se pide el PDF con `expects: "pdf"`; la API lo devuelve codificado en Base64 junto con el identificador y el folio. SmartPro envía ese PDF mediante Resend al correo del receptor y copia oculta a `contacto@smartpro.cl`. El catálogo de regiones, ciudades y comunas usa los endpoints documentados bajo `https://www.lioren.cl/api` con el mismo Bearer.
 
 La integración es server-side. No uses prefijos `NEXT_PUBLIC_` para las credenciales. Configura las siguientes variables en el entorno de ejecución:
 
@@ -24,6 +25,7 @@ La integración es server-side. No uses prefijos `NEXT_PUBLIC_` para las credenc
 | `LIOREN_ISSUER_EMAIL` | Opcional: correo de contacto del emisor que acompaña el DTE. |
 | `LIOREN_ISSUER_PHONE` | Opcional: teléfono de contacto del emisor. |
 | `LIOREN_ISSUER_ACTIVITY_CODE` | Opcional: actividad económica SII del emisor. Si se omite, Lioren usa la primera actividad registrada. |
+| `RESEND_API_KEY` | Requerida para enviar la factura al receptor y la copia oculta a SmartPro. Si falta, el panel mantiene la factura emitida y permite reintentar cuando se configure. |
 
 La URL base se puede cambiar por otra entregada por Lioren. SmartPro exige HTTPS. Lioren indica que el token determina la empresa y el entorno; el token configurado localmente corresponde a **PRUEBAS API: SMARTPRO**, por lo que las consultas de verificación y documentos de prueba pertenecen a ese entorno. Para producción debe configurarse el token productivo entregado por Lioren. No reutilices el token de pruebas en producción.
 

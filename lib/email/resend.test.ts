@@ -82,6 +82,7 @@ test("sendEmail incluye adjuntos PDF en la petición a Resend", async () => {
 
     const result = await sendEmail({
       to: "cliente@empresa.cl",
+      bcc: "contacto@smartpro.cl",
       subject: "Cotización COT-2026-0001 — SmartPro",
       text: "Adjuntamos la cotización.",
       html: "<p>Adjuntamos la cotización.</p>",
@@ -95,7 +96,8 @@ test("sendEmail incluye adjuntos PDF en la petición a Resend", async () => {
     });
 
     assert.equal(result.delivered, true);
-    const parsed = body as { attachments?: Array<{ filename?: string; contentType?: string }> } | null;
+    const parsed = body as { bcc?: string[]; attachments?: Array<{ filename?: string; contentType?: string }> } | null;
+    assert.deepEqual(parsed?.bcc, ["contacto@smartpro.cl"]);
     assert.equal(parsed?.attachments?.[0]?.filename, "COT-2026-0001.pdf");
     assert.equal(parsed?.attachments?.[0]?.contentType, "application/pdf");
   } finally {

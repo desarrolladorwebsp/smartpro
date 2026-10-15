@@ -38,6 +38,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<SalePaymentRecord | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceEmailSending, setInvoiceEmailSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
   const refreshComments = useCallback(async () => {
@@ -78,6 +79,25 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
     }
   }
 
+  async function resendInvoiceEmail() {
+    setInvoiceEmailSending(true);
+    try {
+      const response = await fetch(`/api/sales/${encodeURIComponent(sale.id)}/invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend_email" }),
+      });
+      const data = await response.json() as { sale?: SaleRecord; error?: string };
+      if (!response.ok || !data.sale) throw new Error(data.error ?? "No se pudo enviar la factura por correo.");
+      setSale(data.sale);
+      setSuccessMessage(data.sale.liorenInvoice.emailError ? "La factura sigue emitida, pero el correo no pudo enviarse." : "Factura enviada al cliente y a contacto@smartpro.cl.");
+    } catch (error) {
+      setSuccessMessage(error instanceof Error ? error.message : "No se pudo enviar la factura por correo.");
+    } finally {
+      setInvoiceEmailSending(false);
+    }
+  }
+
   const receipts = sale.payments.filter((payment) => payment.receiptPath);
   if (!receipts.length && sale.receiptPath) {
     receipts.push({
@@ -110,7 +130,11 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
               <button type="button" onClick={() => setPaymentOpen(true)} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary/30 hover:text-primary">Registrar abono</button>
             ) : null}
             {sale.liorenInvoice.status === "ISSUED" ? (
-              <span className="inline-flex min-h-10 items-center rounded-full bg-emerald-100 px-4 text-sm font-semibold text-emerald-700">Factura emitida{sale.liorenInvoice.folio ? ` · folio ${sale.liorenInvoice.folio}` : ""}</span>
+              <>
+                <span className="inline-flex min-h-10 items-center rounded-full bg-emerald-100 px-4 text-sm font-semibold text-emerald-700">Factura emitida{sale.liorenInvoice.folio ? ` · folio ${sale.liorenInvoice.folio}` : ""}</span>
+                {sale.liorenInvoice.pdfAvailable ? <a href={`/api/sales/${encodeURIComponent(sale.id)}/invoice?format=pdf`} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:text-primary">Ver factura PDF</a> : null}
+                <button type="button" onClick={() => void resendInvoiceEmail()} disabled={invoiceEmailSending || !sale.liorenInvoice.pdfAvailable} className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:text-primary disabled:opacity-50">{invoiceEmailSending ? "Enviando…" : sale.liorenInvoice.emailError ? "Reintentar envío" : "Reenviar factura por correo"}</button>
+              </>
             ) : sale.status !== "CANCELLED" ? (
               <button type="button" onClick={() => setInvoiceOpen(true)} className="min-h-10 rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white">{sale.liorenInvoice.status === "ERROR" ? "Revisar factura" : "Emitir factura"}</button>
             ) : null}
@@ -131,6 +155,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         </div>
         {sale.observation ? <div className="mt-5 rounded-2xl bg-slate-50 p-4"><p className={labelClass}>Observación de la venta</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{sale.observation}</p></div> : null}
         {sale.liorenInvoice.error ? <p className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">Factura: {sale.liorenInvoice.error}</p> : null}
+        {sale.liorenInvoice.status === "ISSUED" ? <p className={`mt-4 rounded-xl p-3 text-sm ${sale.liorenInvoice.emailError ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>{sale.liorenInvoice.emailError ? `Correo pendiente: ${sale.liorenInvoice.emailError}` : sale.liorenInvoice.emailSentAt ? `Factura enviada al cliente y con copia a contacto@smartpro.cl el ${formatDate(sale.liorenInvoice.emailSentAt)}.` : "La factura todavía no se ha enviado por correo."}</p> : null}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de montos">

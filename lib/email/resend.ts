@@ -4,8 +4,9 @@ type EmailAttachment = {
   contentType?: string;
 };
 
-type SendEmailInput = {
+export type SendEmailInput = {
   to: string | string[];
+  bcc?: string | string[];
   subject: string;
   text: string;
   html?: string;
@@ -26,6 +27,11 @@ function normalizeRecipients(to: string | string[]): string[] {
   }
 
   return recipients;
+}
+
+function normalizeOptionalRecipients(to: string | string[] | undefined): string[] | undefined {
+  if (to === undefined) return undefined;
+  return normalizeRecipients(to);
 }
 
 function toResendAttachments(attachments: EmailAttachment[] | undefined) {
@@ -56,6 +62,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   const to = normalizeRecipients(input.to);
+  const bcc = normalizeOptionalRecipients(input.bcc);
   const from = process.env.EMAIL_FROM?.trim() || "SmartPro <no-reply@smartpro.cl>";
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const attachments = toResendAttachments(input.attachments);
@@ -79,6 +86,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       body: JSON.stringify({
         from,
         to,
+        ...(bcc ? { bcc } : {}),
         subject,
         text,
         ...(html ? { html } : {}),

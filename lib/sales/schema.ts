@@ -79,6 +79,9 @@ export async function ensureLiorenInvoiceColumns(client?: PrismaClient | null): 
     ["liorenInvoiceIssuedAt", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceIssuedAt` DATETIME(3) NULL"],
     ["liorenInvoiceDraft", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceDraft` LONGTEXT NULL"],
     ["liorenInvoiceError", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceError` TEXT NULL"],
+    ["liorenInvoicePdf", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoicePdf` LONGTEXT NULL"],
+    ["liorenInvoiceEmailSentAt", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceEmailSentAt` DATETIME(3) NULL"],
+    ["liorenInvoiceEmailError", "ALTER TABLE `Sale` ADD COLUMN `liorenInvoiceEmailError` TEXT NULL"],
   ] as const;
 
   for (const [column, sql] of additions) {

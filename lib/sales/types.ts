@@ -1,4 +1,5 @@
 import type { QuoteRecord } from "../quotes/types";
+import type { SendEmailInput } from "../email/resend";
 import {
   getBalanceDue,
   getCollectionStatus,
@@ -57,8 +58,49 @@ export type LiorenInvoiceRecord = {
   folio: number | null;
   issuedAt: string | null;
   error: string;
+  pdfAvailable: boolean;
+  emailSentAt: string | null;
+  emailError: string;
   draft: LiorenInvoiceDraft | null;
 };
+
+export const LIOREN_INVOICE_COPY_EMAIL = "contacto@smartpro.cl";
+export const LIOREN_INVOICE_PDF_MAX_BYTES = 15 * 1024 * 1024;
+
+export function decodeLiorenInvoicePdf(value: unknown): Buffer | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const base64 = value.trim();
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)) return null;
+  const pdf = Buffer.from(base64, "base64");
+  if (!pdf.length || pdf.length > LIOREN_INVOICE_PDF_MAX_BYTES || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") return null;
+  return pdf;
+}
+
+export function buildLiorenInvoiceEmail(input: {
+  saleNumber: string;
+  folio: number | null;
+  customerEmail: string;
+  pdf: Buffer;
+}): SendEmailInput {
+  const recipient = input.customerEmail.trim().toLowerCase();
+  const folioLabel = input.folio ? `folio ${input.folio}` : input.saleNumber;
+  const bcc = recipient === LIOREN_INVOICE_COPY_EMAIL ? undefined : LIOREN_INVOICE_COPY_EMAIL;
+  const subject = `Factura electrónica ${folioLabel} — SmartPro`;
+  const text = `Hola,\n\nAdjuntamos la factura electrónica ${folioLabel} asociada a la venta ${input.saleNumber}.\n\nSaludos,\nSmartPro`;
+
+  return {
+    to: recipient,
+    ...(bcc ? { bcc } : {}),
+    subject,
+    text,
+    html: `<p>Hola,</p><p>Adjuntamos la factura electrónica <strong>${folioLabel}</strong> asociada a la venta <strong>${input.saleNumber}</strong>.</p><p>Saludos,<br />SmartPro</p>`,
+    attachments: [{
+      filename: `Factura-${input.folio ?? input.saleNumber}.pdf`,
+      content: input.pdf,
+      contentType: "application/pdf",
+    }],
+  };
+}
 
 export const SALE_RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
 export const SALE_RECEIPT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;

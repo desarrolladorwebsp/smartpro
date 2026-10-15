@@ -3,7 +3,8 @@ import { prisma } from "../db";
 import { getClientById } from "../clients/repository";
 import { getSaleById } from "./repository";
 import { ensureSalePaymentTable } from "./schema";
-import type { LiorenInvoiceDraft, LiorenInvoiceDetail, SaleRecord } from "./types";
+import { buildLiorenInvoiceEmail, decodeLiorenInvoicePdf, type LiorenInvoiceDraft, type LiorenInvoiceDetail, type SaleRecord } from "./types";
+import { sendEmail } from "../email/resend";
 
 const IVA_RATE = 0.19;
 const MAX_DETAILS = 60;
@@ -99,6 +100,10 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
   if (!/^\d+$/.test(comuna) || !/^\d+$/.test(ciudad)) {
     throw new Error("Ingresa los códigos numéricos de comuna y ciudad que entrega Lioren.");
   }
+  const email = String(receptorInput.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 80) {
+    throw new Error("Ingresa un correo válido del receptor para enviar la factura.");
+  }
   const vencimiento = validDate(input.vencimiento, "Vencimiento", true);
   const fecha = validDate(input.fecha, "Fecha de emisión");
   if (vencimiento && vencimiento < fecha) throw new Error("El vencimiento no puede ser anterior a la fecha de emisión.");
@@ -115,7 +120,7 @@ export function validateLiorenInvoiceDraft(value: unknown): LiorenInvoiceDraft {
       comuna,
       ciudad,
       direccion: cleanText(receptorInput.direccion, "Dirección tributaria", 5, 70),
-      email: String(receptorInput.email ?? "").trim().slice(0, 80),
+      email,
       telefono: String(receptorInput.telefono ?? "").replace(/\D/g, "").slice(-9),
     },
     detalles,
@@ -158,7 +163,49 @@ function liorenPayload(draft: LiorenInvoiceDraft) {
       ...(draft.receptor.telefono.length === 9 ? { telefono: draft.receptor.telefono } : {}),
     },
     detalles: draft.detalles,
+    expects: "pdf",
   };
+}
+
+async function sendInvoicePdfEmail(input: { sale: SaleRecord; pdf: Buffer }) {
+  const email = input.sale.liorenInvoice.draft?.receptor.email?.trim();
+  if (!email) return { delivered: false as const, error: "Falta el correo del receptor en el borrador de factura." };
+
+  const result = await sendEmail(buildLiorenInvoiceEmail({
+    saleNumber: input.sale.number,
+    folio: input.sale.liorenInvoice.folio,
+    customerEmail: email,
+    pdf: input.pdf,
+  }));
+  if (!result.delivered) {
+    return { delivered: false as const, error: result.error ?? "No se configuró o no se pudo completar el envío del correo." };
+  }
+  return { delivered: true as const };
+}
+
+export async function getLiorenInvoicePdf(saleId: string): Promise<{ pdf: Buffer; filename: string }> {
+  if (!prisma) throw new Error("No hay conexión a la base de datos.");
+  const sale = await getSaleById(saleId);
+  if (!sale || sale.liorenInvoice.status !== "ISSUED") throw new Error("No hay una factura emitida para esta venta.");
+  const rows = await prisma.$queryRaw<Array<{ liorenInvoicePdf: string | null }>>`SELECT liorenInvoicePdf FROM Sale WHERE id = ${saleId} LIMIT 1`;
+  const pdf = decodeLiorenInvoicePdf(rows[0]?.liorenInvoicePdf);
+  if (!pdf) throw new Error("Lioren no devolvió un PDF disponible para esta factura.");
+  return { pdf, filename: `Factura-${sale.liorenInvoice.folio ?? sale.number}.pdf` };
+}
+
+export async function resendLiorenInvoiceEmail(saleId: string): Promise<SaleRecord> {
+  if (!prisma) throw new Error("No hay conexión a la base de datos.");
+  const sale = await getSaleById(saleId);
+  if (!sale || sale.liorenInvoice.status !== "ISSUED") throw new Error("No hay una factura emitida para esta venta.");
+  const rows = await prisma.$queryRaw<Array<{ liorenInvoicePdf: string | null }>>`SELECT liorenInvoicePdf FROM Sale WHERE id = ${saleId} LIMIT 1`;
+  const pdf = decodeLiorenInvoicePdf(rows[0]?.liorenInvoicePdf);
+  if (!pdf) throw new Error("Lioren no devolvió un PDF disponible para esta factura.");
+
+  const delivery = await sendInvoicePdfEmail({ sale, pdf });
+  await prisma.$executeRaw`UPDATE Sale SET liorenInvoiceEmailSentAt = ${delivery.delivered ? new Date() : null}, liorenInvoiceEmailError = ${delivery.delivered ? null : delivery.error} WHERE id = ${saleId}`;
+  const updated = await getSaleById(saleId);
+  if (!updated) throw new Error("No se pudo actualizar el estado de envío de la factura.");
+  return updated;
 }
 
 function responseError(body: Record<string, unknown>, status: number) {
@@ -195,6 +242,7 @@ export async function issueLiorenInvoice(saleId: string, draftInput: unknown): P
   if (claimed.count !== 1) throw new Error("No se pudo iniciar la emisión; actualiza la venta y revisa su estado de factura.");
 
   const idempotencyKey = createHash("sha256").update(`smartpro-sale:${sale.id}`).digest("hex");
+  let issuedPdf: Buffer | null = null;
   try {
     const response = await fetch(`${baseUrl}/dtes`, {
       method: "POST",
@@ -212,6 +260,8 @@ export async function issueLiorenInvoice(saleId: string, draftInput: unknown): P
     const hasErrors = Array.isArray(body.errors) && body.errors.length > 0;
     if (!response.ok || hasErrors) throw new Error(responseError(body, response.status));
 
+    issuedPdf = decodeLiorenInvoicePdf(body.pdf);
+
     await prisma.sale.update({
       where: { id: sale.id },
       data: {
@@ -222,6 +272,12 @@ export async function issueLiorenInvoice(saleId: string, draftInput: unknown): P
         liorenInvoiceError: null,
       },
     });
+    try {
+      await prisma.$executeRaw`UPDATE Sale SET liorenInvoicePdf = ${issuedPdf?.toString("base64") ?? null}, liorenInvoiceEmailSentAt = NULL, liorenInvoiceEmailError = ${issuedPdf ? null : "Lioren emitió la factura, pero no devolvió el PDF solicitado."} WHERE id = ${sale.id}`;
+    } catch (storageError) {
+      console.error("Lioren emitió la factura, pero SmartPro no pudo guardar el PDF de la venta.", storageError);
+      issuedPdf = null;
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "No fue posible emitir la factura en Lioren.";
     await prisma.sale.update({
@@ -231,7 +287,13 @@ export async function issueLiorenInvoice(saleId: string, draftInput: unknown): P
     throw new Error(message);
   }
 
-  const updated = await getSaleById(sale.id);
+  let updated = await getSaleById(sale.id);
   if (!updated) throw new Error("Lioren emitió el documento, pero no se pudo actualizar la venta.");
+  if (issuedPdf) {
+    const delivery = await sendInvoicePdfEmail({ sale: updated, pdf: issuedPdf });
+    await prisma.$executeRaw`UPDATE Sale SET liorenInvoiceEmailSentAt = ${delivery.delivered ? new Date() : null}, liorenInvoiceEmailError = ${delivery.delivered ? null : delivery.error} WHERE id = ${sale.id}`;
+    updated = await getSaleById(sale.id);
+    if (!updated) throw new Error("La factura se emitió, pero no se pudo actualizar el estado del correo.");
+  }
   return updated;
 }
