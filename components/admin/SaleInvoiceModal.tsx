@@ -13,6 +13,8 @@ type SaleInvoiceModalProps = {
   onFailed?: (sale: SaleRecord) => void;
 };
 
+type LiorenLocation = { region: string; ciudad: string; ciudadCodigo: string; comuna: string; comunaCodigo: string };
+
 function emptyDetail(): LiorenInvoiceDetail {
   return { codigo: "SRV", nombre: "", cantidad: 1, unidad: "UN", precio: 0, exento: false };
 }
@@ -20,6 +22,8 @@ function emptyDetail(): LiorenInvoiceDetail {
 export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvoiceModalProps) {
   const [draft, setDraft] = useState<LiorenInvoiceDraft | null>(null);
   const [configured, setConfigured] = useState(false);
+  const [locations, setLocations] = useState<LiorenLocation[]>([]);
+  const [locationsError, setLocationsError] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isIssuing, setIsIssuing] = useState(false);
@@ -33,13 +37,26 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
     let cancelled = false;
     setIsLoading(true);
     setError("");
-    void fetch(`/api/sales/${encodeURIComponent(sale.id)}/invoice`, { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({})) as { draft?: LiorenInvoiceDraft; configured?: boolean; error?: string };
-        if (!response.ok || !data.draft) throw new Error(data.error ?? "No se pudieron cargar los datos de facturación.");
+    setLocations([]);
+    setLocationsError("");
+    void Promise.all([
+      fetch(`/api/sales/${encodeURIComponent(sale.id)}/invoice`, { cache: "no-store" }),
+      fetch(`/api/sales/${encodeURIComponent(sale.id)}/invoice/locations`, { cache: "no-store" }),
+    ])
+      .then(async ([draftResponse, locationsResponse]) => {
+        const [data, locationsData] = await Promise.all([
+          draftResponse.json().catch(() => ({})) as Promise<{ draft?: LiorenInvoiceDraft; configured?: boolean; error?: string }>,
+          locationsResponse.json().catch(() => ({})) as Promise<{ locations?: LiorenLocation[]; error?: string }>,
+        ]);
+        if (!draftResponse.ok || !data.draft) throw new Error(data.error ?? "No se pudieron cargar los datos de facturación.");
         if (cancelled) return;
         setDraft(data.draft);
         setConfigured(Boolean(data.configured));
+        if (locationsResponse.ok && locationsData.locations?.length) {
+          setLocations(locationsData.locations);
+        } else {
+          setLocationsError(locationsData.error ?? "No se cargaron las localidades de Lioren.");
+        }
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudieron cargar los datos de facturación.");
@@ -56,6 +73,12 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
     const tax = Math.round(taxable * 0.19);
     return { net, tax, total: Math.round(net + tax) };
   }, [draft]);
+
+  const cities = useMemo(() => {
+    const seen = new Set<string>();
+    return locations.filter((item) => !seen.has(item.ciudadCodigo) && Boolean(seen.add(item.ciudadCodigo)));
+  }, [locations]);
+  const communes = useMemo(() => locations.filter((item) => item.ciudadCodigo === draft?.receptor.ciudad), [locations, draft?.receptor.ciudad]);
 
   if (!sale) return null;
 
@@ -129,13 +152,14 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
             </div>
 
             <section className="space-y-3 rounded-[20px] border border-border bg-slate-50/80 p-4">
-              <div><p className="font-semibold">Datos tributarios del receptor</p><p className="text-xs text-muted">Los códigos numéricos de ciudad y comuna se consultan en Lioren.</p></div>
+              <div><p className="font-semibold">Datos tributarios del receptor</p><p className="text-xs text-muted">Selecciona la ciudad para ver solo sus comunas. SmartPro enviará los códigos de Lioren.</p></div>
+              {locationsError ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{locationsError}</p> : null}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="block"><span className="mb-1 block text-xs font-semibold">RUT</span><input value={draft.receptor.rut} onChange={(event) => updateReceiver("rut", event.target.value)} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block"><span className="mb-1 block text-xs font-semibold">Razón social</span><input value={draft.receptor.rs} onChange={(event) => updateReceiver("rs", event.target.value)} maxLength={100} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block"><span className="mb-1 block text-xs font-semibold">Giro</span><input value={draft.receptor.giro} onChange={(event) => updateReceiver("giro", event.target.value)} maxLength={40} className="dashboard-field" disabled={isIssuing} /></label>
-                <label className="block"><span className="mb-1 block text-xs font-semibold">Comuna (código Lioren)</span><input inputMode="numeric" value={draft.receptor.comuna} onChange={(event) => updateReceiver("comuna", event.target.value)} className="dashboard-field" disabled={isIssuing} /></label>
-                <label className="block"><span className="mb-1 block text-xs font-semibold">Ciudad (código Lioren)</span><input inputMode="numeric" value={draft.receptor.ciudad} onChange={(event) => updateReceiver("ciudad", event.target.value)} className="dashboard-field" disabled={isIssuing} /></label>
+                <label className="block"><span className="mb-1 block text-xs font-semibold">Ciudad</span><select value={draft.receptor.ciudad} onChange={(event) => { updateReceiver("ciudad", event.target.value); updateReceiver("comuna", ""); }} className="dashboard-field" disabled={isIssuing || !locations.length}><option value="">Selecciona una ciudad</option>{cities.map((city) => <option key={city.ciudadCodigo} value={city.ciudadCodigo}>{city.region !== city.ciudad ? `${city.ciudad} (${city.region})` : city.ciudad}</option>)}</select></label>
+                <label className="block"><span className="mb-1 block text-xs font-semibold">Comuna</span><select value={draft.receptor.comuna} onChange={(event) => updateReceiver("comuna", event.target.value)} className="dashboard-field" disabled={isIssuing || !draft.receptor.ciudad}><option value="">Selecciona una comuna</option>{communes.map((commune) => <option key={commune.comunaCodigo} value={commune.comunaCodigo}>{commune.comuna}</option>)}</select></label>
                 <label className="block"><span className="mb-1 block text-xs font-semibold">Dirección tributaria</span><input value={draft.receptor.direccion} onChange={(event) => updateReceiver("direccion", event.target.value)} maxLength={70} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block"><span className="mb-1 block text-xs font-semibold">Correo</span><input type="email" value={draft.receptor.email} onChange={(event) => updateReceiver("email", event.target.value)} maxLength={80} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block"><span className="mb-1 block text-xs font-semibold">Teléfono</span><input value={draft.receptor.telefono} onChange={(event) => updateReceiver("telefono", event.target.value)} className="dashboard-field" disabled={isIssuing} /></label>
@@ -147,7 +171,7 @@ export function SaleInvoiceModal({ sale, onClose, onIssued, onFailed }: SaleInvo
               {draft.detalles.map((item, index) => <div key={index} className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-12">
                 <label className="block sm:col-span-5"><span className="mb-1 block text-xs font-semibold">Descripción</span><input value={item.nombre} onChange={(event) => updateDetail(index, "nombre", event.target.value)} maxLength={80} className="dashboard-field" disabled={isIssuing} /></label>
                 <label className="block sm:col-span-2"><span className="mb-1 block text-xs font-semibold">Cantidad</span><input type="number" min="0.000001" step="any" value={item.cantidad} onChange={(event) => updateDetail(index, "cantidad", Number(event.target.value))} className="dashboard-field" disabled={isIssuing} /></label>
-                <label className="block sm:col-span-3"><span className="mb-1 block text-xs font-semibold">Precio neto unitario</span><input type="number" min="0" step="1" value={item.precio} onChange={(event) => updateDetail(index, "precio", Number(event.target.value))} className="dashboard-field" disabled={isIssuing} /></label>
+                <label className="block sm:col-span-3"><span className="mb-1 block text-xs font-semibold">Precio neto unitario (sin IVA)</span><input type="number" min="0" step="1" value={item.precio} onChange={(event) => updateDetail(index, "precio", Number(event.target.value))} className="dashboard-field" disabled={isIssuing} /><span className="mt-1 block text-[11px] text-muted">El IVA del 19% se calcula automáticamente sobre este valor.</span></label>
                 <div className="flex items-end pb-2 text-xs font-semibold text-emerald-700 sm:col-span-1">Afecto a IVA</div>
                 <button type="button" aria-label="Quitar ítem" onClick={() => updateDraft((current) => ({ ...current, detalles: current.detalles.filter((_, itemIndex) => itemIndex !== index) }))} disabled={isIssuing || draft.detalles.length <= 1} className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:text-red-600 disabled:opacity-40"><Trash2 size={16} /></button>
               </div>)}
