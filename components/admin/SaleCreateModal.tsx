@@ -10,6 +10,7 @@ import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
 import {
   getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
+  calculateNetSaleAmounts,
   SALE_MANUAL_PAYMENT_METHODS,
   SALE_OBSERVATION_MAX_LENGTH,
   SALE_RECEIPT_ACCEPT,
@@ -54,8 +55,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState("");
   const [serviceName, setServiceName] = useState("");
-  const [subtotal, setSubtotal] = useState("");
-  const [tax, setTax] = useState("0");
+  const [netAmount, setNetAmount] = useState("");
   const [soldAt, setSoldAt] = useState(todayDateInputValue);
   const [observation, setObservation] = useState("");
   const [paidAmount, setPaidAmount] = useState("0");
@@ -163,15 +163,13 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   );
   const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
   const deposit = selectedQuote ? quoteDepositAmounts(selectedQuote) : null;
-  const directSubtotal = Number(subtotal);
-  const directTax = Number(tax || 0);
+  const directNetAmount = Number(netAmount);
   const directAmountsValid =
-    subtotal.trim() !== "" &&
-    Number.isSafeInteger(directSubtotal) &&
-    directSubtotal >= 0 &&
-    Number.isSafeInteger(directTax) &&
-    directTax >= 0;
-  const directTotal = directAmountsValid ? directSubtotal + directTax : 0;
+    netAmount.trim() !== "" && Number.isSafeInteger(directNetAmount) && directNetAmount >= 0;
+  const directAmounts = directAmountsValid
+    ? calculateNetSaleAmounts(directNetAmount)
+    : { subtotal: 0, tax: 0, total: 0 };
+  const directTotal = directAmounts.total;
   const activeTotal = entryMode === "DIRECT" ? directTotal : selectedQuote?.total ?? 0;
   const receivedAmount = Number(paidAmount || 0);
   const receivedAmountValid =
@@ -198,7 +196,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       return;
     }
     if (entryMode === "DIRECT" && (!soldAt || !directAmountsValid || directTotal < 1)) {
-      setSubmitError("Ingresa una fecha, subtotal e IVA válidos para la venta directa.");
+      setSubmitError("Ingresa una fecha y un monto neto válido para la venta directa.");
       return;
     }
     if (!receivedAmountValid) {
@@ -226,8 +224,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       if (entryMode === "DIRECT") {
         formData.append("clientId", clientId);
         formData.append("serviceName", serviceName.trim());
-        formData.append("subtotal", String(directSubtotal));
-        formData.append("tax", String(directTax));
+        formData.append("netAmount", String(directNetAmount));
         formData.append("soldAt", soldAt);
       } else if (selectedQuote) {
         formData.append("quoteId", selectedQuote.id);
@@ -378,16 +375,15 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                   <input type="date" value={soldAt} onChange={(event) => setSoldAt(event.target.value)} className="dashboard-field" disabled={isSaving} />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto de venta (sin IVA)</span>
-                  <input type="number" min={0} step={1} value={subtotal} onChange={(event) => setSubtotal(event.target.value)} className="dashboard-field" disabled={isSaving} />
+                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto neto (sin IVA)</span>
+                  <input type="number" min={0} step={1} value={netAmount} onChange={(event) => setNetAmount(event.target.value)} className="dashboard-field" disabled={isSaving} />
                 </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-foreground">IVA (0 si no aplica)</span>
-                  <input type="number" min={0} step={1} value={tax} onChange={(event) => setTax(event.target.value)} className="dashboard-field" disabled={isSaving} />
-                </label>
-                <div className="flex flex-col justify-center rounded-xl border border-border bg-white px-3 py-2">
-                  <span className="text-xs text-muted">Total</span>
-                  <span className="font-bold text-primary">{formatCurrency(directTotal)}</span>
+                <div className="rounded-xl border border-border bg-white px-3 py-2 sm:col-span-2">
+                  <div className="grid gap-2 text-sm sm:grid-cols-3">
+                    <div><span className="block text-xs text-muted">Neto ingresado</span><span className="font-semibold">{formatCurrency(directAmounts.subtotal)}</span></div>
+                    <div><span className="block text-xs text-muted">IVA calculado (19%)</span><span className="font-semibold">{formatCurrency(directAmounts.tax)}</span></div>
+                    <div><span className="block text-xs text-muted">Total de venta</span><span className="font-bold text-primary">{formatCurrency(directTotal)}</span></div>
+                  </div>
                 </div>
               </div>
             </div>

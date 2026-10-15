@@ -18,6 +18,7 @@ import {
   isSaleSource,
   isSaleStatus,
   LIOREN_INVOICE_STATUSES,
+  calculateNetSaleAmounts,
   parseSaleObservation,
   withSalePaymentTotals,
   type QuoteForSaleConversion,
@@ -703,8 +704,7 @@ export async function convertQuoteToSale(input: {
 export async function createDirectSale(input: {
   clientId: string;
   serviceName: string;
-  subtotal: unknown;
-  tax?: unknown;
+  netAmount: unknown;
   soldAt?: unknown;
   createdByEmail: string;
   observation?: string;
@@ -724,10 +724,9 @@ export async function createDirectSale(input: {
     if (!serviceName) throw new Error("Describe el servicio de la venta.");
     if (serviceName.length > 160) throw new Error("El detalle del servicio no puede superar 160 caracteres.");
 
-    const subtotal = parseDirectSaleAmount(input.subtotal, "El subtotal");
-    const tax = parseDirectSaleAmount(input.tax ?? 0, "El IVA");
-    const total = subtotal + tax;
-    if (subtotal < 1 || total < 1) throw new Error("El subtotal de la venta debe ser mayor a 0.");
+    const netAmount = parseDirectSaleAmount(input.netAmount, "El monto neto");
+    if (netAmount < 1) throw new Error("El monto neto de la venta debe ser mayor a 0.");
+    const { subtotal, tax, total } = calculateNetSaleAmounts(netAmount);
 
     const createdByEmail = String(input.createdByEmail ?? "").trim().toLowerCase();
     if (!createdByEmail) throw new Error("No se pudo identificar al ejecutivo.");

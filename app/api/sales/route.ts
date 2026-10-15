@@ -34,8 +34,7 @@ export async function POST(request: Request) {
     const quoteId = String(formData.get("quoteId") ?? "").trim();
     const clientId = String(formData.get("clientId") ?? "").trim();
     const serviceName = String(formData.get("serviceName") ?? "").trim();
-    const subtotal = String(formData.get("subtotal") ?? "");
-    const tax = String(formData.get("tax") ?? "0");
+    const netAmount = String(formData.get("netAmount") ?? "");
     const soldAt = String(formData.get("soldAt") ?? "").trim();
     const observation = String(formData.get("observation") ?? "");
     const paidAmount = String(formData.get("paidAmount") ?? "0");
@@ -54,8 +53,7 @@ export async function POST(request: Request) {
       ? await createDirectSale({
           clientId,
           serviceName,
-          subtotal,
-          tax,
+          netAmount,
           soldAt,
           observation,
           receipt,

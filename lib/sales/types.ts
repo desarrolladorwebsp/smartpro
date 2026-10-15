@@ -242,6 +242,18 @@ export function parseSaleObservation(value: unknown): string {
   return observation;
 }
 
+/** Calcula IVA (19%) y total desde el monto neto, redondeando al peso chileno. */
+export function calculateNetSaleAmounts(netAmount: number): { subtotal: number; tax: number; total: number } {
+  if (!Number.isSafeInteger(netAmount) || netAmount < 0) {
+    return { subtotal: 0, tax: 0, total: 0 };
+  }
+
+  const hundreds = Math.floor(netAmount / 100);
+  const remainder = netAmount % 100;
+  const tax = hundreds * 19 + Math.round((remainder * 19) / 100);
+  return { subtotal: netAmount, tax, total: netAmount + tax };
+}
+
 export function getSaleReceiptValidationError(file: Pick<File, "size" | "type"> | null | undefined): string | null {
   if (!file || file.size <= 0) {
     return null;

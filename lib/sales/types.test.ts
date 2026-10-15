@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildLiorenInvoiceEmail, decodeLiorenInvoicePdf, getSaleReceiptValidationError, parseSaleObservation } from "./types";
+import { buildLiorenInvoiceEmail, calculateNetSaleAmounts, decodeLiorenInvoicePdf, getSaleReceiptValidationError, parseSaleObservation } from "./types";
+
+test("calculateNetSaleAmounts agrega el IVA automáticamente desde el monto neto", () => {
+  assert.deepEqual(calculateNetSaleAmounts(100_000), { subtotal: 100_000, tax: 19_000, total: 119_000 });
+  assert.deepEqual(calculateNetSaleAmounts(0), { subtotal: 0, tax: 0, total: 0 });
+  assert.deepEqual(calculateNetSaleAmounts(1.5), { subtotal: 0, tax: 0, total: 0 });
+});
 
 test("parseSaleObservation recorta y limita el largo", () => {
   assert.equal(parseSaleObservation("  pago transferido  "), "pago transferido");
