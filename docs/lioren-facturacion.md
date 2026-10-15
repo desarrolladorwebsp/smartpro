@@ -5,14 +5,14 @@
 1. Crear la venta no genera un documento tributario.
 2. En **Ventas**, usar **Emitir factura** para abrir el borrador editable.
 3. Revisar fechas, RUT, razón social, giro, domicilio tributario y detalle. El precio del detalle se ingresa como neto; SmartPro calcula y muestra automáticamente el IVA del 19%. SmartPro emite exclusivamente factura afecta con IVA (tipo SII `33`); no ofrece facturas exentas.
-4. Seleccionar la ciudad y luego la comuna. El catálogo se consulta desde `GET /localidades` de Lioren; el formulario limita las comunas a la ciudad seleccionada y envía a Lioren sus códigos numéricos.
+4. Seleccionar región, ciudad y comuna. El catálogo se consulta con `GET https://www.lioren.cl/api/regiones`, `GET /api/ciudades?region_id=…` y `GET /api/comunas?region_id=…`; el formulario limita ciudades y comunas a la región elegida y envía a Lioren los códigos numéricos de ciudad y comuna.
 5. **Confirmar y emitir factura** envía la solicitud desde el servidor. Smartpro conserva el estado, tipo, identificador, folio, borrador enviado y último error.
 
 Todas las facturas de SmartPro son afectas al IVA del 19%, tipo SII `33`. El total calculado debe coincidir con el total de la venta antes de emitir. Si una venta antigua tiene IVA registrado en cero, el borrador considera su total como IVA incluido y calcula el neto correspondiente. Una venta cancelada o ya facturada no se puede volver a emitir desde este flujo.
 
 ## API y autenticación
 
-La integración usa `POST /dtes` bajo la URL base configurada y envía `Authorization: Bearer <token>`, `Content-Type: application/json` y una llave `X-Idempotency-Check` derivada del ID de venta para que una repetición de la misma venta no genere otro DTE. La respuesta permite guardar el identificador y folio devueltos por Lioren.
+La emisión usa `POST /dtes` bajo la URL base configurada y envía `Authorization: Bearer <token>`, `Content-Type: application/json` y una llave `X-Idempotency-Check` derivada del ID de venta para que una repetición de la misma venta no genere otro DTE. El catálogo de regiones, ciudades y comunas usa los endpoints públicos documentados bajo `https://www.lioren.cl/api` con el mismo Bearer. La respuesta de emisión permite guardar el identificador y folio devueltos por Lioren.
 
 La integración es server-side. No uses prefijos `NEXT_PUBLIC_` para las credenciales. Configura las siguientes variables en el entorno de ejecución:
 
