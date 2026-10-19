@@ -8,6 +8,11 @@ import { SmartImage } from "@/components/ui/SmartImage";
 import ViewServiceButton from "@/components/plans/ViewServiceButton";
 import type { PublicServiceView } from "@/lib/services/public";
 
+const serviceLinks: Record<string, string> = {
+  "desarrollo-web": "https://desarrolloweb.smartpro.cl/",
+  "produccion-audiovisual": "https://smartstudio.cl/",
+};
+
 type ServicesSectionProps = {
   catalog: PublicServiceView[];
 };
@@ -263,6 +268,7 @@ export default function ServicesSection({ catalog }: ServicesSectionProps) {
                 {/* CTA */}
                 <div className="pt-3">
                   <ViewServiceButton
+                    href={serviceLinks[service.slug]}
                     categorySlug={service.slug}
                     title={service.name}
                     initialPlans={service.plans}

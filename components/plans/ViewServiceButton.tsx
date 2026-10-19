@@ -13,6 +13,7 @@ import type { ServiceCategoryOption } from "@/lib/services/category-cards";
 
 type ViewServiceButtonProps = {
   categorySlug: string;
+  href?: string;
   title?: string;
   label?: string;
   className?: string;
@@ -37,6 +38,7 @@ type CatalogCategoryResponse = {
 
 export default function ViewServiceButton({
   categorySlug,
+  href,
   title,
   label = "Ver servicio",
   className = "",
@@ -51,6 +53,50 @@ export default function ViewServiceButton({
   const [isLoading, setIsLoading] = useState(false);
   const plans = fetchedPlans ?? initialPlans;
   const categories = fetchedCategories ?? initialCategories;
+
+  const buttonClassName = `
+          group/button
+          inline-flex
+          min-h-11
+          items-center
+          justify-center
+          gap-7
+          rounded-full
+          border
+          border-primary/70
+          bg-black/10
+          px-5
+          text-sm
+          font-semibold
+          text-white
+          backdrop-blur-sm
+          transition-all
+          duration-300
+          hover:border-magenta
+          hover:bg-primary/20
+          disabled:cursor-not-allowed
+          disabled:opacity-70
+          ${className}
+        `;
+
+  if (href) {
+    return (
+      <motion.a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        whileTap={{ scale: 0.97 }}
+        className={buttonClassName}
+      >
+        {label}
+        <ArrowRight
+          size={16}
+          strokeWidth={1.8}
+          className="transition-transform duration-300 group-hover/button:translate-x-1"
+        />
+      </motion.a>
+    );
+  }
 
   const handleOpen = async () => {
     setOpen(true);
@@ -98,30 +144,7 @@ export default function ViewServiceButton({
         onClick={() => void handleOpen()}
         disabled={isLoading && plans.length === 0}
         whileTap={{ scale: 0.97 }}
-        className={`
-          group/button
-          inline-flex
-          min-h-11
-          items-center
-          justify-center
-          gap-7
-          rounded-full
-          border
-          border-primary/70
-          bg-black/10
-          px-5
-          text-sm
-          font-semibold
-          text-white
-          backdrop-blur-sm
-          transition-all
-          duration-300
-          hover:border-magenta
-          hover:bg-primary/20
-          disabled:cursor-not-allowed
-          disabled:opacity-70
-          ${className}
-        `}
+        className={buttonClassName}
       >
         {isLoading && plans.length === 0 ? "Cargando..." : label}
 
