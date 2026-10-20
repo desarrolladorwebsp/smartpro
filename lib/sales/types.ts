@@ -204,6 +204,9 @@ export type SaleRecord = {
   payments: SalePaymentRecord[];
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string | null;
+  archivedByEmail?: string | null;
+  archiveReason?: string | null;
 };
 
 export function withSalePaymentTotals<T extends Pick<SaleRecord, "total" | "payments" | "receiptPath" | "receiptFileName">>(

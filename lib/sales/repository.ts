@@ -138,6 +138,9 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     payments,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    archivedByEmail: row.archivedByEmail ?? null,
+    archiveReason: row.archiveReason ?? null,
   });
 }
 
@@ -298,6 +301,7 @@ export async function addSalePayment(
   if (!sale) {
     throw new Error("La venta no existe.");
   }
+  if (sale.archivedAt) throw new Error("No se pueden registrar abonos en una venta oculta.");
   if (sale.status === "CANCELLED") {
     throw new Error("No se pueden registrar abonos en una venta cancelada.");
   }
@@ -340,6 +344,7 @@ export async function updateSalePayment(
 ): Promise<SaleRecord> {
   const sale = await getSaleById(saleId);
   if (!sale) throw new Error("La venta no existe.");
+  if (sale.archivedAt) throw new Error("No se pueden modificar pagos de una venta oculta.");
   if (sale.status === "CANCELLED") throw new Error("No se pueden modificar pagos de una venta cancelada.");
 
   const payment = sale.payments.find((entry) => entry.id === paymentId);
@@ -444,6 +449,7 @@ async function recordPaidOrderPaymentOnce(input: {
 
   const sale = await getSaleById(input.saleId);
   if (!sale) throw new Error("La venta no existe.");
+  if (sale.archivedAt) throw new Error("No se puede asociar un pago a una venta oculta.");
   const amount = parseSalePaymentAmount(input.amount, sale.balanceDue);
   if (amount < 1) return sale;
 
@@ -460,6 +466,7 @@ async function recordPaidOrderPaymentOnce(input: {
 export async function listSales(): Promise<SaleRecord[]> {
   return withSalePaymentTable(async () => {
     const rows = await getPrisma().sale.findMany({
+      where: { archivedAt: null },
       include: saleInclude,
       orderBy: { soldAt: "desc" },
     });
@@ -496,10 +503,56 @@ export async function getSaleById(id: string): Promise<SaleRecord | null> {
   });
 }
 
+export async function archiveTestSale(saleId: string, archivedByEmail: string): Promise<void> {
+  const id = String(saleId ?? "").trim();
+  if (!id) throw new Error("La venta no existe.");
+
+  await getPrisma().$transaction(async (transaction) => {
+    const rows = await transaction.$queryRaw<Array<{
+      id: string;
+      observation: string;
+      archivedAt: Date | null;
+      quoteId: string | null;
+      orderId: string | null;
+    }>>`
+      SELECT id, observation, archivedAt, quoteId, orderId FROM Sale WHERE id = ${id} FOR UPDATE
+    `;
+    const sale = rows[0];
+    if (!sale) throw new Error("La venta no existe.");
+    if (sale.archivedAt) throw new Error("La venta ya está oculta.");
+    if (!/\bprueba\b/i.test(sale.observation)) {
+      throw new Error("Solo se pueden ocultar ventas cuya observación las identifique como prueba.");
+    }
+    if (sale.quoteId || sale.orderId) throw new Error("Solo se pueden ocultar ventas directas de prueba.");
+
+    const paymentCount = await transaction.salePayment.count({ where: { saleId: id } });
+    if (paymentCount > 0) throw new Error("No se puede ocultar una venta con pagos registrados.");
+
+    await transaction.sale.update({
+      where: { id },
+      data: {
+        archivedAt: new Date(),
+        archivedByEmail: archivedByEmail.trim().toLowerCase(),
+        archiveReason: "Venta de prueba; facturas conservadas.",
+      },
+    });
+  });
+}
+
+export async function restoreArchivedSale(saleId: string): Promise<void> {
+  const sale = await getPrisma().sale.findUnique({ where: { id: saleId }, select: { id: true, archivedAt: true } });
+  if (!sale) throw new Error("La venta no existe.");
+  if (!sale.archivedAt) throw new Error("La venta ya está visible.");
+  await getPrisma().sale.update({
+    where: { id: saleId },
+    data: { archivedAt: null, archivedByEmail: null, archiveReason: null },
+  });
+}
+
 export async function listSalesByApiClientId(apiClientId: string): Promise<SaleRecord[]> {
   return withSalePaymentTable(async () => {
     const rows = await getPrisma().sale.findMany({
-      where: { apiClientId },
+      where: { apiClientId, archivedAt: null },
       include: saleInclude,
       orderBy: { soldAt: "desc" },
     });

@@ -197,6 +197,7 @@ export async function resendLiorenInvoiceEmail(saleId: string): Promise<SaleReco
   if (!prisma) throw new Error("No hay conexión a la base de datos.");
   const sale = await getSaleById(saleId);
   if (!sale || sale.liorenInvoice.status !== "ISSUED") throw new Error("No hay una factura emitida para esta venta.");
+  if (sale.archivedAt) throw new Error("No se puede reenviar una factura de una venta oculta.");
   const rows = await prisma.$queryRaw<Array<{ liorenInvoicePdf: string | null }>>`SELECT liorenInvoicePdf FROM Sale WHERE id = ${saleId} LIMIT 1`;
   const pdf = decodeLiorenInvoicePdf(rows[0]?.liorenInvoicePdf);
   if (!pdf) throw new Error("Lioren no devolvió un PDF disponible para esta factura.");
@@ -223,6 +224,7 @@ export async function issueLiorenInvoice(saleId: string, draftInput: unknown): P
   await ensureSalePaymentTable();
   const sale = await getSaleById(saleId);
   if (!sale) throw new Error("La venta no existe.");
+  if (sale.archivedAt) throw new Error("No se puede facturar una venta oculta.");
   if (sale.status === "CANCELLED") throw new Error("No se puede facturar una venta cancelada.");
   if (sale.liorenInvoice.status === "ISSUED") throw new Error(`La venta ya tiene factura emitida${sale.liorenInvoice.folio ? ` (folio ${sale.liorenInvoice.folio})` : ""}.`);
   if (sale.liorenInvoice.status === "ISSUING") throw new Error("La factura de esta venta ya se está procesando.");

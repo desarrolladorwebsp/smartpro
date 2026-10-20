@@ -600,6 +600,9 @@ model Sale {
   liorenInvoicePdf          String?             @db.LongText
   liorenInvoiceEmailSentAt  DateTime?
   liorenInvoiceEmailError   String?             @db.Text
+  archivedAt                DateTime?
+  archivedByEmail           String?             @db.VarChar(255)
+  archiveReason             String?             @db.Text
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   payments         SalePayment[]
@@ -610,6 +613,7 @@ model Sale {
   @@index([status])
   @@index([soldAt])
   @@index([apiClientId])
+  @@index([archivedAt])
 }
 
 enum SalePaymentSource {

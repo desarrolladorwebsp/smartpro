@@ -54,7 +54,26 @@ try {
     await prisma.$executeRawUnsafe("CREATE INDEX `User_deletedAt_idx` ON `User` (`deletedAt`)");
   }
 
-  console.log("[smartpro:migrate] El esquema de usuarios está listo.");
+  const saleColumns = [
+    ["archivedAt", "DATETIME(3) NULL"],
+    ["archivedByEmail", "VARCHAR(255) NULL"],
+    ["archiveReason", "TEXT NULL"],
+  ];
+  for (const [column, definition] of saleColumns) {
+    const existing = await prisma.$queryRawUnsafe(`SHOW COLUMNS FROM \`Sale\` LIKE '${column}'`);
+    if (existing.length === 0) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`Sale\` ADD COLUMN \`${column}\` ${definition}`);
+    }
+  }
+
+  const saleIndexes = await prisma.$queryRawUnsafe(
+    "SHOW INDEX FROM `Sale` WHERE Key_name = 'Sale_archivedAt_idx'",
+  );
+  if (saleIndexes.length === 0) {
+    await prisma.$executeRawUnsafe("CREATE INDEX `Sale_archivedAt_idx` ON `Sale` (`archivedAt`)");
+  }
+
+  console.log("[smartpro:migrate] El esquema de usuarios y ventas está listo.");
 } finally {
   await prisma.$disconnect();
 }

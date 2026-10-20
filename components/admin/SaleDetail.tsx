@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
@@ -29,6 +30,7 @@ const panelClass = "rounded-[24px] border border-border bg-white p-5 shadow-[0_1
 const labelClass = "text-xs font-medium uppercase tracking-[0.14em] text-muted";
 
 export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
+  const router = useRouter();
   const [sale, setSale] = useState(initialSale);
   const [comments, setComments] = useState<SaleInternalCommentRecord[]>([]);
   const [comment, setComment] = useState("");
@@ -39,6 +41,8 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
   const [editingPayment, setEditingPayment] = useState<SalePaymentRecord | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceEmailSending, setInvoiceEmailSending] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const refreshComments = useCallback(async () => {
@@ -98,6 +102,33 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
     }
   }
 
+  async function toggleArchive() {
+    const restoring = Boolean(sale.archivedAt);
+    const message = restoring
+      ? `¿Restaurar ${sale.number} a la lista de ventas?`
+      : `¿Ocultar ${sale.number} de la lista y de los totales? La factura electrónica ${sale.liorenInvoice.folio ?? "emitida"} se conservará y seguirá vigente.`;
+    if (!window.confirm(message)) return;
+
+    setArchiveBusy(true);
+    setArchiveError("");
+    try {
+      const response = await fetch(`/api/sales/${encodeURIComponent(sale.id)}`, { method: restoring ? "PATCH" : "DELETE" });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? (restoring ? "No se pudo restaurar la venta." : "No se pudo ocultar la venta."));
+      if (!restoring) {
+        router.replace("/dashboard/ventas");
+        router.refresh();
+        return;
+      }
+      setSale((current) => ({ ...current, archivedAt: null, archivedByEmail: null, archiveReason: null }));
+      setSuccessMessage("Venta restaurada a la lista.");
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : "No se pudo actualizar la venta.");
+    } finally {
+      setArchiveBusy(false);
+    }
+  }
+
   const receipts = sale.payments.filter((payment) => payment.receiptPath);
   if (!receipts.length && sale.receiptPath) {
     receipts.push({
@@ -115,7 +146,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         eyebrow="Detalle de venta"
         title={sale.number}
         action={{ label: "Volver a ventas", href: "/dashboard/ventas", icon: "back", variant: "secondary" }}
-        trailing={<span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold">{getSaleStatusLabel(sale.status)}</span>}
+        trailing={<span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold">{sale.archivedAt ? "Oculta" : getSaleStatusLabel(sale.status)}</span>}
       />
 
       <section className={panelClass} aria-labelledby="sale-summary-heading">
@@ -126,20 +157,27 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
             <p className="mt-1 text-sm text-muted">{sale.clientName}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {sale.status !== "CANCELLED" && sale.balanceDue > 0 ? (
+            {sale.archivedAt ? (
+              <button type="button" onClick={() => void toggleArchive()} disabled={archiveBusy} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{archiveBusy ? "Restaurando…" : "Restaurar a ventas"}</button>
+            ) : /\bprueba\b/i.test(sale.observation) && sale.paidAmount === 0 ? (
+              <button type="button" onClick={() => void toggleArchive()} disabled={archiveBusy} className="min-h-10 rounded-full border border-amber-300 px-4 text-sm font-semibold text-amber-800 disabled:opacity-50">{archiveBusy ? "Ocultando…" : "Ocultar venta de prueba"}</button>
+            ) : null}
+            {!sale.archivedAt && sale.status !== "CANCELLED" && sale.balanceDue > 0 ? (
               <button type="button" onClick={() => setPaymentOpen(true)} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary/30 hover:text-primary">Registrar abono</button>
             ) : null}
             {sale.liorenInvoice.status === "ISSUED" ? (
               <>
                 <span className="inline-flex min-h-10 items-center rounded-full bg-emerald-100 px-4 text-sm font-semibold text-emerald-700">Factura emitida{sale.liorenInvoice.folio ? ` · folio ${sale.liorenInvoice.folio}` : ""}</span>
                 {sale.liorenInvoice.pdfAvailable ? <a href={`/api/sales/${encodeURIComponent(sale.id)}/invoice?format=pdf`} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:text-primary">Ver factura PDF</a> : null}
-                <button type="button" onClick={() => void resendInvoiceEmail()} disabled={invoiceEmailSending || !sale.liorenInvoice.pdfAvailable} className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:text-primary disabled:opacity-50">{invoiceEmailSending ? "Enviando…" : sale.liorenInvoice.emailError ? "Reintentar envío" : "Reenviar factura por correo"}</button>
+                {!sale.archivedAt ? <button type="button" onClick={() => void resendInvoiceEmail()} disabled={invoiceEmailSending || !sale.liorenInvoice.pdfAvailable} className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:text-primary disabled:opacity-50">{invoiceEmailSending ? "Enviando…" : sale.liorenInvoice.emailError ? "Reintentar envío" : "Reenviar factura por correo"}</button> : null}
               </>
-            ) : sale.status !== "CANCELLED" ? (
+            ) : !sale.archivedAt && sale.status !== "CANCELLED" ? (
               <button type="button" onClick={() => setInvoiceOpen(true)} className="min-h-10 rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white">{sale.liorenInvoice.status === "ERROR" ? "Revisar factura" : "Emitir factura"}</button>
             ) : null}
           </div>
         </div>
+        {archiveError ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{archiveError}</p> : null}
+        {sale.archivedAt ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Oculta de la lista el {formatDate(sale.archivedAt)} · motivo: {sale.archiveReason || "Venta de prueba"}. La factura se conserva.</p> : null}
         <div className="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-4">
           <div><p className={labelClass}>Fecha de venta</p><p className="mt-1.5 text-sm font-medium">{formatDate(sale.soldAt)}</p></div>
           <div><p className={labelClass}>Medio de pago</p><p className="mt-1.5 text-sm font-medium">{getSalePaymentMethodLabel(sale.paymentMethod)}</p></div>
@@ -180,7 +218,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
                   <div><p className={labelClass}>Descripción</p><p className="mt-1 whitespace-pre-wrap text-sm">{payment.observation || "—"}</p></div>
                   <div className="flex flex-wrap items-end gap-2 lg:justify-end">
                     {payment.receiptPath ? <a href={payment.receiptPath} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-full border border-border bg-white px-3 text-xs font-semibold hover:border-primary/30 hover:text-primary">Ver archivo{payment.receiptFileName ? ` · ${payment.receiptFileName}` : ""}</a> : <span className="text-xs text-muted">Sin archivo</span>}
-                    {sale.status !== "CANCELLED" ? <button type="button" onClick={() => setEditingPayment(payment)} className="inline-flex min-h-9 items-center rounded-full bg-white px-3 text-xs font-semibold text-primary ring-1 ring-border hover:ring-primary/40">Editar</button> : null}
+                    {!sale.archivedAt && sale.status !== "CANCELLED" ? <button type="button" onClick={() => setEditingPayment(payment)} className="inline-flex min-h-9 items-center rounded-full bg-white px-3 text-xs font-semibold text-primary ring-1 ring-border hover:ring-primary/40">Editar</button> : null}
                   </div>
                 </div>
                 <p className="mt-3 border-t border-border/70 pt-2 text-xs text-muted">Registrado por {payment.createdByEmail || "pago asociado a la venta"}</p>
