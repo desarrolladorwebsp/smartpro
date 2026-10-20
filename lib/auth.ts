@@ -158,7 +158,7 @@ export const getCurrentAdminSession = cache(async (): Promise<{ email: string; r
 
   const user = await prisma.user.findUnique({ where: { email: session.email } });
 
-  if (!user || user.status !== "ACTIVE") {
+  if (!user || user.status !== "ACTIVE" || user.deletedAt) {
     return null;
   }
 
@@ -200,7 +200,7 @@ export async function verifyExecutiveCredentials(
   const normalizedEmail = normalizeEmail(email);
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
-  if (!user || user.status !== "ACTIVE") {
+  if (!user || user.status !== "ACTIVE" || user.deletedAt) {
     return null;
   }
 

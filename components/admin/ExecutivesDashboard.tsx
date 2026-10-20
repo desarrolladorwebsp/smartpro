@@ -42,6 +42,8 @@ type ExecutivesDashboardProps = {
 export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashboardProps) {
   const [executives, setExecutives] = useState<ExecutiveRecord[]>(initialExecutives);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   function handleCreated(executive: ExecutiveRecord) {
     setExecutives((current) => [executive, ...current]);
@@ -57,6 +59,33 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
       }
     } catch {
       // Keep current list if refresh fails.
+    }
+  }
+
+  async function updateUser(executive: ExecutiveRecord, action: "status" | "delete") {
+    const deleting = action === "delete";
+    const nextStatus = executive.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const prompt = deleting
+      ? `¿Eliminar a ${executive.firstName} ${executive.lastName} de la lista? El registro se conservará para mantener el historial.`
+      : `${nextStatus === "INACTIVE" ? "¿Suspender" : "¿Reactivar"} a ${executive.firstName} ${executive.lastName}?`;
+    if (!window.confirm(prompt)) return;
+
+    setBusyId(executive.id);
+    setActionError("");
+    try {
+      const response = await fetch("/api/executives", {
+        method: deleting ? "DELETE" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deleting ? { id: executive.id } : { id: executive.id, status: nextStatus }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "No se pudo actualizar el usuario.");
+      if (deleting) setExecutives((current) => current.filter((entry) => entry.id !== executive.id));
+      else setExecutives((current) => current.map((entry) => entry.id === executive.id ? { ...entry, status: nextStatus } : entry));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "No se pudo actualizar el usuario.");
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -78,6 +107,8 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
         onInvited={refreshExecutives}
       />
 
+      {actionError ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p> : null}
+
       <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[560px] text-left text-sm">
@@ -86,13 +117,15 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
                   <th className="px-5 py-4">Ejecutivo</th>
                   <th className="px-5 py-4">Correo</th>
                   <th className="px-5 py-4">Rol</th>
+                  <th className="px-5 py-4">Estado</th>
                   <th className="px-5 py-4">Registrado</th>
+                  <th className="px-5 py-4">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {executives.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
                       Aún no hay ejecutivos registrados.
                     </td>
                   </tr>
@@ -118,7 +151,22 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
                           {getExecutiveRoleLabel(executive.role)}
                         </span>
                       </td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${executive.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                          {executive.status === "ACTIVE" ? "Activo" : executive.status === "INACTIVE" ? "Suspendido" : "Pendiente"}
+                        </span>
+                      </td>
                       <td className="px-5 py-4 text-muted-foreground">{formatDate(executive.createdAt)}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" disabled={busyId === executive.id} onClick={() => void updateUser(executive, "status")} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground disabled:opacity-50">
+                            {executive.status === "ACTIVE" ? "Suspender" : "Reactivar"}
+                          </button>
+                          <button type="button" disabled={busyId === executive.id} onClick={() => void updateUser(executive, "delete")} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50">
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -147,7 +195,13 @@ export function ExecutivesDashboard({ initialExecutives = [] }: ExecutivesDashbo
                     <span className={`inline-flex rounded-full px-3 py-1 font-semibold ${roleStyles[executive.role]}`}>
                       {getExecutiveRoleLabel(executive.role)}
                     </span>
-                    <span>{formatDate(executive.createdAt)}</span>
+                    <span>{executive.status === "ACTIVE" ? "Activo" : executive.status === "INACTIVE" ? "Suspendido" : "Pendiente"} · {formatDate(executive.createdAt)}</span>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" disabled={busyId === executive.id} onClick={() => void updateUser(executive, "status")} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50">
+                      {executive.status === "ACTIVE" ? "Suspender" : "Reactivar"}
+                    </button>
+                    <button type="button" disabled={busyId === executive.id} onClick={() => void updateUser(executive, "delete")} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50">Eliminar</button>
                   </div>
                 </div>
               ))

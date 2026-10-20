@@ -53,7 +53,7 @@ export async function listExecutives(): Promise<ExecutiveRecord[]> {
   const db = getPrisma();
 
   const rows = await db.user.findMany({
-    where: { role: { in: ["EXECUTIVE", "ADMIN"] } },
+    where: { role: { in: ["EXECUTIVE", "ADMIN"] }, deletedAt: null },
     select: EXECUTIVE_SELECT,
     orderBy: { createdAt: "desc" },
   });
@@ -68,6 +68,7 @@ export async function listAssignableExecutives(): Promise<ExecutiveRecord[]> {
     where: {
       role: { in: ["EXECUTIVE", "ADMIN"] },
       status: "ACTIVE",
+      deletedAt: null,
     },
     select: EXECUTIVE_SELECT,
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -102,4 +103,38 @@ export async function createExecutive(input: ExecutiveRegistrationInput): Promis
   });
 
   return toExecutiveRecord(user);
+}
+
+export async function updateExecutiveStatus(id: string, status: "ACTIVE" | "INACTIVE"): Promise<void> {
+  const db = getPrisma();
+  const user = await db.user.findFirst({ where: { id, role: { in: ["EXECUTIVE", "ADMIN"] }, deletedAt: null } });
+  if (!user) throw new Error("No se encontró el usuario.");
+
+  if (user.role === "ADMIN" && user.status === "ACTIVE" && status !== "ACTIVE") {
+    const activeAdmins = await db.user.count({
+      where: { role: "ADMIN", status: "ACTIVE", deletedAt: null },
+    });
+    if (activeAdmins <= 1) throw new Error("Debe existir al menos un administrador activo.");
+  }
+
+  await db.user.update({ where: { id }, data: { status } });
+  if (status !== "ACTIVE") {
+    await db.session.deleteMany({ where: { userId: id } });
+  }
+}
+
+export async function softDeleteExecutive(id: string): Promise<void> {
+  const db = getPrisma();
+  const user = await db.user.findFirst({ where: { id, role: { in: ["EXECUTIVE", "ADMIN"] }, deletedAt: null } });
+  if (!user) throw new Error("No se encontró el usuario.");
+
+  if (user.role === "ADMIN" && user.status === "ACTIVE") {
+    const activeAdmins = await db.user.count({
+      where: { role: "ADMIN", status: "ACTIVE", deletedAt: null },
+    });
+    if (activeAdmins <= 1) throw new Error("Debe existir al menos un administrador activo.");
+  }
+
+  await db.user.update({ where: { id }, data: { deletedAt: new Date(), status: "INACTIVE" } });
+  await db.session.deleteMany({ where: { userId: id } });
 }
