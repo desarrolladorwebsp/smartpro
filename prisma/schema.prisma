@@ -643,6 +643,15 @@ model SalePayment {
   @@index([paidAt])
 }
 
+/// Private, durable payment receipts. SalePayment.receiptPath points to the authenticated media route.
+model SaleReceipt {
+  id        String   @id @db.VarChar(36)
+  fileName  String   @db.VarChar(191)
+  mimeType  String   @db.VarChar(64)
+  bytes     Bytes    @db.MediumBlob
+  createdAt DateTime @default(now())
+}
+
 /// Comentarios internos visibles solo para usuarios del panel.
 model SaleInternalComment {
   id             String   @id @default(cuid())

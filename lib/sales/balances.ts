@@ -1,3 +1,5 @@
+import { parseSaleClpInput } from "./amounts";
+
 export const SALE_COLLECTION_STATUSES = ["UNPAID", "PARTIAL", "PAID"] as const;
 export type SaleCollectionStatus = (typeof SALE_COLLECTION_STATUSES)[number];
 
@@ -22,8 +24,7 @@ export function getCollectionStatus(total: number, paidAmount: number): SaleColl
 }
 
 export function parseSalePaymentAmount(value: unknown, maxBalance: number): number {
-  const raw = typeof value === "string" ? value.trim().replace(/\./g, "").replace(",", ".") : value;
-  const amount = roundClp(Number(raw));
+  const amount = parseSaleClpInput(value);
 
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error("El monto del pago debe ser un número válido.");

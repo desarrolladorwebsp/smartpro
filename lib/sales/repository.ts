@@ -7,6 +7,7 @@ import { getQuoteById, listQuotesByClientId } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
 import { parseSalePaymentAmount } from "./balances";
+import { parseSaleClpInput } from "./amounts";
 import { removeSaleReceiptUpload, saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import { ensureSalePaymentTable, withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
@@ -19,6 +20,7 @@ import {
   isSaleStatus,
   LIOREN_INVOICE_STATUSES,
   calculateNetSaleAmounts,
+  normalizeSaleQuoteAmounts,
   parseSaleObservation,
   withSalePaymentTotals,
   type QuoteForSaleConversion,
@@ -165,8 +167,7 @@ async function nextNumber(): Promise<string> {
 }
 
 function parseDirectSaleAmount(value: unknown, label: string): number {
-  const raw = String(value ?? "").trim();
-  const amount = raw ? Number(raw) : 0;
+  const amount = parseSaleClpInput(value);
 
   if (!Number.isSafeInteger(amount) || amount < 0) {
     throw new Error(`${label} debe ser un monto válido en pesos.`);
@@ -246,7 +247,7 @@ async function persistSalePaymentOnce(saleId: string, input: SalePaymentInput): 
   let receiptFileName = "";
   if (input.receipt && input.receipt.size > 0) {
     try {
-      const saved = await saveSaleReceiptUpload(created.id, input.receipt);
+      const saved = await saveSaleReceiptUpload(input.receipt);
       receiptPath = saved.path;
       receiptFileName = saved.fileName;
       await db.salePayment.update({
@@ -254,6 +255,7 @@ async function persistSalePaymentOnce(saleId: string, input: SalePaymentInput): 
         data: { receiptPath, receiptFileName },
       });
     } catch (error) {
+      if (receiptPath) await removeSaleReceiptUpload(receiptPath).catch(() => undefined);
       await db.salePayment.delete({ where: { id: created.id } }).catch(() => undefined);
       throw error;
     }
@@ -366,7 +368,7 @@ export async function updateSalePayment(
 
   let uploaded: { path: string; fileName: string } | null = null;
   if (receipt) {
-    uploaded = await saveSaleReceiptUpload(`${payment.id}-${crypto.randomUUID()}`, receipt);
+    uploaded = await saveSaleReceiptUpload(receipt);
   }
 
   try {
@@ -402,12 +404,12 @@ export async function updateSalePayment(
       });
     });
   } catch (error) {
-    if (uploaded) await removeSaleReceiptUpload(uploaded.path);
+    if (uploaded) await removeSaleReceiptUpload(uploaded.path).catch((cleanupError) => console.error("[smartpro:sales:receipt:cleanup]", cleanupError));
     throw error;
   }
 
   if ((uploaded || input.removeReceipt) && payment.receiptPath) {
-    await removeSaleReceiptUpload(payment.receiptPath);
+    await removeSaleReceiptUpload(payment.receiptPath).catch((cleanupError) => console.error("[smartpro:sales:receipt:cleanup]", cleanupError));
   }
 
   const updated = await getSaleById(saleId);
@@ -692,7 +694,9 @@ export async function convertQuoteToSale(input: {
   if (receipt) {
     validateSaleReceiptUpload(receipt);
   }
-  const paidAmount = parseSalePaymentAmount(input.paidAmount ?? 0, quote.total);
+  const saleAmounts = normalizeSaleQuoteAmounts(quote);
+  const paidAmount = parseSalePaymentAmount(input.paidAmount ?? 0, saleAmounts.total);
+  if (receipt && paidAmount < 1) throw new Error("Ingresa el monto recibido para adjuntar un comprobante.");
   let paymentMethod: SaleManualPaymentMethod | null = null;
   if (paidAmount > 0) {
     if (!isSaleManualPaymentMethod(input.paymentMethod)) {
@@ -717,9 +721,7 @@ export async function convertQuoteToSale(input: {
         createdByEmail,
         observation,
         paymentMethod,
-        subtotal: quote.subtotal,
-        tax: quote.tax,
-        total: quote.total,
+        ...saleAmounts,
       },
       include: saleInclude,
     });
@@ -792,6 +794,7 @@ export async function createDirectSale(input: {
 
     const soldAt = input.soldAt == null || input.soldAt === "" ? new Date() : parseDirectSaleDate(input.soldAt);
     const paidAmount = parseDirectSaleAmount(input.paidAmount ?? 0, "El monto recibido");
+    if (receipt && paidAmount < 1) throw new Error("Ingresa el monto recibido para adjuntar un comprobante.");
     if (paidAmount > total) throw new Error("El abono no puede superar el total de la venta.");
     let paymentMethod: SaleManualPaymentMethod | null = null;
     if (paidAmount > 0) {

@@ -102,7 +102,8 @@ export function buildLiorenInvoiceEmail(input: {
   };
 }
 
-export const SALE_RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
+// Leaves room for multipart fields under Vercel's 4.5 MB request limit.
+export const SALE_RECEIPT_MAX_BYTES = 4 * 1024 * 1024;
 export const SALE_RECEIPT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 export const SALE_RECEIPT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
 export const SALE_OBSERVATION_MAX_LENGTH = 2000;
@@ -257,13 +258,20 @@ export function calculateNetSaleAmounts(netAmount: number): { subtotal: number; 
   return { subtotal: netAmount, tax, total: netAmount + tax };
 }
 
+/** Keeps a converted sale in whole pesos, matching the quote's displayed total. */
+export function normalizeSaleQuoteAmounts(quote: { subtotal: number; total: number }) {
+  const subtotal = Math.round(quote.subtotal);
+  const total = Math.round(quote.total);
+  return { subtotal, tax: total - subtotal, total };
+}
+
 export function getSaleReceiptValidationError(file: Pick<File, "size" | "type"> | null | undefined): string | null {
   if (!file || file.size <= 0) {
     return null;
   }
 
   if (file.size > SALE_RECEIPT_MAX_BYTES) {
-    return "El comprobante no puede superar 5 MB.";
+    return "El comprobante no puede superar 4 MB.";
   }
 
   if (!(SALE_RECEIPT_MIME_TYPES as readonly string[]).includes(file.type)) {

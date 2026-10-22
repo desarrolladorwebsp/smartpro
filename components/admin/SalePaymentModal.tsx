@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 import { formatCurrency } from "@/lib/orders/service";
+import { parseSalePaymentAmount, roundClp } from "@/lib/sales/balances";
 import {
   getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
@@ -37,8 +38,9 @@ export function SalePaymentModal({ sale, payment = null, onClose, onSaved }: Sal
 }
 
 function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord; payment: SalePaymentRecord | null; onClose: () => void; onSaved?: (sale: SaleRecord) => void }) {
+  const maximumAmount = roundClp(payment ? sale.balanceDue + payment.amount : sale.balanceDue);
   const isSavingRef = useRef(false);
-  const [amount, setAmount] = useState(String(payment?.amount ?? sale.balanceDue));
+  const [amount, setAmount] = useState(String(roundClp(payment?.amount ?? sale.balanceDue)));
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>(payment?.method ?? "transfer");
   const [paidAt, setPaidAt] = useState(() => toDateInputValue(payment?.paidAt));
   const [observation, setObservation] = useState(payment?.observation ?? "");
@@ -58,13 +60,21 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   async function submit() {
     if (isSavingRef.current) return;
     const receiptError = getSaleReceiptValidationError(receipt);
     if (receiptError) {
       setSubmitError(receiptError);
+      return;
+    }
+    let parsedAmount: number;
+    try {
+      parsedAmount = parseSalePaymentAmount(amount, maximumAmount);
+      if (parsedAmount < 1) throw new Error("El monto del pago debe ser mayor a 0.");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Ingresa un monto válido.");
       return;
     }
 
@@ -74,7 +84,7 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
 
     try {
       const formData = new FormData();
-      formData.append("amount", amount);
+      formData.append("amount", String(parsedAmount));
       formData.append("paymentMethod", paymentMethod);
       formData.append("paidAt", paidAt);
       formData.append("observation", observation);
@@ -137,10 +147,8 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto</span>
             <input
-              type="number"
-              min={1}
-              max={payment ? sale.balanceDue + payment.amount : sale.balanceDue}
-              step={1}
+              type="text"
+              inputMode="numeric"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               className="dashboard-field"
@@ -148,6 +156,9 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
               required
             />
           </label>
+          <button type="button" onClick={() => setAmount(String(maximumAmount))} disabled={isSaving || maximumAmount <= 0} className="rounded-full border border-border px-3 py-2 text-sm font-semibold text-primary disabled:opacity-50">
+            {payment ? "Usar monto máximo" : "Pagar saldo completo"} · {formatCurrency(maximumAmount)}
+          </button>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Medio de pago</span>
             <select
@@ -199,7 +210,7 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
               className="dashboard-field file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-sm file:font-semibold file:text-primary"
             />
             <p className="mt-1.5 text-xs text-muted">
-              PDF, JPG, PNG o WEBP. Máximo 5 MB. {payment ? "Déjalo vacío para conservar el archivo actual." : "Opcional."}
+              PDF, JPG, PNG o WEBP. Máximo 4 MB. {payment ? "Déjalo vacío para conservar el archivo actual." : "Opcional."}
             </p>
           </div>
         </div>

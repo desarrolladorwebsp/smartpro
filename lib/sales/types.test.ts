@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildLiorenInvoiceEmail, calculateNetSaleAmounts, decodeLiorenInvoicePdf, getSaleReceiptValidationError, parseSaleObservation } from "./types";
+import { buildLiorenInvoiceEmail, calculateNetSaleAmounts, decodeLiorenInvoicePdf, getSaleReceiptValidationError, normalizeSaleQuoteAmounts, parseSaleObservation } from "./types";
 
 test("calculateNetSaleAmounts agrega el IVA automáticamente desde el monto neto", () => {
   assert.deepEqual(calculateNetSaleAmounts(100_000), { subtotal: 100_000, tax: 19_000, total: 119_000 });
@@ -17,8 +17,15 @@ test("parseSaleObservation recorta y limita el largo", () => {
 test("getSaleReceiptValidationError permite omitir el archivo y valida tipo/peso", () => {
   assert.equal(getSaleReceiptValidationError(null), null);
   assert.equal(getSaleReceiptValidationError({ size: 1024, type: "application/pdf" }), null);
-  assert.match(String(getSaleReceiptValidationError({ size: 6 * 1024 * 1024, type: "application/pdf" })), /5 MB/);
+  assert.match(String(getSaleReceiptValidationError({ size: 5 * 1024 * 1024, type: "application/pdf" })), /4 MB/);
   assert.match(String(getSaleReceiptValidationError({ size: 1024, type: "text/plain" })), /Formato no permitido/);
+});
+
+test("convierte la cotización de la captura sin fracciones de peso ni cambiar su total visible", () => {
+  const quote = { subtotal: 41540, tax: 7892.6, total: 49432.6 };
+  assert.deepEqual(normalizeSaleQuoteAmounts(quote), { subtotal: 41540, tax: 7893, total: 49433 });
+  assert.deepEqual(quote, { subtotal: 41540, tax: 7892.6, total: 49432.6 });
+  assert.deepEqual(calculateNetSaleAmounts(41540), { subtotal: 41540, tax: 7893, total: 49433 });
 });
 
 test("decodeLiorenInvoicePdf acepta solo PDFs válidos en base64", () => {

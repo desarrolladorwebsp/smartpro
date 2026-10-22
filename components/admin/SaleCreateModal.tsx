@@ -7,10 +7,12 @@ import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import { quoteDepositAmounts } from "@/lib/quotes/fields";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
+import { parseSaleClpInput } from "@/lib/sales/amounts";
 import {
   getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
   calculateNetSaleAmounts,
+  normalizeSaleQuoteAmounts,
   SALE_MANUAL_PAYMENT_METHODS,
   SALE_OBSERVATION_MAX_LENGTH,
   SALE_RECEIPT_ACCEPT,
@@ -77,7 +79,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   useEffect(() => {
     return () => {
@@ -163,15 +165,15 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   );
   const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
   const deposit = selectedQuote ? quoteDepositAmounts(selectedQuote) : null;
-  const directNetAmount = Number(netAmount);
+  const directNetAmount = parseSaleClpInput(netAmount);
   const directAmountsValid =
     netAmount.trim() !== "" && Number.isSafeInteger(directNetAmount) && directNetAmount >= 0;
   const directAmounts = directAmountsValid
     ? calculateNetSaleAmounts(directNetAmount)
     : { subtotal: 0, tax: 0, total: 0 };
   const directTotal = directAmounts.total;
-  const activeTotal = entryMode === "DIRECT" ? directTotal : selectedQuote?.total ?? 0;
-  const receivedAmount = Number(paidAmount || 0);
+  const activeTotal = entryMode === "DIRECT" ? directTotal : selectedQuote ? normalizeSaleQuoteAmounts(selectedQuote).total : 0;
+  const receivedAmount = parseSaleClpInput(paidAmount);
   const receivedAmountValid =
     Number.isSafeInteger(receivedAmount) &&
     receivedAmount >= 0 &&
@@ -213,6 +215,10 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       setSubmitError(receiptError);
       return;
     }
+    if (receipt && receivedAmount < 1) {
+      setSubmitError("Ingresa el monto recibido para adjuntar un comprobante.");
+      return;
+    }
 
     isSavingRef.current = true;
     setIsSaving(true);
@@ -230,7 +236,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
         formData.append("quoteId", selectedQuote.id);
       }
       formData.append("observation", observation);
-      formData.append("paidAmount", paidAmount);
+      formData.append("paidAmount", String(receivedAmount));
       formData.append("paymentMethod", paymentMethod);
       if (receipt && receipt.size > 0) {
         formData.append("receipt", receipt);
@@ -376,7 +382,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-foreground">Monto neto (sin IVA)</span>
-                  <input type="number" min={0} step={1} value={netAmount} onChange={(event) => setNetAmount(event.target.value)} className="dashboard-field" disabled={isSaving} />
+                  <input type="text" inputMode="numeric" value={netAmount} onChange={(event) => setNetAmount(event.target.value)} className="dashboard-field" disabled={isSaving} />
                 </label>
                 <div className="rounded-xl border border-border bg-white px-3 py-2 sm:col-span-2">
                   <div className="grid gap-2 text-sm sm:grid-cols-3">
@@ -441,16 +447,15 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 Monto recibido ahora{entryMode === "DIRECT" ? " (opcional)" : ""}
               </span>
               <input
-                type="number"
-                min={0}
-                max={activeTotal || undefined}
-                step={1}
+                type="text"
+                inputMode="numeric"
                 value={paidAmount}
                 onChange={(event) => setPaidAmount(event.target.value)}
                 className="dashboard-field"
                 disabled={isSaving || activeTotal <= 0}
               />
               <p className="mt-1.5 text-xs text-muted">0 deja la venta como deuda. Puedes registrar el abono o el total.</p>
+              {!receivedAmountValid ? <p className="mt-1 text-xs text-red-700" role="alert">Ingresa un monto válido, hasta {formatCurrency(activeTotal)}.</p> : null}
             </label>
             <label className="block">
               <span className="mb-1.5 block text-sm font-semibold text-foreground">Medio de pago</span>
@@ -472,6 +477,10 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
               ) : null}
             </label>
           </div>
+
+          <button type="button" onClick={() => setPaidAmount(String(activeTotal))} disabled={isSaving || activeTotal <= 0} className="rounded-full border border-border px-3 py-2 text-sm font-semibold text-primary disabled:opacity-50">
+            Registrar pago completo · {formatCurrency(activeTotal)}
+          </button>
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Observación</span>
@@ -498,7 +507,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
               }}
               className="dashboard-field file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-sm file:font-semibold file:text-primary"
             />
-            <p className="mt-1.5 text-xs text-muted">PDF o imagen (JPG, PNG, WEBP). Máximo 5 MB. Opcional.</p>
+            <p className="mt-1.5 text-xs text-muted">PDF o imagen (JPG, PNG, WEBP). Máximo 4 MB. Opcional; requiere un monto recibido mayor a 0.</p>
             {receipt ? <p className="mt-1 text-xs font-medium text-foreground">{receipt.name}</p> : null}
           </label>
         </div>
