@@ -46,13 +46,6 @@ const TEAM_MEMBERS = [
     image: "/images/team/nicolas-campos.png",
   },
   {
-    id: 4,
-    name: "Javiera vega",
-    role: "Publicista",
-    description: "Encargada del diseño grafico y creacion de estrategias publicitarias",
-    image: "/images/team/javiera-vega.png",
-  },
-  {
     id: 5,
     name: "Javier Sanhueza",
     role: "Productor Audiovisual",
@@ -66,13 +59,6 @@ const TEAM_MEMBERS = [
     description:
       "Asesora a clientes en la elección de servicios y acompaña el seguimiento de sus propuestas comerciales.",
     image: "/images/team/ariana.png",
-  },
-  {
-    id: 7,
-    name: "Catalina Saravia",
-    role: "Audiovisual",
-    description: "Encargada de la producción de videos y fotografía para redes sociales y campañas publicitarias.",
-    image: "/images/team/catalina-saravia.png",
   },
   {
     id: 8,
