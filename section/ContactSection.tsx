@@ -55,7 +55,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "Facebook",
-    href: "https://www.facebook.com/profile.php?id=61568563559545",
+    href: "https://www.facebook.com/profile.php?id=61578074040951",
     icon: FaFacebookF,
   },
   {
