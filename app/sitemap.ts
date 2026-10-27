@@ -5,6 +5,12 @@ const baseUrl = "https://smartpro.cl";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
+      url: `${baseUrl}/tarifario`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: `${baseUrl}/`,
       lastModified: new Date(),
       changeFrequency: "weekly",

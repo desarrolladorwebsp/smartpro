@@ -69,6 +69,10 @@ const CONTACT_INFO = [
 
 const SITE_MAP = [
   {
+    label: "Tarifario",
+    href: "/tarifario",
+  },
+  {
     label: "Inicio",
     href: "/#inicio",
   },
