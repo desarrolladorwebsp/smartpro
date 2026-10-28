@@ -85,59 +85,63 @@ try {
     }
   }
 
-  let hosting = await prisma.serviceCategory.findUnique({ where: { slug: "hosting" }, select: { id: true } });
-  if (!hosting) {
-    const lastCategory = await prisma.serviceCategory.findFirst({
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
-    });
-    hosting = await prisma.serviceCategory.create({
-      data: {
-        name: "Hosting",
-        slug: "hosting",
-        description: "Alojamiento y correo para pymes con sitio web corporativo.",
-        sortOrder: (lastCategory?.sortOrder ?? -1) + 1,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
+  const incorrectHostingCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: "hosting" },
+    select: { id: true, description: true },
+  });
+  if (incorrectHostingCategory?.description === "Alojamiento y correo para pymes con sitio web corporativo.") {
+    await prisma.serviceCategory.update({ where: { id: incorrectHostingCategory.id }, data: { status: "INACTIVE" } });
+  }
+
+  const webCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: "desarrollo-web" },
+    select: { id: true },
+  });
+  if (!webCategory) {
+    throw new Error("No existe la categoría Desarrollo Web para agregar Hosting.");
   }
 
   let subcategory = await prisma.serviceSubcategory.findUnique({
-    where: { categoryId_slug: { categoryId: hosting.id, slug: "hosting" } },
+    where: { categoryId_slug: { categoryId: webCategory.id, slug: "hosting" } },
   });
   if (!subcategory) {
     subcategory = await prisma.serviceSubcategory.create({
       data: {
-        categoryId: hosting.id,
+        categoryId: webCategory.id,
         name: "Hosting",
         slug: "hosting",
-        sortOrder: 0,
+        sortOrder: 3,
         status: "ACTIVE",
       },
+    });
+  } else if (subcategory.status !== "ACTIVE") {
+    subcategory = await prisma.serviceSubcategory.update({
+      where: { id: subcategory.id },
+      data: { name: "Hosting", status: "ACTIVE" },
     });
   }
 
+  const planData = {
+    name: "Hosting",
+    price: 49990,
+    pricePrefix: "",
+    taxLabel: "+ IVA",
+    taxRate: 0.19,
+    summary: "Servicio anual de hosting y correo para pymes con sitio corporativo.",
+    note: "Dominio, migración y desarrollo web no incluidos.",
+    featureGroupTitle: "Incluye",
+    status: "ACTIVE",
+    sortOrder: 0,
+  };
   let plan = await prisma.servicePlan.findUnique({
-    where: { subcategoryId_slug: { subcategoryId: subcategory.id, slug: "hosting-plan-anual" } },
+    where: { subcategoryId_slug: { subcategoryId: subcategory.id, slug: "hosting" } },
   });
   if (!plan) {
     plan = await prisma.servicePlan.create({
-      data: {
-        subcategoryId: subcategory.id,
-        name: "Hosting Plan Anual",
-        slug: "hosting-plan-anual",
-        price: 49990,
-        pricePrefix: "",
-        taxLabel: "+ IVA",
-        taxRate: 0.19,
-        summary: "Hosting anual para pymes con sitio web corporativo y correo empresarial.",
-        note: "Dominio, migración y desarrollo web no incluidos.",
-        featureGroupTitle: "Incluye",
-        status: "ACTIVE",
-        sortOrder: 0,
-      },
+      data: { ...planData, subcategoryId: subcategory.id, slug: "hosting" },
     });
+  } else {
+    plan = await prisma.servicePlan.update({ where: { id: plan.id }, data: planData });
   }
 
   const items = [

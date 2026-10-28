@@ -56,7 +56,6 @@ type CatalogGroup = {
 
 const GROUPS: CatalogGroup[] = [
   { key: "desarrolloWeb", categoryName: "Desarrollo Web", defaultSubcategory: "Landing Page" },
-  { key: "hosting", categoryName: "Hosting", defaultSubcategory: "Hosting" },
   { key: "campanaPublicitaria", categoryName: "Campañas Publicitarias", defaultSubcategory: "Campañas Publicitarias" },
   { key: "redesSociales", categoryName: "Redes Sociales & Contenido", defaultSubcategory: "Redes Sociales" },
   { key: "produccionVisual", categoryName: "Producción Audiovisual", defaultSubcategory: "Producción Audiovisual" },
