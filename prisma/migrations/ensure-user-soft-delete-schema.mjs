@@ -74,9 +74,12 @@ try {
   }
 
   await prisma.$transaction(async (tx) => {
-    let hosting = await tx.serviceCategory.findUnique({ where: { slug: "hosting" } });
+    let hosting = await tx.serviceCategory.findUnique({ where: { slug: "hosting" }, select: { id: true } });
     if (!hosting) {
-      const lastCategory = await tx.serviceCategory.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+      const lastCategory = await tx.serviceCategory.findFirst({
+        orderBy: { sortOrder: "desc" },
+        select: { sortOrder: true },
+      });
       hosting = await tx.serviceCategory.create({
         data: {
           name: "Hosting",
@@ -85,6 +88,7 @@ try {
           sortOrder: (lastCategory?.sortOrder ?? -1) + 1,
           status: "ACTIVE",
         },
+        select: { id: true },
       });
     }
 
