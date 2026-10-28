@@ -1,6 +1,30 @@
 // Otros
 export const serviciosWebPlansData = [];
 
+// Hosting
+export const hosting = [
+  {
+    subcategory: "Hosting",
+    badge: null,
+    icon: "",
+    name: "Hosting Plan Anual",
+    oldPrice: null,
+    price: "$49.990",
+    tax: "+ IVA",
+    summary: "Hosting anual para pymes con sitio web corporativo y correo empresarial.",
+    featureGroupTitle: "Incluye",
+    features: [
+      "Alojamiento para 1 sitio web corporativo (12 meses)",
+      "5 cuentas de correo empresarial de 2 GB cada una",
+      "Certificado SSL",
+      "Respaldos periódicos",
+      "Soporte técnico básico",
+    ],
+    note: "Dominio, migración y desarrollo web no incluidos.",
+    highlighted: false,
+  },
+];
+
 // 1.- Desarrollo Web
 export const desarrolloWeb = [
   // ── Landing Page ──
