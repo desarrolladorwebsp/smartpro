@@ -73,7 +73,83 @@ try {
     await prisma.$executeRawUnsafe("CREATE INDEX `Sale_archivedAt_idx` ON `Sale` (`archivedAt`)");
   }
 
-  console.log("[smartpro:migrate] El esquema de usuarios y ventas está listo.");
+  await prisma.$transaction(async (tx) => {
+    let hosting = await tx.serviceCategory.findUnique({ where: { slug: "hosting" } });
+    if (!hosting) {
+      const lastCategory = await tx.serviceCategory.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+      hosting = await tx.serviceCategory.create({
+        data: {
+          name: "Hosting",
+          slug: "hosting",
+          description: "Alojamiento y correo para pymes con sitio web corporativo.",
+          sortOrder: (lastCategory?.sortOrder ?? -1) + 1,
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    let subcategory = await tx.serviceSubcategory.findUnique({
+      where: { categoryId_slug: { categoryId: hosting.id, slug: "hosting" } },
+    });
+    if (!subcategory) {
+      subcategory = await tx.serviceSubcategory.create({
+        data: {
+          categoryId: hosting.id,
+          name: "Hosting",
+          slug: "hosting",
+          sortOrder: 0,
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    let plan = await tx.servicePlan.findUnique({
+      where: { subcategoryId_slug: { subcategoryId: subcategory.id, slug: "hosting-plan-anual" } },
+    });
+    if (!plan) {
+      plan = await tx.servicePlan.create({
+        data: {
+          subcategoryId: subcategory.id,
+          name: "Hosting Plan Anual",
+          slug: "hosting-plan-anual",
+          price: 49990,
+          pricePrefix: "",
+          taxLabel: "+ IVA",
+          taxRate: 0.19,
+          summary: "Hosting anual para pymes con sitio web corporativo y correo empresarial.",
+          note: "Dominio, migración y desarrollo web no incluidos.",
+          featureGroupTitle: "Incluye",
+          status: "ACTIVE",
+          sortOrder: 0,
+        },
+      });
+    }
+
+    const items = [
+      "Alojamiento para 1 sitio web corporativo (12 meses)",
+      "5 cuentas de correo empresarial de 2 GB cada una",
+      "Certificado SSL",
+      "Respaldos periódicos",
+      "Soporte técnico básico",
+    ];
+    for (const [sortOrder, label] of items.entries()) {
+      const slug = label
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const existing = await tx.servicePlanItem.findUnique({
+        where: { planId_slug: { planId: plan.id, slug } },
+        select: { id: true },
+      });
+      if (!existing) {
+        await tx.servicePlanItem.create({ data: { planId: plan.id, label, slug, sortOrder, status: "ACTIVE" } });
+      }
+    }
+  });
+
+  console.log("[smartpro:migrate] El esquema de usuarios, ventas y catálogo está listo.");
 } finally {
   await prisma.$disconnect();
 }
