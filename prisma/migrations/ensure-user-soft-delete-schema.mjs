@@ -73,6 +73,18 @@ try {
     await prisma.$executeRawUnsafe("CREATE INDEX `Sale_archivedAt_idx` ON `Sale` (`archivedAt`)");
   }
 
+  const serviceCoverColumns = [
+    ["coverImage", "VARCHAR(191) NOT NULL DEFAULT ''"],
+    ["coverMime", "VARCHAR(64) NOT NULL DEFAULT ''"],
+    ["coverBytes", "MEDIUMBLOB NULL"],
+  ];
+  for (const [column, definition] of serviceCoverColumns) {
+    const existing = await prisma.$queryRawUnsafe(`SHOW COLUMNS FROM \`ServiceCategory\` LIKE '${column}'`);
+    if (existing.length === 0) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`ServiceCategory\` ADD COLUMN \`${column}\` ${definition}`);
+    }
+  }
+
   let hosting = await prisma.serviceCategory.findUnique({ where: { slug: "hosting" }, select: { id: true } });
   if (!hosting) {
     const lastCategory = await prisma.serviceCategory.findFirst({
