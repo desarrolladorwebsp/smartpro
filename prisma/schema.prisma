@@ -346,6 +346,7 @@ model ServiceSubcategory {
 }
 
 model ServicePlan {
+  coverImage String @default("")
   id                String        @id @default(cuid())
   subcategoryId     String
   subcategory       ServiceSubcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)

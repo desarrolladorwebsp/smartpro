@@ -115,6 +115,7 @@ type ItemRow = {
 };
 
 type PlanRow = {
+  coverImage?: string;
   id: string;
   subcategoryId: string;
   name: string;
@@ -200,6 +201,7 @@ function toItemRecord(row: ItemRow): ServicePlanItemRecord {
 
 function toPlanRecord(row: PlanRow): ServicePlanRecord {
   return {
+    coverImage: row.coverImage ?? "",
     id: row.id,
     subcategoryId: row.subcategoryId,
     subcategoryName: row.subcategory?.name ?? "",

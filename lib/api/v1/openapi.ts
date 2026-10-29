@@ -522,6 +522,7 @@ export function buildOpenApiDocument(serverUrl: string) {
         Plan: {
           type: "object",
           properties: {
+            coverImage: { type: "string", description: "URL absoluta de la imagen oficial del plan, o cadena vacía si no está configurada." },
             id: { type: "string" },
             name: { type: "string" },
             slug: { type: "string" },

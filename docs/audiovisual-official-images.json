@@ -1,0 +1,42 @@
+[
+  {
+    "file": "01-video-publicitario.webp",
+    "sha256": "fe21cd82b8f21f644b02b5a25cee0bb4248cff6a98334278c0495f52759eb8e0",
+    "bytes": 88644
+  },
+  {
+    "file": "02-contenido-redes-sociales.webp",
+    "sha256": "34e10edcc5c489297154db410ed33ca094c66b5018ca57e6198a1412252a7b2a",
+    "bytes": 89722
+  },
+  {
+    "file": "03-video-corporativo.webp",
+    "sha256": "f9ac51d8398fb549fae16dd22f0c2650e6c7c5bb8b6fc76c8872dbd3b682f679",
+    "bytes": 86702
+  },
+  {
+    "file": "04-podcast-entrevistas.webp",
+    "sha256": "ed19c90d8123bc581e175a1dab0cb2afef52aa15faf797206ccbfa9ab88fa656",
+    "bytes": 232916
+  },
+  {
+    "file": "05-eventos-en-vivo.jpg",
+    "sha256": "c4aaf874b341c3b7a4f41fe297fdc7f5dfda14766ebcb23fd0e673a937dd705b",
+    "bytes": 192110
+  },
+  {
+    "file": "06-fotografia-comercial.jpg",
+    "sha256": "087e7adbc614ba72128edb674ec890c1c49e14b56a17ea3dc075ba8ad82ffc92",
+    "bytes": 180981
+  },
+  {
+    "file": "07-motion-graphics-animacion.webp",
+    "sha256": "b6ed6f40819f596ccbb6865a2ff94b705af20efeba95b840aa24af6713baf614",
+    "bytes": 104098
+  },
+  {
+    "file": "08-tomas-aereas-drone.webp",
+    "sha256": "37ea0217645ba824368642a8fa645630e4b414689ad118ffb5c968d800398a31",
+    "bytes": 133676
+  }
+]

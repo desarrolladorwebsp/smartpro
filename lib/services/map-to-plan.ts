@@ -33,6 +33,7 @@ export function mapServicePlanToPlan(plan: ServicePlanRecord): Plan {
 
   return {
     id: plan.id,
+    coverImage: plan.coverImage || undefined,
     category: plan.categoryName,
     subcategory: plan.subcategoryName || null,
     badge: plan.badge || null,

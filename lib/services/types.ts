@@ -36,6 +36,7 @@ export type ServicePlanItemRecord = {
 };
 
 export type ServicePlanRecord = {
+  coverImage?: string;
   id: string;
   subcategoryId: string;
   subcategoryName: string;

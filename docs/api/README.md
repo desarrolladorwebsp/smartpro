@@ -593,3 +593,7 @@ export const GET = createApiRoute({
 
 export const OPTIONS = createApiPreflight(["GET"]);
 ```
+
+### Imagen por plan
+
+Cada plan del catálogo expone `coverImage`: URL absoluta de su imagen oficial, o una cadena vacía si no tiene imagen. Está disponible en catálogo, servicios y detalle/listado de planes, respetando el alcance de la credencial. SmartStudio puede usar esta URL directamente como `src` de la imagen.

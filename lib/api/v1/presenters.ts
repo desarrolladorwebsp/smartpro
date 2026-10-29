@@ -25,6 +25,7 @@ export type ApiPlanPrice = {
 };
 
 export type ApiPlan = {
+  coverImage: string;
   id: string;
   name: string;
   slug: string;
@@ -98,6 +99,7 @@ export function presentPlan(plan: ServicePlanRecord): ApiPlan {
 
   return {
     id: plan.id,
+    coverImage: absoluteMediaUrl(plan.coverImage ?? ""),
     name: plan.name,
     slug: plan.slug,
     summary: plan.summary,

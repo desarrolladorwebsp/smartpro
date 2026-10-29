@@ -7,6 +7,7 @@ import {
   isInquiryPlan,
   mapServicePlanToPlan,
 } from "./map-to-plan";
+import { presentPlan } from "../api/v1/presenters";
 import type { ServicePlanRecord } from "./types";
 
 const emptyDates = {
@@ -63,4 +64,19 @@ test("mapServicePlanToPlan conserva precio formateado en planes con valor", () =
   assert.match(plan.price, /199/);
   assert.equal(plan.tax, "+ IVA");
   assert.equal(isInquiryPlan(plan), false);
+});
+
+test("la imagen oficial se conserva en la tarjeta y se publica absoluta en la API", () => {
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = "https://smartpro.cl";
+  try {
+    const coverImage = "/images/services/audiovisual/01-video-publicitario.webp";
+    const record = planRecord({ coverImage });
+    assert.equal(mapServicePlanToPlan(record).coverImage, coverImage);
+    assert.equal(presentPlan(record).coverImage, `https://smartpro.cl${coverImage}`);
+    assert.equal(presentPlan(planRecord()).coverImage, "");
+  } finally {
+    if (previous === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = previous;
+  }
 });

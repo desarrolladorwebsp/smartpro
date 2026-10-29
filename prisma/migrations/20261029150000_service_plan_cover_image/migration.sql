@@ -1,0 +1,1 @@
+ALTER TABLE `ServicePlan` ADD COLUMN `coverImage` VARCHAR(191) NOT NULL DEFAULT '';

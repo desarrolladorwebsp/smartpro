@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import Image from "next/image";
 
 import { motion } from "motion/react";
 import { ArrowRight, Check, ChevronDown, Star } from "lucide-react";
@@ -11,6 +12,7 @@ import { isInquiryPlan } from "@/lib/services/map-to-plan";
 import { getVisiblePlanFeatures, shouldShowPlanFeaturesToggle } from "@/lib/services/plan-features";
 
 export type Plan = {
+  coverImage?: string;
   id?: string;
   category?: string;
   subcategory?: string | null;
@@ -140,6 +142,11 @@ export default function PlanCard({ plan, index, onAdded, onInquire }: PlanCardPr
         }
       `}
     >
+      {plan.coverImage ? (
+        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-xl">
+          <Image src={plan.coverImage} alt={plan.name} fill sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 400px" className="object-cover" />
+        </div>
+      ) : null}
       {plan.badge ? (
         <div className="mb-2.5 flex justify-center">
           <span
