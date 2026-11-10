@@ -46,6 +46,13 @@ const TEAM_MEMBERS = [
     image: "/images/team/nicolas-campos.png",
   },
   {
+    id: 9,
+    name: "Constanza Gallo",
+    role: "Publicista",
+    description: "Encargada del diseño gráfico y la creación de estrategias publicitarias.",
+    image: "/images/team/constanza-gallo.jpeg",
+  },
+  {
     id: 5,
     name: "Javier Sanhueza",
     role: "Productor Audiovisual",
