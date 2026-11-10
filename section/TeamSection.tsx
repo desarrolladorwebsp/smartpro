@@ -48,7 +48,7 @@ const TEAM_MEMBERS = [
   {
     id: 9,
     name: "Constanza Gallo",
-    role: "Publicista",
+    role: "Ingeniería en administración, experta en marketing",
     description: "Encargada del diseño gráfico y la creación de estrategias publicitarias.",
     image: "/images/team/constanza-gallo.jpeg",
   },
