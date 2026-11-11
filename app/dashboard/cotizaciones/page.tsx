@@ -5,6 +5,7 @@ import { QuotesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { QuotesDashboard } from "@/components/admin/QuotesDashboard";
 import { requireAdminSession } from "@/lib/auth";
 import { listClients } from "@/lib/clients/repository";
+import { getPrismaClient } from "@/lib/db";
 import type { ClientRecord } from "@/lib/clients/types";
 import { listQuotes } from "@/lib/quotes/repository";
 import type { QuoteRecord } from "@/lib/quotes/types";
@@ -24,7 +25,7 @@ export default function QuotesPage({ searchParams }: QuotesPageProps) {
 }
 
 async function QuotesPageContent({ searchParams }: QuotesPageProps) {
-  await requireAdminSession();
+  const session = await requireAdminSession();
   const params = await searchParams;
 
   let quotes: QuoteRecord[] = [];
@@ -49,5 +50,16 @@ async function QuotesPageContent({ searchParams }: QuotesPageProps) {
     );
   }
 
-  return <QuotesDashboard initialQuotes={quotes} clients={clients} initialClientId={params.clientId} />;
+  const emails = [...new Set([session.email, ...quotes.map((quote) => quote.createdByEmail)]
+    .map((email) => email.trim().toLowerCase()).filter(Boolean))];
+  const authors = await getPrismaClient()?.user.findMany({
+    where: { email: { in: emails } },
+    select: { email: true, firstName: true, lastName: true },
+  }).catch(() => []);
+  const authorNames = Object.fromEntries((authors ?? []).map((author) => [
+    author.email.trim().toLowerCase(),
+    [author.firstName, author.lastName].map((part) => part?.trim()).filter(Boolean).join(" "),
+  ]));
+
+  return <QuotesDashboard initialQuotes={quotes} clients={clients} initialClientId={params.clientId} authorNames={authorNames} />;
 }

@@ -924,7 +924,7 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
 
               {useProposal && (
                 <fieldset className="space-y-3 rounded-[20px] border border-border p-4">
-                  <legend className="px-1 text-sm font-semibold">Observaciones, condiciones o beneficios</legend>
+                  <legend className="px-1 text-sm font-semibold">ALCANCE DEL SERVICIO</legend>
                   {blocks.map((block, index) => (
                     <div key={block.id} className="space-y-2 rounded-xl border border-border p-3">
                       <label className="block text-xs font-medium">

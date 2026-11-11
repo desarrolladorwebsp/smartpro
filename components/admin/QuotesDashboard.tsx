@@ -35,9 +35,10 @@ type QuotesDashboardProps = {
   initialQuotes: QuoteRecord[];
   clients: ClientRecord[];
   initialClientId?: string;
+  authorNames: Record<string, string>;
 };
 
-export function QuotesDashboard({ initialQuotes, clients, initialClientId }: QuotesDashboardProps) {
+export function QuotesDashboard({ initialQuotes, clients, initialClientId, authorNames }: QuotesDashboardProps) {
   const [quotes, setQuotes] = useState(initialQuotes);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "ALL">("ALL");
@@ -56,7 +57,10 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
     return quotes.filter((quote) => {
       const matchesSearch =
         !query ||
-        [quote.number, quote.clientCompany, quote.clientName, quote.clientEmail, quote.notes]
+        [
+          quote.number, quote.clientCompany, quote.clientName, quote.clientEmail, quote.notes,
+          quote.createdByEmail, authorNames[quote.createdByEmail.trim().toLowerCase()],
+        ]
           .join(" ")
           .toLowerCase()
           .includes(query);
@@ -67,7 +71,7 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
       const matchesTo = !toDate || created <= toDate;
       return matchesSearch && matchesStatus && matchesClient && matchesFrom && matchesTo;
     });
-  }, [quotes, search, statusFilter, clientFilter, from, to]);
+  }, [quotes, search, statusFilter, clientFilter, from, to, authorNames]);
 
   return (
     <div className="space-y-6">
@@ -89,7 +93,7 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="dashboard-field md:col-span-2 xl:col-span-1"
-            placeholder="Buscar número, cliente o correo"
+            placeholder="Buscar número, cliente o autor"
           />
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as QuoteStatus | "ALL")} className="dashboard-field">
             <option value="ALL">Todos los estados</option>
@@ -131,6 +135,7 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
                 <tr>
                   <th className="px-4 py-3 font-medium">Número</th>
                   <th className="px-4 py-3 font-medium">Cliente</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Creada por</th>
                   <th className="px-4 py-3 font-medium">Fecha</th>
                   <th className="px-4 py-3 font-medium">Vence</th>
                   <th className="px-4 py-3 font-medium">Total</th>
@@ -139,28 +144,36 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId }: Quo
                 </tr>
               </thead>
               <tbody>
-                {filteredQuotes.map((quote) => (
-                  <tr key={quote.id} className="border-t border-border">
-                    <td className="px-4 py-3 font-semibold">{quote.number}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{quote.clientCompany}</div>
-                      <div className="text-xs text-muted">{quote.clientName}</div>
-                    </td>
-                    <td className="px-4 py-3">{formatDate(quote.createdAt)}</td>
-                    <td className="px-4 py-3">{formatDate(quote.validUntil)}</td>
-                    <td className="px-4 py-3 font-semibold">{formatCurrency(quote.total)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[quote.status]}`}>
-                        {getQuoteStatusLabel(quote.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/dashboard/cotizaciones/${quote.id}`} className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold">
-                        Ver detalle
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {filteredQuotes.map((quote) => {
+                  const authorEmail = quote.createdByEmail.trim();
+                  const authorName = authorNames[authorEmail.toLowerCase()];
+                  return (
+                    <tr key={quote.id} className="border-t border-border">
+                      <td className="px-4 py-3 font-semibold">{quote.number}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{quote.clientCompany}</div>
+                        <div className="text-xs text-muted">{quote.clientName}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="break-all font-medium">{authorName || authorEmail || "—"}</div>
+                        {authorName && <div className="break-all text-xs text-muted">{authorEmail}</div>}
+                      </td>
+                      <td className="px-4 py-3">{formatDate(quote.createdAt)}</td>
+                      <td className="px-4 py-3">{formatDate(quote.validUntil)}</td>
+                      <td className="px-4 py-3 font-semibold">{formatCurrency(quote.total)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[quote.status]}`}>
+                          {getQuoteStatusLabel(quote.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link href={`/dashboard/cotizaciones/${quote.id}`} className="inline-flex min-h-10 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold">
+                          Ver detalle
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
