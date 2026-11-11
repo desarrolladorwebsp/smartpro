@@ -105,9 +105,9 @@ async function QuoteDetailContent({ params }: { params: Promise<{ id: string }> 
 
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoBlock label="Emisión" value={formatDate(quote.createdAt)} />
-            <InfoBlock label="Vencimiento" value={formatDate(quote.validUntil)} />
-            <InfoBlock label="Plazo de entrega" value={`${quote.deliveryBusinessDays} días hábiles`} />
-            <InfoBlock label="Pago inicial" value={`${quote.initialPaymentPercent}%`} />
+            {quote.proposal?.showExpiration !== false && <InfoBlock label="Vencimiento" value={formatDate(quote.validUntil)} />}
+            {quote.proposal?.showDelivery !== false && <InfoBlock label="Plazo de entrega" value={`${quote.deliveryBusinessDays} días hábiles`} />}
+            {quote.proposal?.showDeposit !== false && <InfoBlock label="Pago inicial" value={`${quote.initialPaymentPercent}%`} />}
             <InfoBlock label="Cliente" value={quote.clientCompany} />
             <InfoBlock label="Contacto" value={quote.clientName || "—"} />
             <InfoBlock label="Correo" value={quote.clientEmail || "—"} />

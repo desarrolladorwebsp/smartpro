@@ -1,3 +1,5 @@
+import type { QuoteProposal } from "./proposal";
+
 export const QUOTE_STATUSES = ["DRAFT", "CREATED", "SENT", "ACCEPTED", "REJECTED"] as const;
 
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
@@ -58,6 +60,7 @@ export type QuoteRecord = {
   clientAddress: string;
   createdByEmail: string;
   notes: string;
+  proposal?: QuoteProposal | null;
   validUntil: string | null;
   deliveryBusinessDays: number;
   initialPaymentPercent: number;

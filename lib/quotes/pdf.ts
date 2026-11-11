@@ -7,6 +7,7 @@ import { formatCurrency, TAX_RATE } from "../orders/service";
 import { buildQuotePaymentUrls } from "./access";
 import { SMARTPRO_COMPANY } from "./company";
 import { formatQuoteDateLabel } from "./dates";
+import { PAYMENT_SETUP_NOTICE, proposalHasRenewal } from "./proposal";
 import { buildQuoteCommercialTerms } from "./terms";
 import { formatQuoteDiscountLabel, formatQuoteDiscountValue, quoteItemsGross } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
@@ -78,7 +79,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   const done = collectPdf(doc);
   const contentWidth = PAGE.width - PAGE.margin * 2;
   const pageBottom = PAGE.height - FOOTER_HEIGHT - 18;
-  const paymentUrls = buildQuotePaymentUrls(quote.id);
+  const paymentUrls = quote.proposal ? null : buildQuotePaymentUrls(quote.id);
   let y = PAGE.margin;
   const addContentPage = doc.addPage.bind(doc);
   let allowPageBreak = false;
@@ -138,9 +139,13 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   };
 
   const drawSectionTitle = (title: string) => {
-    ensureSpace(36);
+    const label = title.toUpperCase();
+    doc.font("Helvetica-Bold").fontSize(8);
+    const height = doc.heightOfString(label, { width: contentWidth });
+    ensureSpace(quote.proposal ? height + 28 : 36);
     y += 10;
-    doc.fillColor(COLORS.violet).font("Helvetica-Bold").fontSize(8).text(title.toUpperCase(), PAGE.margin, y);
+    doc.fillColor(COLORS.violet).text(label, PAGE.margin, y, { width: contentWidth });
+    if (quote.proposal) y += Math.max(0, height - 9);
     doc
       .moveTo(PAGE.margin, y + 12)
       .lineTo(PAGE.margin + 36, y + 12)
@@ -246,15 +251,17 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
 
   const dateCardWidth = 196;
   const dateCardX = PAGE.width - PAGE.margin - dateCardWidth;
-  doc.roundedRect(dateCardX, 128, dateCardWidth, 62, 8).fill(COLORS.soft);
+  doc.roundedRect(dateCardX, 128, dateCardWidth, quote.proposal?.showExpiration === false ? 40 : 62, 8).fill(COLORS.soft);
   doc.fillColor(COLORS.muted).font("Helvetica-Bold").fontSize(7).text("FECHA DE EMISIÓN", dateCardX + 14, 138);
   doc.fillColor(COLORS.ink).font("Helvetica-Bold").fontSize(9).text(formatDate(quote.createdAt), dateCardX + 14, 150, {
     width: dateCardWidth - 28,
   });
-  doc.fillColor(COLORS.muted).font("Helvetica-Bold").fontSize(7).text("VÁLIDA HASTA", dateCardX + 14, 168);
-  doc.fillColor(COLORS.ink).font("Helvetica-Bold").fontSize(9).text(formatDate(quote.validUntil), dateCardX + 14, 180, {
-    width: dateCardWidth - 28,
-  });
+  if (quote.proposal?.showExpiration !== false) {
+    doc.fillColor(COLORS.muted).font("Helvetica-Bold").fontSize(7).text("VÁLIDA HASTA", dateCardX + 14, 168);
+    doc.fillColor(COLORS.ink).font("Helvetica-Bold").fontSize(9).text(formatDate(quote.validUntil), dateCardX + 14, 180, {
+      width: dateCardWidth - 28,
+    });
+  }
 
   y = 210;
   const cardGap = 12;
@@ -381,7 +388,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   drawTotalRow(`IVA (${taxPercent}%)`, formatCurrency(quote.tax));
   doc.moveTo(totalsX, y).lineTo(PAGE.width - PAGE.margin, y).strokeColor(COLORS.border).lineWidth(1).stroke();
   y += 10;
-  doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(10).text("INVERSIÓN TOTAL", totalsX, y + 2, { width: 110 });
+  doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(10).text(proposalHasRenewal(quote.proposal) ? "BASE COTIZADA" : "INVERSIÓN TOTAL", totalsX, y + 2, { width: 110 });
   doc.fillColor(COLORS.magenta).font("Helvetica-Bold").fontSize(16).text(formatCurrency(quote.total), totalsX + 90, y, {
     width: 140,
     align: "right",
@@ -390,58 +397,37 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text("IVA incluido", totalsX, y, { width: totalsWidth, align: "right" });
   y += 18;
 
-  const payBoxHeight = 92;
+  const payBoxHeight = quote.proposal ? 58 : 92;
   ensureSpace(payBoxHeight + 8);
   doc.roundedRect(PAGE.margin, y, contentWidth, payBoxHeight, 12).fill(COLORS.soft);
-  doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(12).text("Elige cómo pagar tu cotización", PAGE.margin + 16, y + 12, {
-    width: contentWidth - 32,
-  });
-  doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8.5).text("Paga fácil, seguro y 100% online. El monto se carga desde esta cotización.", PAGE.margin + 16, y + 30, {
-    width: 320,
-  });
-
-  const buttonY = y + 48;
-  const buttonHeight = 28;
-  const buttonWidth = 132;
-  drawButton({
-    x: PAGE.margin + 16,
-    y: buttonY,
-    width: buttonWidth,
-    height: buttonHeight,
-    fill: COLORS.magenta,
-    label: "Pagar con Webpay",
-    url: paymentUrls?.webpayUrl,
-  });
-  drawButton({
-    x: PAGE.margin + 16 + buttonWidth + 10,
-    y: buttonY,
-    width: buttonWidth + 16,
-    height: buttonHeight,
-    fill: COLORS.violet,
-    label: "Pagar con Mercado Pago",
-    url: paymentUrls?.mercadoPagoUrl,
-  });
-  drawButton({
-    x: PAGE.width - PAGE.margin - 148,
-    y: buttonY,
-    width: 132,
-    height: buttonHeight,
-    fill: COLORS.white,
-    textColor: COLORS.navy,
-    border: COLORS.border,
-    label: "Ver datos bancarios",
-    url: paymentUrls?.bankUrl,
-  });
+  if (!quote.proposal) {
+    doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(12).text("Elige cómo pagar tu cotización", PAGE.margin + 16, y + 12, {
+      width: contentWidth - 32,
+    });
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8.5).text("Paga fácil, seguro y 100% online. El monto se carga desde esta cotización.", PAGE.margin + 16, y + 30, {
+      width: 320,
+    });
+    const buttonY = y + 48;
+    const buttonHeight = 28;
+    const buttonWidth = 132;
+    drawButton({ x: PAGE.margin + 16, y: buttonY, width: buttonWidth, height: buttonHeight, fill: COLORS.magenta, label: "Pagar con Webpay", url: paymentUrls?.webpayUrl });
+    drawButton({ x: PAGE.margin + 16 + buttonWidth + 10, y: buttonY, width: buttonWidth + 16, height: buttonHeight, fill: COLORS.violet, label: "Pagar con Mercado Pago", url: paymentUrls?.mercadoPagoUrl });
+    drawButton({ x: PAGE.width - PAGE.margin - 148, y: buttonY, width: 132, height: buttonHeight, fill: COLORS.white, textColor: COLORS.navy, border: COLORS.border, label: "Ver datos bancarios", url: paymentUrls?.bankUrl });
+  } else {
+    doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(11).text("Coordinación del pago", PAGE.margin + 16, y + 13, { width: contentWidth - 32 });
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8.5).text(PAYMENT_SETUP_NOTICE, PAGE.margin + 16, y + 31, { width: contentWidth - 32 });
+  }
   y += payBoxHeight + 8;
-  doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text("Aceptamos tarjetas de débito, crédito y prepago.", PAGE.margin, y, {
-    width: contentWidth,
-  });
-  y += 10;
+  if (!quote.proposal) {
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text("Aceptamos tarjetas de débito, crédito y prepago.", PAGE.margin, y, { width: contentWidth });
+    y += 10;
+  }
 
   const terms = buildQuoteCommercialTerms({
     items: quote.items,
     deliveryBusinessDays: quote.deliveryBusinessDays,
     initialPaymentPercent: quote.initialPaymentPercent,
+    proposal: quote.proposal,
     validUntilLabel: formatQuoteDateLabel(quote.validUntil),
   });
 
@@ -460,8 +446,8 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     }
   }
 
-  for (const section of terms.sections) {
-    const isBankSection = section.title === "Medios de pago";
+  for (const [index, section] of terms.sections.entries()) {
+    const isBankSection = index === terms.sections.length - 1;
     if (isBankSection) {
       doc.addNamedDestination("datos-bancarios");
     }
@@ -474,7 +460,13 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     }
     if (section.paragraphs?.length) {
       for (const paragraph of section.paragraphs) {
-        drawParagraph(paragraph);
+        if (!quote.proposal) {
+          drawParagraph(paragraph);
+        } else {
+          for (const line of paragraph.split(/\r?\n/)) {
+            if (line.trim()) drawParagraph(line);
+          }
+        }
       }
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 import { ConfirmActionModal } from "@/components/admin/ConfirmActionModal";
@@ -19,6 +19,12 @@ import {
   parseQuoteDiscount,
   type QuoteDiscountType,
 } from "@/lib/quotes/pricing";
+import {
+  allocatePaymentTotals, buildPaymentSchedule, buildQuoteProposal, MAX_BLOCK_DESCRIPTION,
+  MAX_BLOCK_TITLE, MAX_PAYMENT_MONTHS, MAX_PROPOSAL_BLOCKS, ONE_TIME_PAYMENT,
+  paymentScheduleText, type InstallmentType, type PaymentMode, type PaymentSchedule,
+} from "@/lib/quotes/proposal";
+import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "@/lib/quotes/fields";
 import type { QuoteCatalogGroup, QuoteCatalogPlan, QuoteRecord } from "@/lib/quotes/types";
 
 type SelectedCatalogPlan = {
@@ -35,6 +41,18 @@ type SelectedCustomService = {
   unitPrice: number;
   quantity: number;
   includedItems: string[];
+};
+
+type PaymentDraft = {
+  mode: PaymentMode;
+  months: string;
+  firstPayment: string;
+  installmentType: InstallmentType;
+  installmentAmounts: string[];
+  legacySchedule?: PaymentSchedule;
+};
+const DEFAULT_PAYMENT: PaymentDraft = {
+  mode: ONE_TIME_PAYMENT.mode, months: "3", firstPayment: "", installmentType: "FIXED", installmentAmounts: [],
 };
 
 type SelectedEntry = SelectedCatalogPlan | SelectedCustomService;
@@ -128,6 +146,32 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
   const [customFocusToken, setCustomFocusToken] = useState(0);
   const customSectionRef = useRef<HTMLElement>(null);
   const customNameRef = useRef<HTMLInputElement>(null);
+  const [useProposal, setUseProposal] = useState(!quote || Boolean(quote.proposal));
+  const [showExpiration, setShowExpiration] = useState(quote?.proposal?.showExpiration ?? Boolean(!quote || quote.validUntil));
+  const [showDelivery, setShowDelivery] = useState(quote?.proposal?.showDelivery ?? true);
+  const [showDeposit, setShowDeposit] = useState(quote?.proposal?.showDeposit ?? false);
+  const [blocks, setBlocks] = useState(() =>
+    (quote?.proposal?.blocks ?? []).map((block, index) => ({ ...block, id: String(index) })),
+  );
+  const [defaultPayment, setDefaultPayment] = useState(DEFAULT_PAYMENT);
+  const [paymentDrafts, setPaymentDrafts] = useState<Record<string, PaymentDraft>>(() => {
+    const drafts: Record<string, PaymentDraft> = {};
+    quote?.proposal?.payments.forEach((schedule, index) => {
+      const item = quote.items[index];
+      const installmentType = schedule.installmentType ?? (schedule.firstPayment != null ? "VARIABLE" : "FIXED");
+      const draft: PaymentDraft = {
+        mode: schedule.mode,
+        months: String(schedule.months ?? 3),
+        firstPayment: schedule.firstPayment?.toString() ?? "",
+        installmentType,
+        installmentAmounts: installmentType === "VARIABLE" ? schedule.amounts.map(String) : [],
+        legacySchedule: schedule.months !== null && !schedule.installmentType ? schedule : undefined,
+      };
+      drafts[item.id] = draft;
+      if (item.planId) drafts[item.planId] = draft;
+    });
+    return drafts;
+  });
   const [notes, setNotes] = useState(quote?.notes ?? "");
   const [validUntil, setValidUntil] = useState(quote ? toDateInputValue(quote.validUntil) : defaultValidUntil);
   const [deliveryBusinessDays, setDeliveryBusinessDays] = useState(
@@ -242,6 +286,11 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
   }
 
   function removeEntry(key: string) {
+    setPaymentDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
     setSelected((current) => current.filter((entry) => selectedKey(entry) !== key));
     setCustomDraft((current) => (current?.id === key ? null : current));
     setCustomError("");
@@ -323,6 +372,22 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
     }
   }
 
+  const paymentAmounts = allocatePaymentTotals(
+    selected.map((entry) => lineSubtotal(entry) + lineTax(entry)), totals.total,
+  );
+  const proposedPayments = selected.map((entry) => paymentDrafts[selectedKey(entry)] ?? defaultPayment);
+  const hasRenewal = useProposal && proposedPayments.some((payment) => payment.mode === "RENEWABLE");
+
+  function proposalInput() {
+    return {
+      showExpiration,
+      showDelivery,
+      showDeposit,
+      blocks: blocks.map(({ title, description }) => ({ title, description })),
+      payments: proposedPayments.map((payment) => payment.legacySchedule ?? payment),
+    };
+  }
+
   function canSubmit(): boolean {
     if (!clientId) {
       setSubmitError("Selecciona un cliente.");
@@ -343,16 +408,17 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
       return false;
     }
     try {
-      applyQuoteDiscount(
-        {
-          subtotal: selected.reduce((sum, item) => sum + lineSubtotal(item), 0),
-          tax: selected.reduce((sum, item) => sum + lineTax(item), 0),
-          total: 0,
-        },
-        parseQuoteDiscount({ type: discountType, value: discountValue }),
-      );
+      const subtotal = selected.reduce((sum, item) => sum + lineSubtotal(item), 0);
+      const tax = selected.reduce((sum, item) => sum + lineTax(item), 0);
+      applyQuoteDiscount({ subtotal, tax, total: subtotal + tax }, parseQuoteDiscount({ type: discountType, value: discountValue }));
+      if (useProposal) {
+        if (showExpiration && !validUntil) throw new Error("Ingresa la fecha de vencimiento o desactiva esa opción.");
+        if (showDelivery) parseDeliveryBusinessDays(deliveryBusinessDays);
+        if (showDeposit) parseInitialPaymentPercent(initialPaymentPercent);
+        buildQuoteProposal(proposalInput(), selected.map((entry) => lineSubtotal(entry) + lineTax(entry)), totals.total);
+      }
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Revisa el descuento.");
+      setSubmitError(error instanceof Error ? error.message : "Revisa las condiciones de la cotización.");
       return false;
     }
     return true;
@@ -382,7 +448,8 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
       clientId,
       status,
       notes,
-      validUntil: validUntil || null,
+      ...(useProposal ? { proposal: proposalInput() } : {}),
+      validUntil: useProposal && !showExpiration ? null : validUntil || null,
       deliveryBusinessDays,
       initialPaymentPercent,
       discountType,
@@ -471,6 +538,39 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                   </select>
                 </label>
               ) : null}
+
+              <section aria-labelledby="quote-payment-title" className="rounded-[20px] border border-primary/25 bg-primary/[0.03] p-4">
+                <h3 id="quote-payment-title" className="text-sm font-semibold text-foreground">Modalidad de pago</h3>
+                {!useProposal ? (
+                  <button type="button" onClick={() => setUseProposal(true)} className="mt-2 text-sm font-semibold text-primary">
+                    Configurar pago único o mensual
+                  </button>
+                ) : selected.length === 0 ? (
+                  <>
+                    <p className="mt-1 text-xs text-muted">Elige la modalidad inicial. Puedes cambiarla para cada servicio que agregues.</p>
+                    <PaymentFields value={defaultPayment} onChange={setDefaultPayment} />
+                  </>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {selected.map((item, index) => {
+                      const key = selectedKey(item);
+                      const name = item.kind === "catalog" ? item.plan.name : item.name;
+                      return (
+                        <li key={key} className="rounded-xl border border-border bg-white p-3">
+                          <PaymentFields
+                            serviceName={name}
+                            value={proposedPayments[index]}
+                            amount={paymentAmounts[index]}
+                            onChange={(value) => setPaymentDrafts((current) => ({
+                              ...current, [key]: { ...value, legacySchedule: undefined },
+                            }))}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
 
               <label className="relative block">
                 <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
@@ -652,7 +752,7 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                   <p className="mt-3 text-sm text-muted">Usa el botón + para agregar un servicio único o un plan del catálogo.</p>
                 ) : (
                   <ul className="mt-3 space-y-3">
-                    {selected.map((item) => {
+                    {selected.map((item, index) => {
                       const key = selectedKey(item);
                       const name = item.kind === "catalog" ? item.plan.name : item.name;
                       const listPrice = item.kind === "catalog" ? item.plan.price : null;
@@ -709,7 +809,9 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                           ) : null}
                           <div className="mt-2 grid grid-cols-2 gap-2">
                             <label className="block text-xs font-medium text-foreground">
-                              Precio neto
+                              {useProposal && proposedPayments[index].mode === "RENEWABLE"
+                                ? "Precio neto mensual"
+                                : useProposal && proposedPayments[index].mode !== "ONE_TIME" ? "Precio neto del plan completo" : "Precio neto"}
                               <input
                                 inputMode="numeric"
                                 value={item.unitPrice || ""}
@@ -797,17 +899,15 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                     </div>
                   ) : null}
                   <div className="flex justify-between gap-3"><span className="text-muted">IVA</span><span>{formatCurrency(totals.tax)}</span></div>
-                  <div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>Total</span><span className="text-primary">{formatCurrency(totals.total)}</span></div>
+                  <div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold"><span>{hasRenewal ? "Base cotizada" : "Total"}</span><span className="text-primary">{formatCurrency(totals.total)}</span></div>
                 </div>
               </div>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-foreground">Fecha de vencimiento</span>
+              <OptionalQuoteField label="Fecha de vencimiento" optional={useProposal} enabled={showExpiration} onToggle={setShowExpiration}>
                 <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} className="dashboard-field" />
-              </label>
+              </OptionalQuoteField>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-foreground">Plazo de entrega (días hábiles)</span>
+              <OptionalQuoteField label="Plazo de entrega (días hábiles)" optional={useProposal} enabled={showDelivery} onToggle={setShowDelivery}>
                 <input
                   type="number"
                   min={1}
@@ -816,10 +916,9 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                   onChange={(event) => setDeliveryBusinessDays(event.target.value)}
                   className="dashboard-field"
                 />
-              </label>
+              </OptionalQuoteField>
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-foreground">Porcentaje de pago inicial</span>
+              <OptionalQuoteField label="Porcentaje de pago inicial" optional={useProposal} enabled={showDeposit} onToggle={setShowDeposit}>
                 <input
                   type="number"
                   min={1}
@@ -828,9 +927,36 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                   onChange={(event) => setInitialPaymentPercent(event.target.value)}
                   className="dashboard-field"
                 />
-              </label>
+              </OptionalQuoteField>
 
-              <label className="block">
+              {useProposal && (
+                <fieldset className="space-y-3 rounded-[20px] border border-border p-4">
+                  <legend className="px-1 text-sm font-semibold">Observaciones, condiciones o beneficios</legend>
+                  {blocks.map((block, index) => (
+                    <div key={block.id} className="space-y-2 rounded-xl border border-border p-3">
+                      <label className="block text-xs font-medium">
+                        Título
+                        <input className="dashboard-field mt-1" value={block.title} maxLength={MAX_BLOCK_TITLE}
+                          onChange={(event) => setBlocks(blocks.map((item) => item.id === block.id ? { ...item, title: event.target.value } : item))} />
+                      </label>
+                      <label className="block text-xs font-medium">
+                        Descripción
+                        <textarea className="dashboard-field mt-1 min-h-20 resize-y" value={block.description} maxLength={MAX_BLOCK_DESCRIPTION}
+                          onChange={(event) => setBlocks(blocks.map((item) => item.id === block.id ? { ...item, description: event.target.value } : item))} />
+                      </label>
+                      <button type="button" onClick={() => setBlocks(blocks.filter((item) => item.id !== block.id))}
+                        aria-label={`Quitar bloque ${index + 1}`} className="text-xs font-semibold text-red-700">Quitar bloque</button>
+                    </div>
+                  ))}
+                  <button type="button" disabled={blocks.length >= MAX_PROPOSAL_BLOCKS}
+                    onClick={() => setBlocks([...blocks, { id: crypto.randomUUID(), title: "", description: "" }])}
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-primary disabled:opacity-50">
+                    <Plus size={16} /> Agregar bloque
+                  </button>
+                </fieldset>
+              )}
+
+              {(!useProposal || notes) && <label className="block">
                 <span className="mb-1.5 block text-sm font-semibold text-foreground">Observaciones</span>
                 <textarea
                   value={notes}
@@ -838,7 +964,7 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                   className="dashboard-field min-h-24 resize-y"
                   placeholder="Notas internas o condiciones adicionales."
                 />
-              </label>
+              </label>}
             </aside>
           </div>
         </div>
@@ -884,5 +1010,119 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
         }}
       />
     </div>
+  );
+}
+
+function OptionalQuoteField({ label, optional, enabled, onToggle, children }: {
+  label: string;
+  optional: boolean;
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  children: ReactElement<{ id?: string }>;
+}) {
+  const id = useId();
+  return (
+    <div className="space-y-2">
+      {optional && (
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={enabled} onChange={(event) => onToggle(event.target.checked)} />
+          {label}
+        </label>
+      )}
+      {(!optional || enabled) && (
+        <>
+          <label htmlFor={id} className={optional ? "sr-only" : "block text-sm font-semibold"}>{label}</label>
+          {cloneElement(children, { id })}
+        </>
+      )}
+    </div>
+  );
+}
+
+function PaymentFields({ value, amount, serviceName, onChange }: {
+  value: PaymentDraft;
+  amount?: number;
+  serviceName?: string;
+  onChange: (value: PaymentDraft) => void;
+}) {
+  const groupName = useId();
+  const isSingle = value.mode === "ONE_TIME";
+  const isRenewable = value.mode === "RENEWABLE";
+  const isInstallments = !isSingle && !isRenewable;
+  const count = value.mode === "ANNUAL" ? 12 : Number(value.months);
+  const validCount = Number.isInteger(count) && count >= 2 && count <= MAX_PAYMENT_MONTHS;
+  let preview: string | null = null;
+  if (amount !== undefined) {
+    try {
+      preview = paymentScheduleText(buildPaymentSchedule(value.legacySchedule ?? value, amount));
+    } catch (error) {
+      preview = error instanceof Error ? error.message : "Revisa las cuotas.";
+    }
+  }
+  return (
+    <fieldset className={serviceName ? "min-w-0 space-y-2" : "mt-3 min-w-0 space-y-2"}>
+      <legend className={serviceName ? "mb-2 text-sm font-semibold text-foreground" : "sr-only"}>
+        {serviceName ?? "Modalidad de pago inicial"}
+      </legend>
+      <div className="grid grid-cols-2 gap-2">
+        <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium ${isSingle ? "border-primary bg-primary/10 text-primary" : "border-border bg-white text-foreground"}`}>
+          <input type="radio" name={groupName} checked={isSingle} onChange={() => onChange(DEFAULT_PAYMENT)} className="accent-primary" />
+          Pago único
+        </label>
+        <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-2 text-sm font-medium ${isInstallments ? "border-primary bg-primary/10 text-primary" : "border-border bg-white text-foreground"}`}>
+          <input type="radio" name={groupName} checked={isInstallments} onChange={() => onChange({ ...DEFAULT_PAYMENT, mode: "INSTALLMENTS" })} className="accent-primary" />
+          Pago en cuotas
+        </label>
+      </div>
+      {isInstallments && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-xs font-medium">
+            Tipo de cuotas
+            <select className="dashboard-field mt-1" value={value.installmentType}
+              onChange={(event) => onChange({ ...value, installmentType: event.target.value as InstallmentType })}>
+              <option value="FIXED">Fijas</option>
+              <option value="VARIABLE">Variables</option>
+            </select>
+          </label>
+          <label className="block text-xs font-medium">
+            Cantidad de cuotas
+            <input type="number" min={2} max={MAX_PAYMENT_MONTHS} className="dashboard-field mt-1" value={value.months}
+              readOnly={value.mode === "ANNUAL"}
+              onChange={(event) => {
+                const months = event.target.value;
+                const nextCount = Number(months);
+                const installmentAmounts = nextCount >= 2 ? value.installmentAmounts.slice(0, nextCount) : value.installmentAmounts;
+                onChange({ ...value, months, installmentAmounts });
+              }} />
+          </label>
+        </div>
+      )}
+      {isInstallments && value.installmentType === "VARIABLE" && validCount && (
+        <fieldset className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
+          <legend className="mb-2 text-xs font-medium text-foreground">Monto por cuota con IVA</legend>
+          {Array.from({ length: count }, (_, index) => (
+            <label key={index} className="block min-w-0 text-xs font-medium">
+              Cuota {index + 1}
+              <input type="number" min={1} step={1} className="dashboard-field mt-1 w-full"
+                value={value.installmentAmounts[index] ?? ""}
+                onChange={(event) => onChange({
+                  ...value,
+                  installmentAmounts: Array.from({ length: count }, (_, position) =>
+                    position === index ? event.target.value : value.installmentAmounts[position] ?? ""),
+                })} />
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {isRenewable && (
+        <label className="block text-xs font-medium">
+          Primera cuota del plan renovable con IVA (opcional)
+          <input type="number" min={1} step={1} className="dashboard-field mt-1" value={value.firstPayment}
+            onChange={(event) => onChange({ ...value, firstPayment: event.target.value })} />
+        </label>
+      )}
+      {preview && <p className="text-xs leading-5 text-muted">{preview} <span className="whitespace-nowrap">IVA incluido.</span></p>}
+      {amount !== undefined && isRenewable && <p className="text-xs text-muted">El precio neto indicado se aplica a cada mes.</p>}
+    </fieldset>
   );
 }

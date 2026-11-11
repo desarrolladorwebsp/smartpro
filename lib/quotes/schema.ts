@@ -8,6 +8,7 @@ import type { PrismaClient } from "@prisma/client";
 const ensurePromises = new WeakMap<object, Promise<void>>();
 
 const QUOTE_COLUMN_ADDITIONS = [
+  ["proposal", "ALTER TABLE `Quote` ADD COLUMN `proposal` JSON NULL"],
   [
     "deliveryBusinessDays",
     "ALTER TABLE `Quote` ADD COLUMN `deliveryBusinessDays` INTEGER NOT NULL DEFAULT 15",

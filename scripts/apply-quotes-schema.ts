@@ -83,6 +83,7 @@ async function columnExists(table: string, column: string): Promise<boolean> {
 
 async function ensureQuoteColumns() {
   const additions: Array<{ column: string; sql: string }> = [
+    { column: "proposal", sql: "ALTER TABLE `Quote` ADD COLUMN `proposal` JSON NULL" },
     {
       column: "deliveryBusinessDays",
       sql: "ALTER TABLE `Quote` ADD COLUMN `deliveryBusinessDays` INTEGER NOT NULL DEFAULT 15",

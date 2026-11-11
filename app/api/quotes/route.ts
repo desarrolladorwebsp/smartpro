@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       clientId?: unknown;
       items?: unknown;
       notes?: unknown;
+      proposal?: unknown;
       validUntil?: unknown;
       deliveryBusinessDays?: unknown;
       initialPaymentPercent?: unknown;
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     const quote = await createQuoteRecord({
       clientId: String(body.clientId ?? ""),
       items: parseQuoteItemInputs(body.items),
+      proposal: body.proposal,
       notes: typeof body.notes === "string" ? body.notes : "",
       validUntil: body.validUntil === null ? null : typeof body.validUntil === "string" ? body.validUntil : undefined,
       deliveryBusinessDays: body.deliveryBusinessDays as number | string | undefined,

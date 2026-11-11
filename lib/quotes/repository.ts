@@ -10,6 +10,7 @@ import { buildCustomQuoteItemRecord } from "./custom-item";
 import { parseQuoteValidUntil } from "./dates";
 import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "./fields";
 import { applyQuoteDiscount, parseQuoteDiscount, quoteItemsGross, type QuoteDiscountInput } from "./pricing";
+import { buildQuoteProposal, type QuoteProposal } from "./proposal";
 import { ensureQuoteSchema } from "./schema";
 import { createQuoteNumber } from "./numbering";
 import { assertQuoteStatusTransition, canEditQuote, nextQuoteStatusAfterEdit, parseQuoteStatus } from "./status";
@@ -91,6 +92,7 @@ function toQuoteRecord(row: QuoteRow): QuoteRecord {
     clientAddress: formatClientAddress(row.client),
     createdByEmail: row.createdByEmail,
     notes: row.notes,
+    proposal: row.proposal as QuoteProposal | null,
     validUntil: row.validUntil ? row.validUntil.toISOString() : null,
     deliveryBusinessDays: row.deliveryBusinessDays,
     initialPaymentPercent: row.initialPaymentPercent,
@@ -289,6 +291,7 @@ export async function countQuotesByClientId(clientId: string): Promise<number> {
 }
 
 export async function getQuoteById(id: string): Promise<QuoteRecord | null> {
+  await ensureQuoteSchema(getPrisma());
   const row = await getPrisma().quote.findUnique({
     where: { id },
     include: quoteInclude,
@@ -297,10 +300,19 @@ export async function getQuoteById(id: string): Promise<QuoteRecord | null> {
   return row ? toQuoteRecord(row) : null;
 }
 
+function validateVisibleFields(
+  input: { deliveryBusinessDays?: number | string; initialPaymentPercent?: number | string },
+  proposal?: QuoteProposal,
+) {
+  if (proposal?.showDelivery) parseDeliveryBusinessDays(input.deliveryBusinessDays);
+  if (proposal?.showDeposit) parseInitialPaymentPercent(input.initialPaymentPercent);
+}
+
 export async function createQuoteRecord(input: {
   clientId: string;
   items: QuoteItemInput[];
   notes?: string;
+  proposal?: unknown;
   validUntil?: string | null;
   deliveryBusinessDays?: number | string;
   initialPaymentPercent?: number | string;
@@ -308,6 +320,8 @@ export async function createQuoteRecord(input: {
   status?: QuoteStatus;
   createdByEmail: string;
 }): Promise<QuoteRecord> {
+  const prisma = getPrisma();
+  await ensureQuoteSchema(prisma);
   const client = await getClientById(input.clientId);
   if (!client) {
     throw new Error("El cliente no existe.");
@@ -321,24 +335,34 @@ export async function createQuoteRecord(input: {
   const items = await resolveQuoteItems(input.items);
   const discount = parseQuoteDiscount(input.discount);
   const totals = pricedQuoteTotals(items, discount);
+  const proposal = input.proposal === undefined
+    ? undefined
+    : buildQuoteProposal(input.proposal, items.map((item) => item.total), totals.total);
+
 
   let validUntil: Date | null = defaultValidUntil();
-  if (input.validUntil === null) {
+  if (proposal?.showExpiration === false || input.validUntil === null) {
     validUntil = null;
   } else if (input.validUntil) {
     validUntil = parseQuoteValidUntil(input.validUntil);
   }
 
+  if (proposal?.showExpiration && !validUntil) {
+    throw new Error("Ingresa la fecha de vencimiento o desactiva esa opción.");
+  }
+
   const notes = String(input.notes ?? "").trim();
   const createdByEmail = String(input.createdByEmail ?? "").trim().toLowerCase();
   const deliveryBusinessDays =
-    input.deliveryBusinessDays == null || input.deliveryBusinessDays === ""
+    proposal?.showDelivery === false || input.deliveryBusinessDays == null || input.deliveryBusinessDays === ""
       ? QUOTE_DEFAULT_DELIVERY_DAYS
       : parseDeliveryBusinessDays(input.deliveryBusinessDays);
   const initialPaymentPercent =
-    input.initialPaymentPercent == null || input.initialPaymentPercent === ""
+    proposal?.showDeposit === false || input.initialPaymentPercent == null || input.initialPaymentPercent === ""
       ? QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT
       : parseInitialPaymentPercent(input.initialPaymentPercent);
+
+  validateVisibleFields(input, proposal);
 
   if (!createdByEmail) {
     throw new Error("No se pudo identificar al ejecutivo.");
@@ -348,13 +372,14 @@ export async function createQuoteRecord(input: {
     const number = createQuoteNumber();
 
     try {
-      const created = await getPrisma().quote.create({
+      const created = await prisma.quote.create({
         data: {
           number,
           status,
           clientId: client.id,
           createdByEmail,
           notes,
+          proposal,
           validUntil,
           deliveryBusinessDays,
           initialPaymentPercent,
@@ -395,6 +420,7 @@ export async function updateQuoteRecord(
   input: {
     items: QuoteItemInput[];
     notes?: string;
+    proposal?: unknown;
     validUntil?: string | null;
     deliveryBusinessDays?: number | string;
     initialPaymentPercent?: number | string;
@@ -419,29 +445,43 @@ export async function updateQuoteRecord(
     throw new Error("No se puede modificar una cotización convertida en venta.");
   }
 
+  if (existing.proposal && input.proposal === undefined) {
+    throw new Error("Incluye la configuración de los pagos al editar esta cotización.");
+  }
+
   const status = nextQuoteStatusAfterEdit(existing.status, input.status);
   const items = await resolveQuoteItems(input.items, existing.items);
   const discount = parseQuoteDiscount(
     input.discount ?? { type: existing.discountType, value: existing.discountValue },
   );
   const totals = pricedQuoteTotals(items, discount);
+  const proposal = input.proposal === undefined
+    ? undefined
+    : buildQuoteProposal(input.proposal, items.map((item) => item.total), totals.total);
+
 
   let validUntil: Date | null = existing.validUntil ? new Date(existing.validUntil) : null;
-  if (input.validUntil === null) {
+  if (proposal?.showExpiration === false || input.validUntil === null) {
     validUntil = null;
   } else if (input.validUntil) {
     validUntil = parseQuoteValidUntil(input.validUntil);
   }
 
+  if (proposal?.showExpiration && !validUntil) {
+    throw new Error("Ingresa la fecha de vencimiento o desactiva esa opción.");
+  }
+
   const notes = String(input.notes ?? existing.notes).trim();
   const deliveryBusinessDays =
-    input.deliveryBusinessDays == null || input.deliveryBusinessDays === ""
+    proposal?.showDelivery === false || input.deliveryBusinessDays == null || input.deliveryBusinessDays === ""
       ? existing.deliveryBusinessDays
       : parseDeliveryBusinessDays(input.deliveryBusinessDays);
   const initialPaymentPercent =
-    input.initialPaymentPercent == null || input.initialPaymentPercent === ""
+    proposal?.showDeposit === false || input.initialPaymentPercent == null || input.initialPaymentPercent === ""
       ? existing.initialPaymentPercent
       : parseInitialPaymentPercent(input.initialPaymentPercent);
+
+  validateVisibleFields(input, proposal);
 
   const updated = await getPrisma().$transaction(async (tx) => {
     await tx.quoteItem.deleteMany({ where: { quoteId: existing.id } });
@@ -451,6 +491,7 @@ export async function updateQuoteRecord(
       data: {
         status,
         notes,
+        proposal,
         validUntil,
         deliveryBusinessDays,
         initialPaymentPercent,

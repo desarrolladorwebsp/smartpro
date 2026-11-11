@@ -36,6 +36,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = (await request.json().catch(() => ({}))) as {
       items?: unknown;
       notes?: unknown;
+      proposal?: unknown;
       validUntil?: unknown;
       deliveryBusinessDays?: unknown;
       initialPaymentPercent?: unknown;
@@ -46,6 +47,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const quote = await updateQuoteRecord(id, {
       items: parseQuoteItemInputs(body.items),
+      proposal: body.proposal,
       notes: typeof body.notes === "string" ? body.notes : "",
       validUntil: body.validUntil === null ? null : typeof body.validUntil === "string" ? body.validUntil : undefined,
       deliveryBusinessDays: body.deliveryBusinessDays as number | string | undefined,

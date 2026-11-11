@@ -7,6 +7,7 @@ import { QuoteCommercialTerms } from "@/components/admin/QuoteCommercialTerms";
 import { QuoteMoneySummary } from "@/components/quotes/QuoteMoneySummary";
 import { QuotePaymentActions } from "@/components/quotes/QuotePaymentActions";
 import { SMARTPRO_COMPANY } from "@/lib/quotes/company";
+import { PAYMENT_SETUP_NOTICE } from "@/lib/quotes/proposal";
 import { getQuotePaymentBlockReason } from "@/lib/quotes/checkout";
 import { quoteDepositAmounts } from "@/lib/quotes/fields";
 import { getQuoteForAccessToken } from "@/lib/quotes/pay";
@@ -112,8 +113,10 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
             <div className="rounded-2xl bg-soft-background px-4 py-4 text-sm">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Fecha de emisión</p>
               <p className="mt-1 font-semibold text-foreground">{formatDate(quote.createdAt)}</p>
-              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Válida hasta</p>
-              <p className="mt-1 font-semibold text-foreground">{formatDate(quote.validUntil)}</p>
+              {quote.proposal?.showExpiration !== false && <>
+                <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Válida hasta</p>
+                <p className="mt-1 font-semibold text-foreground">{formatDate(quote.validUntil)}</p>
+              </>}
             </div>
           </div>
 
@@ -171,7 +174,7 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
             <QuoteMoneySummary quote={quote} taxPercent={taxPercent} />
           </div>
 
-          <div className="mt-8">
+          {quote.proposal ? <p className="mt-8 rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm text-muted">{PAYMENT_SETUP_NOTICE}</p> : <div className="mt-8">
             <QuotePaymentActions
               token={token}
               autoPay={autoPay}
@@ -181,7 +184,7 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
               depositAmountLabel={formatCurrency(deposit.total)}
               remainingAmountLabel={deposit.isFull ? null : formatCurrency(quote.total - deposit.total)}
             />
-          </div>
+          </div>}
 
           {quote.notes ? (
             <div className="mt-8">

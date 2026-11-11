@@ -1,4 +1,5 @@
 import { SMARTPRO_BANK, SMARTPRO_OFFICES } from "./company";
+import { paymentScheduleText, type QuoteProposal } from "./proposal";
 import { remainingPaymentPercent } from "./fields";
 import { getQuotePaymentMethods } from "./payment-methods";
 
@@ -50,6 +51,7 @@ export function buildQuoteCommercialTerms(input: {
   deliveryBusinessDays: number;
   initialPaymentPercent: number;
   validUntilLabel: string;
+  proposal?: QuoteProposal | null;
 }): QuoteCommercialTerms {
   const bankLines = [
     SMARTPRO_BANK.accountHolder,
@@ -65,27 +67,42 @@ export function buildQuoteCommercialTerms(input: {
     scopeIntro: "El servicio contratado incluye:",
     scopeGroups: buildServiceScope(input.items),
     sections: [
-      {
+      ...(input.proposal?.showDelivery === false ? [] : [{
         title: "Plazo estimado",
         intro: buildDeliveryIntro(input.deliveryBusinessDays),
         items: [
-          "El plazo comienza una vez confirmado el pago o abono inicial.",
+          ...(input.proposal ? [] : ["El plazo comienza una vez confirmado el pago o abono inicial."]),
           "El plazo comienza una vez recibida toda la información necesaria por parte del cliente.",
           "Retrasos en la entrega de información por parte del cliente impactarán directamente en los plazos.",
         ],
-      },
-      {
+      }]),
+      ...(input.proposal?.showDeposit === false ? [] : [{
         title: "Condiciones de pago",
-        paragraphs: [buildPaymentConditionText(input.initialPaymentPercent)],
-      },
-      {
+        paragraphs: [input.proposal
+          ? `Porcentaje de pago inicial propuesto: ${input.initialPaymentPercent}%.`
+          : buildPaymentConditionText(input.initialPaymentPercent)],
+      }]),
+      ...(input.proposal?.showExpiration === false ? [] : [{
         title: "Vencimiento",
         paragraphs: [`Esta cotización es válida hasta el ${input.validUntilLabel}.`],
-      },
+      }]),
+      ...(input.proposal ? [
+        {
+          title: "Calendario de pagos (IVA incluido)",
+          items: input.proposal.payments.map((schedule, index) =>
+            `${input.items[index].planName}: ${paymentScheduleText(schedule)}`),
+        },
+        ...input.proposal.blocks.map((block) => ({ title: block.title, paragraphs: [block.description] })),
+      ] : []),
       {
-        title: "Medios de pago",
-        items: getQuotePaymentMethods().map((method) => method.title),
-        paragraphs: ["Datos bancarios:", ...bankLines, "Oficinas:", ...SMARTPRO_OFFICES],
+        title: input.proposal ? "Datos bancarios" : "Medios de pago",
+        items: input.proposal ? undefined : getQuotePaymentMethods().map((method) => method.title),
+        paragraphs: [
+          ...(input.proposal ? [] : ["Datos bancarios:"]),
+          ...bankLines,
+          "Oficinas:",
+          ...SMARTPRO_OFFICES,
+        ],
       },
     ],
   };

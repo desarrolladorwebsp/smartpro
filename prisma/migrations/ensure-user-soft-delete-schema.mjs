@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
@@ -36,10 +37,38 @@ if (process.env.DB_SSL === "true") {
 
 const prisma = new PrismaClient({ adapter: new PrismaMariaDb(connectionUrl.toString()) });
 
+async function quoteSnapshot() {
+  const quotes = await prisma.$queryRaw`
+    SELECT SHA2(JSON_ARRAY(id, number, status, clientId, notes, validUntil, deliveryBusinessDays,
+      initialPaymentPercent, discountType, discountValue, discountAmount, subtotal, tax, total, sentAt,
+      createdAt, updatedAt), 256) AS digest
+    FROM Quote ORDER BY id
+  `;
+  const items = await prisma.$queryRaw`
+    SELECT SHA2(JSON_ARRAY(id, quoteId, planId, planName, categoryName, subcategoryName, quantity,
+      unitPrice, taxRate, includedItems, subtotal, tax, total, sortOrder), 256) AS digest
+    FROM QuoteItem ORDER BY id
+  `;
+  const hash = createHash("sha256");
+  for (const row of [...quotes, ...items]) hash.update(row.digest);
+  return { quotes: quotes.length, items: items.length, digest: hash.digest("hex") };
+}
+
 try {
   const [{ database: connectedDatabase }] = await prisma.$queryRawUnsafe("SELECT DATABASE() AS database");
   if (connectedDatabase !== expectedDatabase) {
     throw new Error(`La conexión no apunta a ${expectedDatabase}.`);
+  }
+
+  const quoteColumns = await prisma.$queryRawUnsafe("SHOW COLUMNS FROM `Quote` LIKE 'proposal'");
+  if (quoteColumns.length === 0) {
+    const before = await quoteSnapshot();
+    await prisma.$executeRawUnsafe("ALTER TABLE `Quote` ADD COLUMN `proposal` JSON NULL");
+    const after = await quoteSnapshot();
+    if (before.quotes !== after.quotes || before.items !== after.items || before.digest !== after.digest) {
+      throw new Error("El contenido de las cotizaciones cambió durante la comprobación de la migración.");
+    }
+    console.log(`[smartpro:migrate] Verificadas ${after.quotes} cotizaciones y ${after.items} ítems existentes.`);
   }
 
   const columns = await prisma.$queryRawUnsafe("SHOW COLUMNS FROM `User` LIKE 'deletedAt'");

@@ -11,6 +11,7 @@ export function QuoteCommercialTerms({ quote }: QuoteCommercialTermsProps) {
     items: quote.items,
     deliveryBusinessDays: quote.deliveryBusinessDays,
     initialPaymentPercent: quote.initialPaymentPercent,
+    proposal: quote.proposal,
     validUntilLabel: formatQuoteDateLabel(quote.validUntil),
   });
 
@@ -37,8 +38,8 @@ export function QuoteCommercialTerms({ quote }: QuoteCommercialTermsProps) {
         )}
       </section>
 
-      {terms.sections.map((section) => (
-        <section key={section.title}>
+      {terms.sections.map((section, index) => (
+        <section key={index}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">{section.title}</p>
           {section.intro ? <p className="mt-2 text-sm leading-6 text-foreground">{section.intro}</p> : null}
           {section.items?.length ? (
@@ -51,7 +52,7 @@ export function QuoteCommercialTerms({ quote }: QuoteCommercialTermsProps) {
           {section.paragraphs?.length ? (
             <div className="mt-2 space-y-1 text-sm leading-6 text-foreground">
               {section.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
+                <p className="whitespace-pre-wrap break-words" key={paragraph}>{paragraph}</p>
               ))}
             </div>
           ) : null}

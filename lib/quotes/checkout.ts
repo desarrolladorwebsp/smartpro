@@ -1,6 +1,7 @@
 import { CheckoutValidationError, normalizeCustomer } from "../orders/checkout";
 import { buildOrderTotals, formatCurrency, TAX_RATE, type CartItemDraft } from "../orders/service";
 import { quoteDepositAmounts } from "./fields";
+import { PAYMENT_SETUP_NOTICE } from "./proposal";
 import { applyQuoteDiscount } from "./pricing";
 import { canPayQuote, isQuoteExpired } from "./status";
 import type { QuoteRecord } from "./types";
@@ -30,6 +31,8 @@ export function getQuotePaymentBlockReason(quote: QuoteRecord, alreadySold = fal
     return "Esta cotización venció y ya no se puede pagar en línea.";
   }
 
+  if (quote.proposal) return PAYMENT_SETUP_NOTICE;
+
   if (alreadySold) {
     return "Esta cotización ya fue registrada como venta.";
   }
@@ -42,6 +45,8 @@ export function getQuotePaymentBlockReason(quote: QuoteRecord, alreadySold = fal
 }
 
 export function buildQuoteCheckoutOrder(quote: QuoteRecord): QuoteCheckoutOrder {
+  if (quote.proposal) throw new CheckoutValidationError(PAYMENT_SETUP_NOTICE);
+
   const customer = normalizeCustomer({
     name: quote.clientName || quote.clientCompany,
     email: quote.clientEmail,

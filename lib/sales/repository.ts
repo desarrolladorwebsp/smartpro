@@ -656,7 +656,7 @@ export async function listQuotesForSaleConversion(clientId: string): Promise<Quo
 
   return quotes.map((quote) => ({
     quote,
-    ...getQuoteSaleConversionCheck(quote.status, convertedIds.has(quote.id), "MANUAL"),
+    ...getQuoteSaleConversionCheck(quote.status, convertedIds.has(quote.id), "MANUAL", quote.proposal),
   }));
 }
 
@@ -682,7 +682,7 @@ export async function convertQuoteToSale(input: {
   }
 
   const existing = await getSaleByQuoteId(quote.id);
-  assertQuoteConvertible(quote.status, Boolean(existing), source);
+  assertQuoteConvertible(quote.status, Boolean(existing), source, quote.proposal);
 
   const client = await getClientById(quote.clientId);
   if (!client) {

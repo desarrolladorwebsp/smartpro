@@ -5,6 +5,7 @@ import { formatCurrency } from "../orders/service";
 import { buildQuotePaymentUrls } from "./access";
 import { SMARTPRO_COMPANY } from "./company";
 import { buildQuotePdf } from "./pdf";
+import { PAYMENT_SETUP_NOTICE, paymentScheduleText, proposalHasRenewal } from "./proposal";
 import { formatQuoteDiscountLabel } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
 
@@ -22,8 +23,11 @@ function formatDate(value: string | null): string {
 
 export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
   const greetingName = quote.clientName || quote.clientCompany || "equipo";
-  const paymentUrls = buildQuotePaymentUrls(quote.id, appUrl);
-  const viewUrl = paymentUrls?.viewUrl ?? appUrl.replace(/\/$/, "");
+  const accessUrls = buildQuotePaymentUrls(quote.id, appUrl);
+  const paymentUrls = quote.proposal ? null : accessUrls;
+  const proposal = quote.proposal;
+  const totalLabel = proposalHasRenewal(proposal) ? "Base cotizada" : "Total de la cotización";
+  const viewUrl = accessUrls?.viewUrl ?? appUrl.replace(/\/$/, "");
 
   return renderCorporateEmail({
     title: `Cotización ${quote.number} — SmartPro`,
@@ -35,24 +39,31 @@ export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
       "El documento PDF incluye el detalle de servicios, valores e información de pago.",
     ],
     highlight: {
-      label: "Total de la cotización",
+      label: totalLabel,
       value: formatCurrency(quote.total),
     },
     details: [
       { label: "Número", value: quote.number },
       { label: "Estado", value: getQuoteStatusLabel(quote.status) },
       { label: "Emisión", value: formatDate(quote.createdAt) },
-      { label: "Vencimiento", value: formatDate(quote.validUntil) },
+      ...(proposal?.showExpiration === false ? [] : [{ label: "Vencimiento", value: formatDate(quote.validUntil) }]),
+      ...(proposal?.showDelivery ? [{ label: "Plazo de entrega", value: `${quote.deliveryBusinessDays} días hábiles` }] : []),
+      ...(proposal?.showDeposit ? [{ label: "Pago inicial propuesto", value: `${quote.initialPaymentPercent}%` }] : []),
+      ...(proposal?.payments.map((schedule, index) => ({
+        label: quote.items[index].planName,
+        value: paymentScheduleText(schedule),
+      })) ?? []),
+      ...(proposal?.blocks.map(({ title, description }) => ({ label: title, value: description })) ?? []),
       { label: "Servicios", value: String(quote.items.length) },
       ...(formatQuoteDiscountLabel(quote)
         ? [{ label: "Descuento", value: `${formatQuoteDiscountLabel(quote)} (${formatCurrency(quote.discountAmount)})` }]
         : []),
     ],
-    notices: ["Este correo incluye la cotización en PDF como archivo adjunto."],
+    notices: [...(proposal ? [PAYMENT_SETUP_NOTICE] : []), "Este correo incluye la cotización en PDF como archivo adjunto."],
     closing: "Quedamos atentos para resolver cualquier consulta y coordinar el siguiente paso.",
     cta: {
       href: viewUrl,
-      label: paymentUrls ? "Ver cotización y pagar" : "Visitar SmartPro",
+      label: paymentUrls ? "Ver cotización y pagar" : proposal ? "Ver cotización" : "Visitar SmartPro",
     },
     appUrl,
   });

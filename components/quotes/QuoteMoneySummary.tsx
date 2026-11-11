@@ -1,9 +1,10 @@
 import { formatCurrency } from "@/lib/orders/service";
 import { formatQuoteDiscountLabel, formatQuoteDiscountValue, quoteItemsGross } from "@/lib/quotes/pricing";
+import { proposalHasRenewal } from "@/lib/quotes/proposal";
 import type { QuoteRecord } from "@/lib/quotes/types";
 
 type QuoteMoneySummaryProps = {
-  quote: Pick<QuoteRecord, "items" | "subtotal" | "tax" | "total" | "discountType" | "discountValue" | "discountAmount">;
+  quote: Pick<QuoteRecord, "items" | "subtotal" | "tax" | "total" | "discountType" | "discountValue" | "discountAmount" | "proposal">;
   taxPercent: number;
 };
 
@@ -28,7 +29,7 @@ export function QuoteMoneySummary({ quote, taxPercent }: QuoteMoneySummaryProps)
         <span>{formatCurrency(quote.tax)}</span>
       </div>
       <div className="flex items-end justify-between border-t border-border pt-3">
-        <span className="text-sm font-bold uppercase tracking-[0.08em] text-navy">Inversión total</span>
+        <span className="text-sm font-bold uppercase tracking-[0.08em] text-navy">{proposalHasRenewal(quote.proposal) ? "Base cotizada" : "Inversión total"}</span>
         <span className="text-2xl font-bold tracking-[-0.05em] text-magenta">{formatCurrency(quote.total)}</span>
       </div>
       <p className="text-right text-xs text-muted">IVA incluido</p>
