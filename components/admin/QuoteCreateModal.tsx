@@ -8,7 +8,6 @@ import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency, parseMoney, TAX_RATE } from "@/lib/orders/service";
 import {
   QUOTE_DEFAULT_DELIVERY_DAYS,
-  QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT,
   QUOTE_DEFAULT_VALIDITY_DAYS,
 } from "@/lib/quotes/company";
 import { CUSTOM_QUOTE_SERVICE_LABEL, parseCustomQuoteItemInput } from "@/lib/quotes/custom-item";
@@ -24,7 +23,7 @@ import {
   MAX_BLOCK_TITLE, MAX_PAYMENT_MONTHS, MAX_PROPOSAL_BLOCKS, ONE_TIME_PAYMENT,
   paymentScheduleText, type InstallmentType, type PaymentMode, type PaymentSchedule,
 } from "@/lib/quotes/proposal";
-import { parseDeliveryBusinessDays, parseInitialPaymentPercent } from "@/lib/quotes/fields";
+import { parseDeliveryBusinessDays } from "@/lib/quotes/fields";
 import type { QuoteCatalogGroup, QuoteCatalogPlan, QuoteRecord } from "@/lib/quotes/types";
 
 type SelectedCatalogPlan = {
@@ -149,7 +148,8 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
   const [useProposal, setUseProposal] = useState(!quote || Boolean(quote.proposal));
   const [showExpiration, setShowExpiration] = useState(quote?.proposal?.showExpiration ?? Boolean(!quote || quote.validUntil));
   const [showDelivery, setShowDelivery] = useState(quote?.proposal?.showDelivery ?? true);
-  const [showDeposit, setShowDeposit] = useState(quote?.proposal?.showDeposit ?? false);
+  const showDeposit = quote?.proposal?.showDeposit ?? false;
+  const paymentHeadingRef = useRef<HTMLHeadingElement>(null);
   const [blocks, setBlocks] = useState(() =>
     (quote?.proposal?.blocks ?? []).map((block, index) => ({ ...block, id: String(index) })),
   );
@@ -176,9 +176,6 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
   const [validUntil, setValidUntil] = useState(quote ? toDateInputValue(quote.validUntil) : defaultValidUntil);
   const [deliveryBusinessDays, setDeliveryBusinessDays] = useState(
     String(quote?.deliveryBusinessDays ?? QUOTE_DEFAULT_DELIVERY_DAYS),
-  );
-  const [initialPaymentPercent, setInitialPaymentPercent] = useState(
-    String(quote?.initialPaymentPercent ?? QUOTE_DEFAULT_INITIAL_PAYMENT_PERCENT),
   );
   const [discountType, setDiscountType] = useState<QuoteDiscountType>(quote?.discountType ?? "NONE");
   const [discountValue, setDiscountValue] = useState(
@@ -414,7 +411,6 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
       if (useProposal) {
         if (showExpiration && !validUntil) throw new Error("Ingresa la fecha de vencimiento o desactiva esa opción.");
         if (showDelivery) parseDeliveryBusinessDays(deliveryBusinessDays);
-        if (showDeposit) parseInitialPaymentPercent(initialPaymentPercent);
         buildQuoteProposal(proposalInput(), selected.map((entry) => lineSubtotal(entry) + lineTax(entry)), totals.total);
       }
     } catch (error) {
@@ -451,7 +447,7 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
       ...(useProposal ? { proposal: proposalInput() } : {}),
       validUntil: useProposal && !showExpiration ? null : validUntil || null,
       deliveryBusinessDays,
-      initialPaymentPercent,
+      ...(quote ? { initialPaymentPercent: quote.initialPaymentPercent } : {}),
       discountType,
       discountValue,
       items: selected.map((item) =>
@@ -539,38 +535,13 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                 </label>
               ) : null}
 
-              <section aria-labelledby="quote-payment-title" className="rounded-[20px] border border-primary/25 bg-primary/[0.03] p-4">
-                <h3 id="quote-payment-title" className="text-sm font-semibold text-foreground">Modalidad de pago</h3>
-                {!useProposal ? (
-                  <button type="button" onClick={() => setUseProposal(true)} className="mt-2 text-sm font-semibold text-primary">
-                    Configurar pago único o mensual
-                  </button>
-                ) : selected.length === 0 ? (
-                  <>
-                    <p className="mt-1 text-xs text-muted">Elige la modalidad inicial. Puedes cambiarla para cada servicio que agregues.</p>
-                    <PaymentFields value={defaultPayment} onChange={setDefaultPayment} />
-                  </>
-                ) : (
-                  <ul className="mt-3 space-y-3">
-                    {selected.map((item, index) => {
-                      const key = selectedKey(item);
-                      const name = item.kind === "catalog" ? item.plan.name : item.name;
-                      return (
-                        <li key={key} className="rounded-xl border border-border bg-white p-3">
-                          <PaymentFields
-                            serviceName={name}
-                            value={proposedPayments[index]}
-                            amount={paymentAmounts[index]}
-                            onChange={(value) => setPaymentDrafts((current) => ({
-                              ...current, [key]: { ...value, legacySchedule: undefined },
-                            }))}
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
+              <button
+                type="button"
+                onClick={() => paymentHeadingRef.current?.focus()}
+                className="text-sm font-semibold text-primary hover:underline"
+              >
+                Ir a modalidad de pago
+              </button>
 
               <label className="relative block">
                 <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
@@ -918,16 +889,38 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
                 />
               </OptionalQuoteField>
 
-              <OptionalQuoteField label="Porcentaje de pago inicial" optional={useProposal} enabled={showDeposit} onToggle={setShowDeposit}>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={initialPaymentPercent}
-                  onChange={(event) => setInitialPaymentPercent(event.target.value)}
-                  className="dashboard-field"
-                />
-              </OptionalQuoteField>
+              <section aria-labelledby="quote-payment-title" className="rounded-[20px] border border-primary/25 bg-primary/[0.03] p-4">
+                <h3 id="quote-payment-title" ref={paymentHeadingRef} tabIndex={-1} className="text-sm font-semibold text-foreground">Modalidad de pago</h3>
+                {!useProposal ? (
+                  <button type="button" onClick={() => setUseProposal(true)} className="mt-2 text-sm font-semibold text-primary">
+                    Configurar pago único o en cuotas
+                  </button>
+                ) : selected.length === 0 ? (
+                  <>
+                    <p className="mt-1 text-xs text-muted">Elige la modalidad inicial. Puedes cambiarla para cada servicio que agregues.</p>
+                    <PaymentFields value={defaultPayment} onChange={setDefaultPayment} />
+                  </>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {selected.map((item, index) => {
+                      const key = selectedKey(item);
+                      const name = item.kind === "catalog" ? item.plan.name : item.name;
+                      return (
+                        <li key={key} className="rounded-xl border border-border bg-white p-3">
+                          <PaymentFields
+                            serviceName={name}
+                            value={proposedPayments[index]}
+                            amount={paymentAmounts[index]}
+                            onChange={(value) => setPaymentDrafts((current) => ({
+                              ...current, [key]: { ...value, legacySchedule: undefined },
+                            }))}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
 
               {useProposal && (
                 <fieldset className="space-y-3 rounded-[20px] border border-border p-4">
