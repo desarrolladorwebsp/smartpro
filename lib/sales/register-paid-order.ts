@@ -1,9 +1,15 @@
 import { Prisma } from "@prisma/client";
 
+import { parseBusinessRecipient } from "../clients/business";
+import { snapshotContact } from "../clients/commercial-clients";
+import { getBusiness } from "../clients/business-repository";
 import { createClientRecord, findClientByEmail, getClientById, type ClientRecord } from "../clients/repository";
 import type { CustomerOrder } from "../orders/repository";
 import { canTransitionQuoteStatus } from "../quotes/status";
 import { getQuoteById, updateQuoteStatus } from "../quotes/repository";
+import { getAgencySnapshot } from "../agencies/repository";
+import { ensureAgencySchema } from "../agencies/schema";
+import { SMARTPRO_AGENCY_ID } from "../agencies/types";
 import { prisma } from "../db";
 import { notifySaleRegistered } from "../notifications/events";
 import {
@@ -119,14 +125,17 @@ async function resolveClientForSale(draft: PaidOrderSaleDraft): Promise<ClientRe
 }
 
 export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<RegisterPaidOrderSaleResult> {
+  await ensureAgencySchema(getPrisma());
   await ensureSalePaymentTable();
   let quoteAmounts: { subtotal: number; tax: number; total: number } | null = null;
+  let agency = await getAgencySnapshot(SMARTPRO_AGENCY_ID);
   if (order.quoteId) {
     const quote = await getQuoteById(order.quoteId);
     if (!quote) {
       throw new PaidOrderSaleValidationError("La cotización asociada no existe.");
     }
     quoteAmounts = { subtotal: quote.subtotal, tax: quote.tax, total: quote.total };
+    agency = quote.agency;
   }
 
   const draft = buildPaidOrderSaleDraft(order, quoteAmounts);
@@ -160,12 +169,24 @@ export async function registerSaleFromPaidOrder(order: CustomerOrder): Promise<R
   const db = getPrisma();
 
   try {
+    const quote = order.quoteId ? await db.quote.findUnique({
+      where: { id: order.quoteId },
+      select: { businessRecipient: true, businessId: true, contactSnapshot: true, contactId: true },
+    }) : null;
+    const business = order.quoteId ? null : parseBusinessRecipient(await getBusiness(client.businessId));
+    const businessRecipient = quote?.businessRecipient ?? business;
     const created = await db.sale.create({
       data: {
         number,
         status: "REGISTERED",
         source: draft.source,
         clientId: client.id,
+        contactId: quote?.contactId ?? client.contactId,
+        businessRecipient: businessRecipient ?? undefined,
+        businessId: quote?.businessId ?? business?.id,
+        contactSnapshot: quote ? quote.contactSnapshot ?? undefined : snapshotContact(client, true),
+        agencyId: agency.id,
+        agencySnapshot: agency,
         quoteId: draft.quoteId,
         orderId: draft.orderId,
         paymentMethod: draft.paymentMethod,

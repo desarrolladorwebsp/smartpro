@@ -5,12 +5,12 @@ import PDFDocument from "pdfkit";
 
 import { formatCurrency, TAX_RATE } from "../orders/service";
 import { buildQuotePaymentUrls } from "./access";
-import { SMARTPRO_COMPANY } from "./company";
 import { formatQuoteDateLabel } from "./dates";
 import { PAYMENT_SETUP_NOTICE, proposalHasRenewal } from "./proposal";
 import { buildQuoteCommercialTerms } from "./terms";
 import { formatQuoteDiscountLabel, formatQuoteDiscountValue, quoteItemsGross } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
+import { SMARTPRO_AGENCY_ID } from "../agencies/types";
 
 const COLORS = {
   navy: "#101024",
@@ -45,11 +45,10 @@ function formatDate(value: string | null): string {
   }).format(date);
 }
 
-function resolveHeaderLogoPath(): string | null {
-  const candidates = [
-    path.join(process.cwd(), "public/images/logo/logo-smartpro-full.png"),
-    path.join(process.cwd(), "public/images/logo/logo-smartpro-01.png"),
-  ];
+function resolveHeaderLogoPath(logoUrl: string): string | null {
+  const candidates = logoUrl.startsWith("/")
+    ? [path.join(process.cwd(), "public", logoUrl.replace(/^\/+/, ""))]
+    : [];
 
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
@@ -64,6 +63,7 @@ function collectPdf(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
 }
 
 export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
+  const agency = quote.agency;
   const doc = new PDFDocument({
     size: "A4",
     margin: PAGE.margin,
@@ -71,15 +71,15 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     bufferPages: true,
     info: {
       Title: `Cotización ${quote.number}`,
-      Author: SMARTPRO_COMPANY.brandName,
-      Subject: `Cotización SmartPro ${quote.number}`,
-      Keywords: "SmartPro, cotización, propuesta comercial",
+      Author: agency.brandName,
+      Subject: `Cotización ${agency.brandName} ${quote.number}`,
+      Keywords: `${agency.brandName}, cotización, propuesta comercial`,
     },
   });
   const done = collectPdf(doc);
   const contentWidth = PAGE.width - PAGE.margin * 2;
   const pageBottom = PAGE.height - FOOTER_HEIGHT - 18;
-  const paymentUrls = quote.proposal ? null : buildQuotePaymentUrls(quote.id);
+  const paymentUrls = quote.agencyId === SMARTPRO_AGENCY_ID && !quote.proposal ? buildQuotePaymentUrls(quote.id) : null;
   let y = PAGE.margin;
   const addContentPage = doc.addPage.bind(doc);
   let allowPageBreak = false;
@@ -98,17 +98,17 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     doc.rect(0, footerY, PAGE.width, FOOTER_HEIGHT).fill(COLORS.navy);
     doc.rect(0, footerY, PAGE.width, 3).fill(COLORS.magenta);
     doc.fillColor(COLORS.white).font("Helvetica").fontSize(8).text(
-      `${SMARTPRO_COMPANY.brandName}  ·  ${SMARTPRO_COMPANY.email}  ·  ${SMARTPRO_COMPANY.phone}`,
+      [agency.brandName, agency.email, agency.phone].filter(Boolean).join("  ·  "),
       PAGE.margin,
       footerY + 14,
       { width: contentWidth, align: "center", lineBreak: false, height: 12 },
     );
-    doc.fillColor("#C9C6D6").fontSize(7.5).text(SMARTPRO_COMPANY.website, PAGE.margin, footerY + 28, {
+    doc.fillColor("#C9C6D6").fontSize(7.5).text(agency.website, PAGE.margin, footerY + 28, {
       width: contentWidth,
       align: "center",
       lineBreak: false,
       height: 10,
-      link: SMARTPRO_COMPANY.website,
+      ...(agency.website ? { link: agency.website } : {}),
     });
     doc.restore();
   };
@@ -121,7 +121,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(10).text(`Cotización ${quote.number}`, PAGE.margin, 14, {
       width: contentWidth / 2,
     });
-    doc.fillColor("#C9C6D6").font("Helvetica").fontSize(8).text(SMARTPRO_COMPANY.brandName, PAGE.margin, 14, {
+    doc.fillColor("#C9C6D6").font("Helvetica").fontSize(8).text(agency.brandName, PAGE.margin, 14, {
       width: contentWidth,
       align: "right",
     });
@@ -142,10 +142,10 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     const label = title.toUpperCase();
     doc.font("Helvetica-Bold").fontSize(8);
     const height = doc.heightOfString(label, { width: contentWidth });
-    ensureSpace(quote.proposal ? height + 28 : 36);
+    ensureSpace(height + 28);
     y += 10;
     doc.fillColor(COLORS.violet).text(label, PAGE.margin, y, { width: contentWidth });
-    if (quote.proposal) y += Math.max(0, height - 9);
+    y += Math.max(0, height - 9);
     doc
       .moveTo(PAGE.margin, y + 12)
       .lineTo(PAGE.margin + 36, y + 12)
@@ -216,26 +216,26 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   doc.rect(0, 108, PAGE.width / 2, 4).fill(COLORS.violet);
   doc.rect(PAGE.width / 2, 108, PAGE.width / 2, 4).fill(COLORS.magenta);
 
-  const logoPath = resolveHeaderLogoPath();
+  const logoPath = resolveHeaderLogoPath(agency.logoUrl);
   if (logoPath) {
     doc.image(logoPath, PAGE.margin, 28, { fit: [210, 52] });
   } else {
-    doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(22).text(SMARTPRO_COMPANY.brandName, PAGE.margin, 36);
+    doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(22).text(agency.brandName, PAGE.margin, 36);
   }
 
-  doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(11).text(SMARTPRO_COMPANY.tagline, PAGE.margin, 36, {
-    width: contentWidth,
-    align: "right",
-  });
-  doc.fillColor("#D6D3E3").font("Helvetica").fontSize(8).text("Ideas  ·  Tecnología  ·  Resultados", PAGE.margin, 54, {
-    width: contentWidth,
-    align: "right",
-  });
-  doc.fillColor("#C9C6D6").fontSize(8).text(SMARTPRO_COMPANY.website.replace(/^https?:\/\//, ""), PAGE.margin, 70, {
-    width: contentWidth,
-    align: "right",
-    link: SMARTPRO_COMPANY.website,
-  });
+  if (agency.tagline) {
+    doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(11).text(agency.tagline, PAGE.margin, 36, {
+      width: contentWidth,
+      align: "right",
+    });
+  }
+  if (agency.website) {
+    doc.fillColor("#C9C6D6").fontSize(8).text(agency.website.replace(/^https?:\/\//, ""), PAGE.margin, 70, {
+      width: contentWidth,
+      align: "right",
+      link: agency.website,
+    });
+  }
 
   y = 128;
   doc.fillColor(COLORS.magenta).font("Helvetica-Bold").fontSize(8).text("COTIZACIÓN", PAGE.margin, y);
@@ -267,13 +267,14 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   const cardGap = 12;
   const cardWidth = (contentWidth - cardGap) / 2;
   const issuerLines = [
-    SMARTPRO_COMPANY.legalName,
-    SMARTPRO_COMPANY.address,
-    SMARTPRO_COMPANY.commune,
-    SMARTPRO_COMPANY.phone,
-    SMARTPRO_COMPANY.email,
-    SMARTPRO_COMPANY.website.replace(/^https?:\/\//, ""),
-  ];
+    agency.legalName,
+    agency.rut ? `RUT ${agency.rut}` : "",
+    agency.address,
+    agency.commune,
+    agency.phone,
+    agency.email,
+    agency.website.replace(/^https?:\/\//, ""),
+  ].filter(Boolean);
   const clientLines = [
     quote.clientName,
     quote.clientRut ? `RUT ${quote.clientRut}` : "",
@@ -283,7 +284,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   ].filter(Boolean);
 
   doc.font("Helvetica").fontSize(8.5);
-  const issuerBody = `${SMARTPRO_COMPANY.brandName}\n${issuerLines.join("\n")}`;
+  const issuerBody = `${agency.brandName}\n${issuerLines.join("\n")}`;
   const clientTitle = quote.clientCompany || quote.clientName || "Cliente";
   const clientBody = `${clientTitle}\n${clientLines.join("\n")}`;
   const cardInnerWidth = cardWidth - 24;
@@ -296,7 +297,7 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   doc.roundedRect(PAGE.margin + cardWidth + cardGap, y, cardWidth, cardHeight, 10).fill(COLORS.surface);
   doc.fillColor(COLORS.violet).font("Helvetica-Bold").fontSize(7.5).text("EMITIDA POR", PAGE.margin + 12, y + 10);
   doc.fillColor(COLORS.violet).text("CLIENTE", PAGE.margin + cardWidth + cardGap + 12, y + 10);
-  doc.fillColor(COLORS.ink).font("Helvetica-Bold").fontSize(10).text(SMARTPRO_COMPANY.brandName, PAGE.margin + 12, y + 24, {
+  doc.fillColor(COLORS.ink).font("Helvetica-Bold").fontSize(10).text(agency.brandName, PAGE.margin + 12, y + 24, {
     width: cardInnerWidth,
   });
   doc
@@ -397,10 +398,10 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
   doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text("IVA incluido", totalsX, y, { width: totalsWidth, align: "right" });
   y += 18;
 
-  const payBoxHeight = quote.proposal ? 58 : 92;
+  const payBoxHeight = paymentUrls ? 92 : 58;
   ensureSpace(payBoxHeight + 8);
   doc.roundedRect(PAGE.margin, y, contentWidth, payBoxHeight, 12).fill(COLORS.soft);
-  if (!quote.proposal) {
+  if (paymentUrls) {
     doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(12).text("Elige cómo pagar tu cotización", PAGE.margin + 16, y + 12, {
       width: contentWidth - 32,
     });
@@ -410,21 +411,25 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     const buttonY = y + 48;
     const buttonHeight = 28;
     const buttonWidth = 132;
-    drawButton({ x: PAGE.margin + 16, y: buttonY, width: buttonWidth, height: buttonHeight, fill: COLORS.magenta, label: "Pagar con Webpay", url: paymentUrls?.webpayUrl });
-    drawButton({ x: PAGE.margin + 16 + buttonWidth + 10, y: buttonY, width: buttonWidth + 16, height: buttonHeight, fill: COLORS.violet, label: "Pagar con Mercado Pago", url: paymentUrls?.mercadoPagoUrl });
-    drawButton({ x: PAGE.width - PAGE.margin - 148, y: buttonY, width: 132, height: buttonHeight, fill: COLORS.white, textColor: COLORS.navy, border: COLORS.border, label: "Ver datos bancarios", url: paymentUrls?.bankUrl });
-  } else {
+    drawButton({ x: PAGE.margin + 16, y: buttonY, width: buttonWidth, height: buttonHeight, fill: COLORS.magenta, label: "Pagar con Webpay", url: paymentUrls.webpayUrl });
+    drawButton({ x: PAGE.margin + 16 + buttonWidth + 10, y: buttonY, width: buttonWidth + 16, height: buttonHeight, fill: COLORS.violet, label: "Pagar con Mercado Pago", url: paymentUrls.mercadoPagoUrl });
+    drawButton({ x: PAGE.width - PAGE.margin - 148, y: buttonY, width: 132, height: buttonHeight, fill: COLORS.white, textColor: COLORS.navy, border: COLORS.border, label: "Ver datos bancarios", url: paymentUrls.bankUrl });
+  } else if (quote.proposal) {
     doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(11).text("Coordinación del pago", PAGE.margin + 16, y + 13, { width: contentWidth - 32 });
     doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8.5).text(PAYMENT_SETUP_NOTICE, PAGE.margin + 16, y + 31, { width: contentWidth - 32 });
+  } else {
+    doc.fillColor(COLORS.navy).font("Helvetica-Bold").fontSize(11).text("Pago por transferencia bancaria", PAGE.margin + 16, y + 13, { width: contentWidth - 32 });
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8.5).text(`Usa los datos bancarios de ${agency.brandName} incluidos en esta propuesta.`, PAGE.margin + 16, y + 31, { width: contentWidth - 32 });
   }
   y += payBoxHeight + 8;
-  if (!quote.proposal) {
+  if (paymentUrls) {
     doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text("Aceptamos tarjetas de débito, crédito y prepago.", PAGE.margin, y, { width: contentWidth });
     y += 10;
   }
 
   const terms = buildQuoteCommercialTerms({
     items: quote.items,
+    agency,
     deliveryBusinessDays: quote.deliveryBusinessDays,
     initialPaymentPercent: quote.initialPaymentPercent,
     proposal: quote.proposal,
@@ -460,12 +465,8 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     }
     if (section.paragraphs?.length) {
       for (const paragraph of section.paragraphs) {
-        if (!quote.proposal) {
-          drawParagraph(paragraph);
-        } else {
-          for (const line of paragraph.split(/\r?\n/)) {
-            if (line.trim()) drawParagraph(line);
-          }
+        for (const line of paragraph.split(/\r?\n/)) {
+          if (line.trim()) drawParagraph(line);
         }
       }
     }
@@ -476,10 +477,15 @@ export async function buildQuotePdf(quote: QuoteRecord): Promise<Buffer> {
     drawParagraph(quote.notes);
   }
 
-  drawSectionTitle("Contacto SmartPro");
-  drawParagraph(
-    `${SMARTPRO_COMPANY.brandName} · ${SMARTPRO_COMPANY.legalName}\n${SMARTPRO_COMPANY.address}, ${SMARTPRO_COMPANY.commune}\n${SMARTPRO_COMPANY.phone} · ${SMARTPRO_COMPANY.email}\n${SMARTPRO_COMPANY.website}`,
-  );
+  drawSectionTitle(`Contacto ${agency.brandName}`);
+  drawParagraph([
+    agency.brandName,
+    agency.legalName,
+    agency.rut ? `RUT ${agency.rut}` : "",
+    [agency.address, agency.commune].filter(Boolean).join(", "),
+    [agency.phone, agency.email].filter(Boolean).join(" · "),
+    agency.website,
+  ].filter(Boolean).join("\n"));
   doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(`Estado interno: ${getQuoteStatusLabel(quote.status)}`, PAGE.margin, y, {
     width: contentWidth,
   });

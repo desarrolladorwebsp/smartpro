@@ -1,14 +1,21 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
+import { parseBusinessRecipient } from "../clients/business";
+import { parseCommercialClientId, parseContactSnapshot, recordBelongsToClient } from "../clients/commercial-clients";
+import { resolveCommercialRecipient } from "../clients/commercial-recipient";
+import { getAgencySnapshot } from "../agencies/repository";
+import { ensureAgencySchema } from "../agencies/schema";
+import { getSmartProFallback, parseAgencyIdentity, SMARTPRO_AGENCY_ID } from "../agencies/types";
 import { getClientById } from "../clients/repository";
 import { notifyPaymentReceived, notifySaleRegistered } from "../notifications/events";
-import { getQuoteById, listQuotesByClientId } from "../quotes/repository";
+import { getQuoteById, listQuotes } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
 import { parseSalePaymentAmount } from "./balances";
 import { parseSaleClpInput } from "./amounts";
-import { removeSaleReceiptUpload, saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
+import { ensureSaleReceiptStorage, removeSaleReceiptUpload, saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import { ensureSalePaymentTable, withSalePaymentTable } from "./schema";
 import { buildSalesSummary } from "./summary";
 import type { SalesPeriod } from "./summary";
@@ -40,6 +47,7 @@ export { getSaleStatusLabel, type QuoteForSaleConversion, type SaleRecord, type 
 type SaleRow = Prisma.SaleGetPayload<{
   include: {
     client: true;
+    business: { select: { name: true } };
     quote: { select: { id: true; number: true } };
     order: true;
     executive: true;
@@ -97,14 +105,22 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     invoiceDraft = null;
   }
 
+  const businessRecipient = parseBusinessRecipient(row.businessRecipient);
+  const contactSnapshot = parseContactSnapshot(row.contactSnapshot);
   return withSalePaymentTotals({
     id: row.id,
     number: row.number,
     status: isSaleStatus(row.status) ? row.status : "REGISTERED",
     source: isSaleSource(row.source) ? row.source : "MANUAL",
     clientId: row.clientId,
-    clientCompany: row.client.companyName,
-    clientName: `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
+    businessId: row.businessId,
+    accountName: row.business?.name,
+    contactSnapshot,
+    businessRecipient,
+    clientCompany: businessRecipient?.name ?? (contactSnapshot ? contactSnapshot.legacyCompanyName ?? "" : row.client.companyName),
+    clientName: contactSnapshot?.name ?? `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
+    agencyId: row.agencyId || SMARTPRO_AGENCY_ID,
+    agency: parseAgencyIdentity(row.agencySnapshot, getSmartProFallback()),
     quoteId: row.quoteId ?? null,
     quoteNumber: row.quote?.number ?? null,
     orderId: row.orderId ?? row.order?.id ?? null,
@@ -116,6 +132,9 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     createdByEmail: row.createdByEmail,
     soldAt: row.soldAt.toISOString(),
     observation: row.observation,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    archivedByEmail: row.archivedByEmail ?? null,
+    archiveReason: row.archiveReason ?? null,
     receiptPath: row.receiptPath,
     receiptFileName: row.receiptFileName,
     subtotal: decimalToNumber(row.subtotal),
@@ -140,14 +159,12 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     payments,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    archivedAt: row.archivedAt?.toISOString() ?? null,
-    archivedByEmail: row.archivedByEmail ?? null,
-    archiveReason: row.archiveReason ?? null,
   });
 }
 
 const saleInclude = {
   client: true,
+  business: { select: { name: true } },
   // Sales only needs the quote identifier and number. Selecting the full row
   // would also require optional quote schema changes to be deployed first.
   quote: { select: { id: true, number: true } },
@@ -465,10 +482,11 @@ async function recordPaidOrderPaymentOnce(input: {
   });
 }
 
-export async function listSales(): Promise<SaleRecord[]> {
+export async function listSales(filters: { businessId?: string; contactId?: string } = {}): Promise<SaleRecord[]> {
+  await ensureAgencySchema(getPrisma());
   return withSalePaymentTable(async () => {
     const rows = await getPrisma().sale.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, businessId: filters.businessId, clientId: filters.contactId },
       include: saleInclude,
       orderBy: { soldAt: "desc" },
     });
@@ -480,6 +498,7 @@ export async function listSales(): Promise<SaleRecord[]> {
 export async function getSaleByQuoteId(quoteId: string): Promise<SaleRecord | null> {
   const id = String(quoteId ?? "").trim();
   if (!id) return null;
+  await ensureAgencySchema(getPrisma());
 
   return withSalePaymentTable(async () => {
     const row = await getPrisma().sale.findUnique({
@@ -494,6 +513,7 @@ export async function getSaleByQuoteId(quoteId: string): Promise<SaleRecord | nu
 export async function getSaleById(id: string): Promise<SaleRecord | null> {
   const saleId = String(id ?? "").trim();
   if (!saleId) return null;
+  await ensureAgencySchema(getPrisma());
 
   return withSalePaymentTable(async () => {
     const row = await getPrisma().sale.findUnique({
@@ -552,6 +572,7 @@ export async function restoreArchivedSale(saleId: string): Promise<void> {
 }
 
 export async function listSalesByApiClientId(apiClientId: string): Promise<SaleRecord[]> {
+  await ensureAgencySchema(getPrisma());
   return withSalePaymentTable(async () => {
     const rows = await getPrisma().sale.findMany({
       where: { apiClientId, archivedAt: null },
@@ -569,6 +590,7 @@ export async function findSaleByExternalReference(
 ): Promise<SaleRecord | null> {
   const reference = String(externalReference ?? "").trim();
   if (!reference) return null;
+  await ensureAgencySchema(getPrisma());
 
   return withSalePaymentTable(async () => {
     const row = await getPrisma().sale.findFirst({
@@ -597,15 +619,24 @@ export type ExternalSaleInput = {
 /// Registra una venta cerrada fuera del pago en línea (transferencia, efectivo
 /// o acuerdo directo) reportada por una aplicación externa autorizada.
 export async function createExternalSale(input: ExternalSaleInput): Promise<SaleRecord> {
+  await ensureAgencySchema(getPrisma());
   await ensureSalePaymentTable();
+  const agency = await getAgencySnapshot(SMARTPRO_AGENCY_ID);
   const number = await nextNumber();
 
+  const { client, business: businessRecipient, contactSnapshot } = await resolveCommercialRecipient(input.clientId);
   const created = await getPrisma().sale.create({
     data: {
       number,
       status: "REGISTERED",
       source: "EXTERNAL_API",
       clientId: input.clientId,
+      contactId: client.contactId,
+      businessRecipient: businessRecipient ?? undefined,
+      businessId: businessRecipient?.id,
+      contactSnapshot,
+      agencyId: agency.id,
+      agencySnapshot: agency,
       executiveId: input.assignedExecutiveId,
       apiClientId: input.apiClientId,
       externalReference: input.externalReference,
@@ -646,11 +677,15 @@ export async function getSaleByOrderId(orderId: string): Promise<SaleRecord | nu
   });
 }
 
-export async function listQuotesForSaleConversion(clientId: string): Promise<QuoteForSaleConversion[]> {
-  const [quotes, converted] = await Promise.all([
-    listQuotesByClientId(clientId),
-    getPrisma().sale.findMany({ where: { clientId }, select: { quoteId: true } }),
-  ]);
+export async function listQuotesForSaleConversion(key: string): Promise<QuoteForSaleConversion[]> {
+  const account = parseCommercialClientId(key);
+  const quotes = await listQuotes(account?.kind === "business"
+    ? { businessId: account.id }
+    : { clientId: account?.id ?? key, individualOnly: account?.kind === "person" });
+  const converted = await getPrisma().sale.findMany({
+    where: { quoteId: { in: quotes.map((quote) => quote.id) } },
+    select: { quoteId: true },
+  });
 
   const convertedIds = new Set(converted.map((entry) => entry.quoteId).filter((id): id is string => Boolean(id)));
 
@@ -662,6 +697,8 @@ export async function listQuotesForSaleConversion(clientId: string): Promise<Quo
 
 export async function convertQuoteToSale(input: {
   quoteId: string;
+  accountId?: string;
+  contactId?: string;
   createdByEmail: string;
   observation?: string;
   receipt?: File | null;
@@ -679,6 +716,13 @@ export async function convertQuoteToSale(input: {
   const quote = await getQuoteById(input.quoteId);
   if (!quote) {
     throw new Error("La cotización no existe.");
+  }
+
+  if (input.accountId !== undefined && !recordBelongsToClient(quote, input.accountId)) {
+    throw new Error("La cotización no pertenece al cliente seleccionado.");
+  }
+  if (input.contactId !== undefined && quote.clientId !== input.contactId) {
+    throw new Error("La venta debe conservar el contacto de la cotización.");
   }
 
   const existing = await getSaleByQuoteId(quote.id);
@@ -716,6 +760,12 @@ export async function convertQuoteToSale(input: {
         status: "REGISTERED",
         source,
         clientId: client.id,
+        contactId: quote.contactId ?? undefined,
+        businessRecipient: quote.businessRecipient ?? undefined,
+        businessId: quote.businessId,
+        contactSnapshot: quote.contactSnapshot ?? undefined,
+        agencyId: quote.agencyId,
+        agencySnapshot: quote.agency,
         quoteId: quote.id,
         executiveId,
         createdByEmail,
@@ -755,9 +805,21 @@ export async function convertQuoteToSale(input: {
   }
 }
 
+export class DirectSaleRequestConflict extends Error {
+  constructor() {
+    super("La solicitud de venta ya se registró con otros datos. Inicia una venta nueva.");
+  }
+}
+
+function hashDirectRequest(value: string | Uint8Array) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 /** Registra una venta manual directamente, sin cotización ni orden asociada. */
 export async function createDirectSale(input: {
   clientId: string;
+  requestKey: string | null;
+  accountId?: string;
   serviceName: string;
   netAmount: unknown;
   soldAt?: unknown;
@@ -768,12 +830,11 @@ export async function createDirectSale(input: {
   paymentMethod?: unknown;
 }): Promise<SaleRecord> {
   return withSalePaymentTable(async () => {
+    await ensureAgencySchema(getPrisma());
+    const agency = await getAgencySnapshot(SMARTPRO_AGENCY_ID);
     await ensureSalePaymentTable();
     const clientId = String(input.clientId ?? "").trim();
     if (!clientId) throw new Error("Selecciona un cliente.");
-
-    const client = await getClientById(clientId);
-    if (!client) throw new Error("El cliente de la venta no existe.");
 
     const serviceName = String(input.serviceName ?? "").trim();
     if (!serviceName) throw new Error("Describe el servicio de la venta.");
@@ -796,54 +857,102 @@ export async function createDirectSale(input: {
     const paidAmount = parseDirectSaleAmount(input.paidAmount ?? 0, "El monto recibido");
     if (receipt && paidAmount < 1) throw new Error("Ingresa el monto recibido para adjuntar un comprobante.");
     if (paidAmount > total) throw new Error("El abono no puede superar el total de la venta.");
-    let paymentMethod: SaleManualPaymentMethod | null = null;
-    if (paidAmount > 0) {
-      paymentMethod = isSaleManualPaymentMethod(input.paymentMethod) ? input.paymentMethod : "other";
+    const paymentMethod = isSaleManualPaymentMethod(input.paymentMethod) ? input.paymentMethod : null;
+    if (paidAmount > 0 && !paymentMethod) {
+      throw new Error("Selecciona un medio de pago para el monto recibido.");
+    }
+    const requestKey = input.requestKey?.trim();
+    if (!requestKey || !/^[A-Za-z0-9_-]{16,128}$/.test(requestKey)) {
+      throw new Error("No se identificó esta operación. Vuelve a abrir el formulario de venta.");
     }
 
-    const executiveId = await resolveExecutiveId(client.assignedExecutiveId, createdByEmail);
-    const number = await nextNumber();
+    const directRequestKey = hashDirectRequest(JSON.stringify([createdByEmail, requestKey]));
+    const directRequestHash = hashDirectRequest(JSON.stringify([
+      input.accountId ?? null, clientId, netAmount, input.soldAt ? soldAt.toISOString() : null,
+      observation, paidAmount, paidAmount > 0 ? paymentMethod : null,
+      receipt && [receipt.name, receipt.type, hashDirectRequest(new Uint8Array(await receipt.arrayBuffer()))],
+    ]));
+
     const db = getPrisma();
-    const created = await db.sale.create({
-      data: {
-        number,
-        status: "REGISTERED",
-        source: "MANUAL",
-        clientId: client.id,
-        executiveId,
-        createdByEmail,
-        soldAt,
-        observation,
-        paymentMethod,
-        subtotal,
-        tax,
-        total,
-      },
-      include: saleInclude,
-    });
-
-    if (paidAmount < 1) {
-      const sale = toSaleRecord(created);
-      await notifySaleRegistered(sale);
-      return sale;
+    async function findExisting() {
+      const existing = await db.sale.findUnique({ where: { directRequestKey }, include: saleInclude });
+      if (existing && existing.directRequestHash !== directRequestHash) throw new DirectSaleRequestConflict();
+      return existing ? toSaleRecord(existing) : null;
     }
 
-    try {
-      const sale = await persistSalePayment(created.id, {
-        amount: paidAmount,
-        method: paymentMethod ?? "other",
-        source: "MANUAL",
-        createdByEmail,
-        observation,
-        receipt,
-        paidAt: soldAt,
-      });
-      await notifySaleRegistered(sale);
-      return sale;
-    } catch (error) {
-      await db.sale.delete({ where: { id: created.id } }).catch(() => undefined);
-      throw error;
+    const existing = await findExisting();
+    if (existing) return existing;
+
+    const { client, business: businessRecipient, contactSnapshot } = await resolveCommercialRecipient(clientId, input.accountId);
+    const executiveId = await resolveExecutiveId(client.assignedExecutiveId, createdByEmail);
+    if (receipt) await ensureSaleReceiptStorage(db);
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const number = await nextNumber();
+      try {
+        const created = await db.$transaction(async (tx) => {
+          const savedReceipt = receipt ? await saveSaleReceiptUpload(receipt, tx, { storageReady: true }) : null;
+          return tx.sale.create({
+            data: {
+              number,
+              status: "REGISTERED",
+              source: "MANUAL",
+              clientId: client.id,
+              contactId: client.contactId,
+              businessRecipient: businessRecipient ?? undefined,
+              businessId: businessRecipient?.id,
+              contactSnapshot,
+              agencyId: agency.id,
+              agencySnapshot: agency,
+              executiveId,
+              createdByEmail,
+              soldAt,
+              observation,
+              directRequestKey,
+              directRequestHash,
+              paymentMethod: paidAmount > 0 ? paymentMethod : null,
+              subtotal,
+              tax,
+              total,
+              ...(savedReceipt && { receiptPath: savedReceipt.path, receiptFileName: savedReceipt.fileName }),
+              ...(paidAmount > 0 && paymentMethod && {
+                payments: { create: {
+                  amount: paidAmount,
+                  method: paymentMethod,
+                  source: "MANUAL",
+                  createdByEmail,
+                  observation,
+                  paidAt: soldAt,
+                  receiptPath: savedReceipt?.path,
+                  receiptFileName: savedReceipt?.fileName,
+                } },
+              }),
+            },
+            include: saleInclude,
+          });
+        });
+
+        const sale = toSaleRecord(created);
+        const payment = sale.payments?.[0];
+        if (payment) await notifyPaymentReceived({
+          id: payment.id,
+          saleId: sale.id,
+          saleNumber: sale.number,
+          clientId: sale.clientId,
+          clientCompany: sale.clientCompany,
+          amount: payment.amount,
+        });
+        await notifySaleRegistered(sale);
+        return sale;
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          (error.code !== "P2002" && error.code !== "P2034")) throw error;
+        const replay = await findExisting();
+        if (replay) return replay;
+        if (attempt === 4) throw error;
+      }
     }
+    throw new Error("No se pudo registrar la venta.");
   });
 }
 

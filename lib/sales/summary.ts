@@ -1,8 +1,10 @@
+import { commercialClientId } from "../clients/commercial-clients";
 import { roundClp } from "./balances";
 import { withSalePaymentTotals, type SalePaymentMethod, type SaleRecord } from "./types";
 
 export type SalesDebtor = {
   clientId: string;
+  accountId: string;
   clientCompany: string;
   clientName: string;
   balanceDue: number;
@@ -66,16 +68,18 @@ export function buildSalesSummary(sales: SaleRecord[], now = new Date(), selecte
   const debtorMap = new Map<string, SalesDebtor>();
   for (const sale of active) {
     if (sale.balanceDue <= 0) continue;
-    const existing = debtorMap.get(sale.clientId);
+    const accountId = commercialClientId(sale.clientId, sale.businessId);
+    const existing = debtorMap.get(accountId);
     if (existing) {
       existing.balanceDue += sale.balanceDue;
       existing.saleCount += 1;
       continue;
     }
-    debtorMap.set(sale.clientId, {
+    debtorMap.set(accountId, {
+      accountId,
       clientId: sale.clientId,
-      clientCompany: sale.clientCompany,
-      clientName: sale.clientName,
+      clientCompany: sale.accountName ?? sale.clientCompany,
+      clientName: sale.businessId && (sale.accountName || sale.clientCompany) ? "" : sale.clientName,
       balanceDue: sale.balanceDue,
       saleCount: 1,
     });

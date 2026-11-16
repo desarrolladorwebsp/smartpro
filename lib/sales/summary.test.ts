@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildSalesSummary, summarizeFilteredSales } from "./summary";
 import type { SaleRecord } from "./types";
+import { DEFAULT_AGENCIES } from "../agencies/types";
 
 function sale(overrides: Partial<SaleRecord>): SaleRecord {
   return {
@@ -13,6 +14,8 @@ function sale(overrides: Partial<SaleRecord>): SaleRecord {
     clientId: "client-1",
     clientCompany: "Empresa SpA",
     clientName: "Ana Pérez",
+    agencyId: "smartpro",
+    agency: DEFAULT_AGENCIES[0]!,
     quoteId: null,
     quoteNumber: null,
     orderId: null,
@@ -76,4 +79,16 @@ test("summarizeFilteredSales ignora canceladas", () => {
   assert.equal(totals.sold, 119000);
   assert.equal(totals.collected, 0);
   assert.equal(totals.receivable, 119000);
+});
+
+test("consolida los saldos por empresa aunque las ventas tengan contactos distintos", () => {
+  const summary = buildSalesSummary([
+    sale({ businessId: "company", clientId: "contact-a" }),
+    sale({ id: "sale-2", businessId: "company", clientId: "contact-b" }),
+    sale({ id: "sale-3", clientId: "contact-a", clientCompany: "" }),
+  ]);
+  assert.deepEqual(summary.debtors.map(({ accountId, balanceDue, saleCount }) => ({ accountId, balanceDue, saleCount })), [
+    { accountId: "business:company", balanceDue: 238000, saleCount: 2 },
+    { accountId: "person:contact-a", balanceDue: 119000, saleCount: 1 },
+  ]);
 });

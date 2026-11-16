@@ -1,4 +1,5 @@
 import type { QuoteRecord } from "../quotes/types";
+import type { AgencyIdentity } from "../agencies/types";
 import type { SendEmailInput } from "../email/resend";
 import {
   getBalanceDue,
@@ -180,8 +181,14 @@ export type SaleRecord = {
   status: SaleStatus;
   source: SaleSource;
   clientId: string;
+  businessId?: string | null;
+  accountName?: string;
+  contactSnapshot?: import("../clients/commercial-clients").ContactSnapshot | null;
+  businessRecipient?: import("../clients/business").BusinessRecord | null;
   clientCompany: string;
   clientName: string;
+  agencyId: string;
+  agency: AgencyIdentity;
   quoteId: string | null;
   quoteNumber: string | null;
   orderId: string | null;

@@ -99,7 +99,11 @@ function assertMagicBytes(buffer: Buffer, mimeType: string) {
   }
 }
 
-export async function saveSaleReceiptUpload(file: File, client?: SaleReceiptDatabase): Promise<{ path: string; fileName: string }> {
+export async function saveSaleReceiptUpload(
+  file: File,
+  client?: SaleReceiptDatabase,
+  { storageReady = false } = {},
+): Promise<{ path: string; fileName: string }> {
   validateSaleReceiptUpload(file);
   const buffer = Buffer.from(await file.arrayBuffer());
   validateSaleReceiptUpload({ size: buffer.length, type: file.type });
@@ -113,7 +117,7 @@ export async function saveSaleReceiptUpload(file: File, client?: SaleReceiptData
   const id = randomUUID();
   const fileName = originalName || `comprobante.${extension}`;
   const db = database(client);
-  await ensureSaleReceiptStorage(db);
+  if (!storageReady) await ensureSaleReceiptStorage(db);
   await db.$executeRaw`INSERT INTO SaleReceipt (id, fileName, mimeType, bytes)
     VALUES (${id}, ${fileName}, ${file.type}, ${buffer})`;
 

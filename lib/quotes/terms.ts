@@ -1,7 +1,8 @@
-import { SMARTPRO_BANK, SMARTPRO_OFFICES } from "./company";
 import { paymentScheduleText, type QuoteProposal } from "./proposal";
 import { remainingPaymentPercent } from "./fields";
 import { getQuotePaymentMethods } from "./payment-methods";
+import { SMARTPRO_AGENCY_ID } from "../agencies/types";
+import type { AgencyIdentity } from "../agencies/types";
 
 export type QuoteScopeGroup = {
   planName: string;
@@ -48,19 +49,20 @@ export function buildServiceScope(items: Array<{ planName: string; includedItems
 
 export function buildQuoteCommercialTerms(input: {
   items: Array<{ planName: string; includedItems: string[] }>;
+  agency: AgencyIdentity;
   deliveryBusinessDays: number;
   initialPaymentPercent: number;
   validUntilLabel: string;
   proposal?: QuoteProposal | null;
 }): QuoteCommercialTerms {
   const bankLines = [
-    SMARTPRO_BANK.accountHolder,
-    `RUT ${SMARTPRO_BANK.rut}`,
-    SMARTPRO_BANK.bank,
-    SMARTPRO_BANK.accountType,
-    `N° ${SMARTPRO_BANK.accountNumber}`,
-    SMARTPRO_BANK.email,
-  ];
+    input.agency.bankAccountHolder,
+    input.agency.bankRut ? `RUT ${input.agency.bankRut}` : "",
+    input.agency.bankName,
+    input.agency.bankAccountType,
+    input.agency.bankAccountNumber ? `N° ${input.agency.bankAccountNumber}` : "",
+    input.agency.bankEmail,
+  ].filter(Boolean);
 
   return {
     scopeTitle: "Alcance del servicio",
@@ -96,12 +98,13 @@ export function buildQuoteCommercialTerms(input: {
       ] : []),
       {
         title: input.proposal ? "Datos bancarios" : "Medios de pago",
-        items: input.proposal ? undefined : getQuotePaymentMethods().map((method) => method.title),
+        items: input.proposal ? undefined : (input.agency.id === SMARTPRO_AGENCY_ID
+          ? getQuotePaymentMethods().map((method) => method.title)
+          : ["Transferencia bancaria"]),
         paragraphs: [
           ...(input.proposal ? [] : ["Datos bancarios:"]),
           ...bankLines,
-          "Oficinas:",
-          ...SMARTPRO_OFFICES,
+          ...(input.agency.offices ? ["Oficinas:", ...input.agency.offices.split(";").map((office) => office.trim()).filter(Boolean)] : []),
         ],
       },
     ],

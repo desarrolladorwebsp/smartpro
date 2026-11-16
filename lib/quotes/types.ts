@@ -1,3 +1,5 @@
+import type { AgencyIdentity } from "../agencies/types";
+
 import type { QuoteProposal } from "./proposal";
 
 export const QUOTE_STATUSES = ["DRAFT", "CREATED", "SENT", "ACCEPTED", "REJECTED"] as const;
@@ -53,11 +55,17 @@ export type QuoteRecord = {
   status: QuoteStatus;
   clientId: string;
   clientName: string;
+  businessId?: string | null;
+  contactId?: string | null;
+  contactSnapshot?: import("../clients/commercial-clients").ContactSnapshot | null;
+  businessRecipient?: import("../clients/business").BusinessRecord | null;
   clientCompany: string;
   clientEmail: string;
   clientPhone: string;
   clientRut: string;
   clientAddress: string;
+  agencyId: string;
+  agency: AgencyIdentity;
   createdByEmail: string;
   notes: string;
   proposal?: QuoteProposal | null;
@@ -77,6 +85,8 @@ export type QuoteRecord = {
 };
 
 export type QuoteListFilters = {
+  businessId?: string;
+  individualOnly?: boolean;
   query?: string;
   status?: QuoteStatus | "ALL";
   clientId?: string;

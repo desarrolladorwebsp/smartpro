@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { linkImportedContact } from "../../clients/account-repository";
 import { getPrismaClient } from "../../db";
 import { findClientByEmail, type ClientRecord } from "../../clients/repository";
 import { ApiError } from "./errors";
@@ -108,21 +109,27 @@ export async function resolveOrCreateClient(input: {
   });
 
   try {
-    const created = await getPrisma().client.create({
-      data: {
-        companyName: input.contact.companyName,
-        contactFirstName: input.contact.contactFirstName,
-        contactLastName: input.contact.contactLastName,
-        email: input.contact.email,
-        phone: input.contact.phone,
-        website: input.contact.website,
-        notes: input.contact.notes,
-        status: input.status ?? "POTENCIAL",
-        commercialStatus: "PROSPECTO",
-        apiClientId: input.apiClient.id,
-        ...interest,
-      },
-      include: { assignedExecutive: { select: { id: true, firstName: true, lastName: true, email: true } } },
+    const created = await getPrisma().$transaction(async (tx) => {
+      const legacy = await tx.client.create({
+        data: {
+          companyName: input.contact.companyName,
+          contactFirstName: input.contact.contactFirstName,
+          contactLastName: input.contact.contactLastName,
+          email: input.contact.email,
+          phone: input.contact.phone,
+          website: input.contact.website,
+          notes: input.contact.notes,
+          status: input.status ?? "POTENCIAL",
+          commercialStatus: "PROSPECTO",
+          apiClientId: input.apiClient.id,
+          ...interest,
+        },
+      });
+      await linkImportedContact(tx, legacy);
+      return tx.client.findUniqueOrThrow({
+        where: { id: legacy.id },
+        include: { assignedExecutive: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      });
     });
 
     return { client: toClientRecord(created), created: true };

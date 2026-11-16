@@ -12,6 +12,8 @@ import type { ClientRecord } from "@/lib/clients/types";
 import { listAssignableExecutives } from "@/lib/executives/repository";
 import type { ExecutiveRecord } from "@/lib/executives/types";
 import { listQuotesByClientId } from "@/lib/quotes/repository";
+import { listSales } from "@/lib/sales/repository";
+import type { SaleRecord } from "@/lib/sales/types";
 import type { QuoteRecord } from "@/lib/quotes/types";
 
 export const dynamic = "force-dynamic";
@@ -32,16 +34,18 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
   let clientNotes: ClientNoteRecord[] = [];
   let clientQuotes: QuoteRecord[] = [];
   let executives: ExecutiveRecord[] = [];
+  let sales: SaleRecord[] = [];
   let loadError = false;
 
   try {
     client = await getClientById(id);
 
     if (client) {
-      [clientNotes, clientQuotes, executives] = await Promise.all([
+      [clientNotes, clientQuotes, executives, sales] = await Promise.all([
         listClientNotes(client.id),
         listQuotesByClientId(client.id),
         listAssignableExecutives(),
+        listSales({ contactId: client.id }),
       ]);
     }
   } catch (error) {
@@ -80,6 +84,7 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
       executives={executives}
       initialQuotes={clientQuotes}
       notes={clientNotes}
+      sales={sales}
     />
   );
 }

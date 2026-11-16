@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { CheckoutValidationError } from "../orders/checkout";
 import { buildQuoteCheckoutOrder, getQuotePaymentBlockReason } from "./checkout";
 import type { QuoteRecord } from "./types";
+import { DEFAULT_AGENCIES } from "../agencies/types";
 
 function makeQuote(overrides: Partial<QuoteRecord> = {}): QuoteRecord {
   return {
@@ -17,6 +18,8 @@ function makeQuote(overrides: Partial<QuoteRecord> = {}): QuoteRecord {
     clientPhone: "+56 9 1111 1111",
     clientRut: "76.123.456-7",
     clientAddress: "Santa Elena 941 B",
+    agencyId: "smartpro",
+    agency: DEFAULT_AGENCIES[0]!,
     createdByEmail: "ejecutivo@smartpro.cl",
     notes: "",
     validUntil: "2027-09-24T23:59:59.000Z",

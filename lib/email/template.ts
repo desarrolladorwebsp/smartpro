@@ -29,6 +29,8 @@ export type CorporateEmailContent = {
   notices?: string[];
   closing?: string;
   signature?: string;
+  brandName?: string;
+  brandLogoUrl?: string;
   appUrl: string;
 };
 
@@ -140,17 +142,27 @@ export function renderCorporateEmailText(content: CorporateEmailContent): string
     content.closing ? "" : undefined,
     content.closing,
     "",
-    content.signature ?? EMAIL_BRAND.signature,
+    content.signature ?? `Equipo ${content.brandName ?? EMAIL_BRAND.name}`,
   ]);
 }
 
 export function renderCorporateEmail(content: CorporateEmailContent): { html: string; text: string } {
   const appUrl = normalizeAppUrl(content.appUrl);
-  const logoUrl = escapeHtml(getEmailLogoUrl(appUrl));
+  const brandName = content.brandName ?? EMAIL_BRAND.name;
+  const rawLogo = content.brandLogoUrl === undefined
+    ? getEmailLogoUrl(appUrl)
+    : content.brandLogoUrl.startsWith("http://") || content.brandLogoUrl.startsWith("https://")
+      ? assertHttpUrl(content.brandLogoUrl, "El logo de la agencia")
+      : content.brandLogoUrl.startsWith("/")
+        ? `${appUrl}${content.brandLogoUrl}`
+        : "";
+  const logoMarkup = rawLogo
+    ? `<img src="${escapeHtml(rawLogo)}" alt="${escapeHtml(brandName)}" width="${EMAIL_BRAND.logoWidth}" height="${EMAIL_BRAND.logoHeight}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:180px;background-color:${EMAIL_BRAND.colors.white};background-image:linear-gradient(${EMAIL_BRAND.colors.white},${EMAIL_BRAND.colors.white});" />`
+    : `<span style="display:block;font-family:${EMAIL_BRAND.fonts};font-size:22px;line-height:28px;font-weight:700;color:${EMAIL_BRAND.colors.navy};">${escapeHtml(brandName)}</span>`;
   const title = escapeHtml(content.title);
   const heading = escapeHtml(content.heading);
   const preheader = content.preheader ? escapeHtml(content.preheader) : "";
-  const signature = content.signature ?? EMAIL_BRAND.signature;
+  const signature = content.signature ?? `Equipo ${brandName}`;
   const intro = asList(content.intro);
 
   const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -200,7 +212,7 @@ export function renderCorporateEmail(content: CorporateEmailContent): { html: st
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;">
                   <tr>
                     <td class="email-logo-plate" align="center" bgcolor="${EMAIL_BRAND.colors.white}" style="background-color:${EMAIL_BRAND.colors.white};background-image:linear-gradient(${EMAIL_BRAND.colors.white},${EMAIL_BRAND.colors.white});padding:14px 22px;border-radius:16px;">
-                      <img src="${logoUrl}" alt="${escapeHtml(EMAIL_BRAND.name)}" width="${EMAIL_BRAND.logoWidth}" height="${EMAIL_BRAND.logoHeight}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:180px;background-color:${EMAIL_BRAND.colors.white};background-image:linear-gradient(${EMAIL_BRAND.colors.white},${EMAIL_BRAND.colors.white});" />
+                      ${logoMarkup}
                     </td>
                   </tr>
                 </table>

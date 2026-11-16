@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
-import { convertQuoteToSale, createDirectSale, listSales } from "@/lib/sales/repository";
+import { convertQuoteToSale, createDirectSale, DirectSaleRequestConflict, listSales } from "@/lib/sales/repository";
 
 export async function GET() {
   try {
@@ -33,6 +33,8 @@ export async function POST(request: Request) {
     const saleType = String(formData.get("saleType") ?? "QUOTE").trim();
     const quoteId = String(formData.get("quoteId") ?? "").trim();
     const clientId = String(formData.get("clientId") ?? "").trim();
+    const accountValue = formData.get("accountId");
+    const accountId = typeof accountValue === "string" ? accountValue.trim() : undefined;
     const serviceName = String(formData.get("serviceName") ?? "").trim();
     const netAmount = String(formData.get("netAmount") ?? "");
     const soldAt = String(formData.get("soldAt") ?? "").trim();
@@ -52,6 +54,8 @@ export async function POST(request: Request) {
     const sale = saleType === "DIRECT"
       ? await createDirectSale({
           clientId,
+          accountId,
+          requestKey: request.headers.get("Idempotency-Key"),
           serviceName,
           netAmount,
           soldAt,
@@ -63,6 +67,8 @@ export async function POST(request: Request) {
         })
       : await convertQuoteToSale({
           quoteId,
+          accountId,
+          contactId: accountId ? clientId : undefined,
           observation,
           receipt,
           paidAmount,
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ sale }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo registrar la venta.";
-    const status = message.includes("ya fue convertida") ? 409 : 400;
+    const status = error instanceof DirectSaleRequestConflict || message.includes("ya fue convertida") ? 409 : 400;
     console.error("[smartpro:sales:create]", error);
     return NextResponse.json({ error: message }, { status });
   }

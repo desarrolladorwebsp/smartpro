@@ -1,10 +1,14 @@
 "use client";
 
+import { CommercialRecipientFields } from "@/components/admin/CommercialRecipientFields";
+import { commercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+
 import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 import { ConfirmActionModal } from "@/components/admin/ConfirmActionModal";
 import type { ClientRecord } from "@/lib/clients/types";
+import type { AgencyProfile } from "@/lib/agencies/types";
 import { formatCurrency, parseMoney, TAX_RATE } from "@/lib/orders/service";
 import {
   QUOTE_DEFAULT_DELIVERY_DAYS,
@@ -67,7 +71,8 @@ type QuoteCreateModalProps = {
   open: boolean;
   onClose: () => void;
   client?: ClientRecord | null;
-  clients?: ClientRecord[];
+  accounts?: CommercialClient[];
+  initialAccountId?: string;
   quote?: QuoteRecord | null;
   onCreated?: (quote: QuoteRecord) => void;
 };
@@ -131,13 +136,29 @@ export function QuoteCreateModal({ open, ...props }: QuoteCreateModalProps) {
   return <QuoteCreateForm {...props} />;
 }
 
-function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Omit<QuoteCreateModalProps, "open">) {
+function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quote, onCreated }: Omit<QuoteCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
   const hydratedQuoteId = useRef<string | null>(null);
   const [catalog, setCatalog] = useState<QuoteCatalogGroup[]>([]);
+  const [agencies, setAgencies] = useState<AgencyProfile[]>([]);
+  const [agencyId, setAgencyId] = useState(quote?.agencyId ?? "smartpro");
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [clientId, setClientId] = useState(quote?.clientId ?? client?.id ?? "");
+  const accountOptions = !accounts.length && client ? [{
+    id: commercialClientId(client.id, client.businessId),
+    kind: client.businessId ? "business" as const : "person" as const,
+    name: client.businessName || personName(client),
+    rut: client.businessId ? "" : client.rut,
+    href: "",
+    crmStage: client.crmStage ?? "NEW" as const,
+    status: client.status,
+    contacts: [client],
+  }] : accounts;
+  const [accountId, setAccountId] = useState(initialAccountId ?? (client ? commercialClientId(client.id, client.businessId) : ""));
+  const selectedAccount = accountOptions.find((entry) => entry.id === accountId);
+  const contacts = selectedAccount?.contacts ?? [];
+  const selectedContact = contacts.find((entry) => entry.id === clientId);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedEntry[]>([]);
   const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
@@ -210,6 +231,17 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/agencies", { cache: "no-store" })
+      .then(async (response) => {
+        const data = (await response.json().catch(() => ({}))) as { agencies?: AgencyProfile[] };
+        if (response.ok && !cancelled) setAgencies((data.agencies ?? []).filter((agency) => agency.active));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -386,8 +418,8 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
   }
 
   function canSubmit(): boolean {
-    if (!clientId) {
-      setSubmitError("Selecciona un cliente.");
+    if (!quote && (!accountId || !selectedContact)) {
+      setSubmitError(accountId ? "Selecciona un contacto." : "Selecciona un cliente.");
       return false;
     }
     if (customDraft && customDraftIsDirty(customDraft)) {
@@ -442,6 +474,7 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
 
     const payload = {
       clientId,
+      ...(quote ? {} : { agencyId, accountId }),
       status,
       notes,
       ...(useProposal ? { proposal: proposalInput() } : {}),
@@ -501,10 +534,8 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
             </h2>
             <p className="mt-1 text-sm text-muted">
               {quote
-                ? `${quote.clientCompany} · ${quote.clientName}`
-                : client
-                  ? `${client.companyName} · ${client.contactFirstName} ${client.contactLastName}`
-                  : "Selecciona cliente, planes y condiciones."}
+                ? [quote.clientCompany, quote.clientName].filter(Boolean).join(" · ")
+                : "Selecciona el cliente, el contacto y los servicios."}
             </p>
           </div>
           <button
@@ -521,19 +552,27 @@ function QuoteCreateForm({ onClose, client, clients = [], quote, onCreated }: Om
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
             <div className="space-y-4">
-              {!client && !quote ? (
+              {quote ? (
+                <div className="rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm">
+                  <span className="text-muted">Agencia emisora: </span><strong>{quote.agency.brandName}</strong>
+                  <span className="ml-2 text-xs text-muted">(identidad guardada al crear)</span>
+                </div>
+              ) : (
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Cliente</span>
-                  <select value={clientId} onChange={(event) => setClientId(event.target.value)} className="dashboard-field">
-                    <option value="">Selecciona un cliente</option>
-                    {clients.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.companyName} — {entry.contactFirstName} {entry.contactLastName}
-                      </option>
-                    ))}
+                  <span className="mb-1.5 block text-sm font-semibold text-foreground">Agencia emisora</span>
+                  <select value={agencyId} onChange={(event) => setAgencyId(event.target.value)} className="dashboard-field">
+                    {agencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.brandName}</option>)}
+                    {!agencies.some((agency) => agency.id === agencyId) ? <option value="smartpro">SmartPro (predeterminada)</option> : null}
                   </select>
                 </label>
-              ) : null}
+              )}
+              {!quote && <CommercialRecipientFields
+                accounts={accountOptions} accountId={accountId}
+                onAccountChange={(id) => { setAccountId(id); setClientId(""); setSubmitError(""); }}
+                contacts={contacts.map((entry) => ({ id: entry.id, name: personName(entry), email: entry.email }))}
+                contactId={clientId} onContactChange={(id) => { setClientId(id); setSubmitError(""); }}
+                disabled={Boolean(isSaving)}
+              />}
 
               <button
                 type="button"

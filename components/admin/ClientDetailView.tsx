@@ -20,6 +20,7 @@ import {
 
 import { ClientQuickActions } from "@/components/admin/ClientQuickActions";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
+import type { SaleRecord } from "@/lib/sales/types";
 import { QuoteCreateModal } from "@/components/admin/QuoteCreateModal";
 import type { ClientNoteRecord } from "@/lib/clients/repository";
 import {
@@ -52,6 +53,7 @@ type ClientDetailViewProps = {
   executives: ExecutiveRecord[];
   initialQuotes: QuoteRecord[];
   notes: ClientNoteRecord[];
+  sales: SaleRecord[];
 };
 
 function formatDate(value: string | null): string {
@@ -61,7 +63,7 @@ function formatDate(value: string | null): string {
   return new Intl.DateTimeFormat("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
-export function ClientDetailView({ initialClient, executives, initialQuotes, notes }: ClientDetailViewProps) {
+export function ClientDetailView({ initialClient, executives, initialQuotes, notes, sales }: ClientDetailViewProps) {
   const [client, setClient] = useState(initialClient);
   const [quotes, setQuotes] = useState(initialQuotes);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
@@ -73,20 +75,20 @@ export function ClientDetailView({ initialClient, executives, initialQuotes, not
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
 
   const initials = useMemo(() => {
-    return client.companyName
+    return (client.contactFirstName + " " + client.contactLastName).trim()
       .split(" ")
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "C";
-  }, [client.companyName]);
+  }, [client.contactFirstName, client.contactLastName]);
 
   const interest = [client.interestServiceName, client.interestSubcategoryName, client.interestPlanName]
     .filter(Boolean)
     .join(" / ") || "—";
 
   const infoItems: Array<{ label: string; value: string; icon: LucideIcon }> = [
-    { label: "Empresa", value: client.companyName, icon: Building2 },
+    { label: "Cliente asociado", value: client.businessName ?? "Independiente", icon: Building2 },
     { label: "RUT", value: client.rut || "—", icon: BriefcaseBusiness },
     { label: "Contacto", value: `${client.contactFirstName} ${client.contactLastName}`.trim() || "—", icon: UserRound },
     { label: "Email", value: client.email || "—", icon: Mail },
@@ -151,7 +153,8 @@ export function ClientDetailView({ initialClient, executives, initialQuotes, not
               <h1 className="truncate text-2xl font-bold tracking-[-0.05em] text-foreground sm:text-[1.85rem]">
                 {client.contactFirstName} {client.contactLastName}
               </h1>
-              <p className="mt-1 truncate text-sm text-muted">{client.companyName}</p>
+              {client.businessId ? <Link className="mt-1 block truncate text-sm font-semibold text-primary" href={`/dashboard/clientes/ficha/${client.businessId}`}>{client.businessName}</Link>
+                : <p className="mt-1 truncate text-sm text-muted">Cliente</p>}
             </div>
           </div>
 
@@ -357,6 +360,21 @@ export function ClientDetailView({ initialClient, executives, initialQuotes, not
         onCotizar={() => setIsQuoteOpen(true)}
         onAssignExecutive={() => setIsAssignOpen(true)}
       />
+
+      <section className="space-y-3 rounded-[26px] border border-border bg-white p-5">
+        <h2 className="text-xl font-bold text-foreground">Ventas</h2>
+        {sales.length === 0 && <p className="text-sm text-muted">Sin ventas registradas.</p>}
+        <ul className="divide-y divide-border">
+          {sales.map((sale) => (
+            <li key={sale.id}>
+              <Link href={`/dashboard/ventas/${sale.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm text-primary">
+                <span>{sale.number}{sale.clientCompany && ` · ${sale.clientCompany}`}</span>
+                <span>{formatCurrency(sale.total)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <QuoteCreateModal
         open={isQuoteOpen}

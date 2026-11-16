@@ -1,5 +1,7 @@
 "use client";
 
+import { commercialClientFilters, recordBelongsToClient, type CommercialClient } from "@/lib/clients/commercial-clients";
+
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
@@ -7,7 +9,6 @@ import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { QuoteCreateModal } from "@/components/admin/QuoteCreateModal";
-import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import {
   QUOTE_STATUSES,
@@ -33,12 +34,12 @@ function formatDate(value: string | null): string {
 
 type QuotesDashboardProps = {
   initialQuotes: QuoteRecord[];
-  clients: ClientRecord[];
+  accounts: CommercialClient[];
   initialClientId?: string;
   authorNames: Record<string, string>;
 };
 
-export function QuotesDashboard({ initialQuotes, clients, initialClientId, authorNames }: QuotesDashboardProps) {
+export function QuotesDashboard({ initialQuotes, accounts, initialClientId, authorNames }: QuotesDashboardProps) {
   const [quotes, setQuotes] = useState(initialQuotes);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "ALL">("ALL");
@@ -65,7 +66,7 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId, autho
           .toLowerCase()
           .includes(query);
       const matchesStatus = statusFilter === "ALL" || quote.status === statusFilter;
-      const matchesClient = clientFilter === "ALL" || quote.clientId === clientFilter;
+      const matchesClient = clientFilter === "ALL" || (clientFilter.includes(":") ? recordBelongsToClient(quote, clientFilter) : quote.clientId === clientFilter);
       const created = new Date(quote.createdAt);
       const matchesFrom = !fromDate || created >= fromDate;
       const matchesTo = !toDate || created <= toDate;
@@ -105,10 +106,8 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId, autho
           </select>
           <select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} className="dashboard-field">
             <option value="ALL">Todos los clientes</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.companyName}
-              </option>
+            {commercialClientFilters(accounts, quotes, clientFilter).map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
             ))}
           </select>
           <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="dashboard-field" aria-label="Desde" />
@@ -149,10 +148,10 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId, autho
                   const authorName = authorNames[authorEmail.toLowerCase()];
                   return (
                     <tr key={quote.id} className="border-t border-border">
-                      <td className="px-4 py-3 font-semibold">{quote.number}</td>
+                      <td className="px-4 py-3 font-semibold">{quote.number}<div className="mt-1 text-xs font-medium text-muted">{quote.agency.brandName}</div></td>
                       <td className="px-4 py-3">
-                        <div className="font-medium">{quote.clientCompany}</div>
-                        <div className="text-xs text-muted">{quote.clientName}</div>
+                        <div className="font-medium">{quote.clientCompany || quote.clientName}</div>
+                        {quote.clientCompany && <div className="text-xs text-muted">{quote.clientName}</div>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="break-all font-medium">{authorName || authorEmail || "—"}</div>
@@ -183,7 +182,8 @@ export function QuotesDashboard({ initialQuotes, clients, initialClientId, autho
       <QuoteCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        clients={clients}
+        accounts={accounts}
+        initialAccountId={accounts.some((entry) => entry.id === clientFilter) ? clientFilter : undefined}
         onCreated={(quote) => {
           setQuotes((current) => [quote, ...current.filter((entry) => entry.id !== quote.id)]);
           setSearch("");

@@ -1,3 +1,4 @@
+import { isClientStatus } from "@/lib/clients/types";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
@@ -7,10 +8,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     await requireAdminSession();
     const { id } = await params;
-    const body = (await request.json().catch(() => ({}))) as { status?: "ACTIVO" | "POTENCIAL" | "INACTIVO" };
+    const body = (await request.json().catch(() => ({}))) as { status?: unknown };
 
-    if (!body.status) {
-      return NextResponse.json({ error: "Falta el estado del cliente." }, { status: 400 });
+    if (!isClientStatus(body?.status)) {
+      return NextResponse.json({ error: "La clasificación del cliente no es válida." }, { status: 400 });
     }
 
     const client = await updateClientStatus(id, body.status);

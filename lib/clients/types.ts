@@ -1,4 +1,22 @@
-export type ClientStatus = "ACTIVO" | "POTENCIAL" | "INACTIVO";
+export const CRM_STAGES = [
+  { id: "NEW", label: "nuevo" },
+  { id: "CONTACTED", label: "contactado o en reunion" },
+  { id: "QUOTED", label: "cotizacion enviada" },
+  { id: "NEGOTIATION", label: "negociacion o listo" },
+] as const;
+
+export type ClientCrmStage = (typeof CRM_STAGES)[number]["id"];
+
+export function isClientCrmStage(value: unknown): value is ClientCrmStage {
+  return CRM_STAGES.some((stage) => stage.id === value);
+}
+
+export const CLIENT_STATUSES = ["POTENCIAL", "ACTIVO", "RECURRENTE", "INACTIVO"] as const;
+export type ClientStatus = (typeof CLIENT_STATUSES)[number];
+
+export function isClientStatus(value: unknown): value is ClientStatus {
+  return CLIENT_STATUSES.some((status) => status === value);
+}
 
 export const CLIENT_COMMERCIAL_STATUSES = ["PROSPECTO", "EN_SEGUIMIENTO", "CERRADO_PERDIDO"] as const;
 
@@ -27,6 +45,11 @@ export type ClientRecord = {
   notes: string;
   status: ClientStatus;
   commercialStatus: ClientCommercialStatus;
+  crmStage?: ClientCrmStage;
+  businessId?: string | null;
+  contactId?: string;
+  jobTitle?: string;
+  businessName?: string;
   assignedExecutiveId: string | null;
   assignedExecutive: ClientAssignedExecutive | null;
   interestServiceId: string | null;
@@ -85,6 +108,7 @@ export function getClientStatusLabel(status: ClientStatus): string {
     ACTIVO: "Activo",
     POTENCIAL: "Potencial",
     INACTIVO: "Inactivo",
+    RECURRENTE: "Recurrente",
   };
 
   return labels[status] ?? status;

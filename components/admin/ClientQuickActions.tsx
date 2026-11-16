@@ -39,7 +39,7 @@ function buildForm(client: ClientRecord): ContactForm {
     lastName: client.contactLastName,
     phone: client.phone,
     email: client.email,
-    companyName: client.companyName,
+    companyName: client.businessName ?? client.companyName,
     website: client.website,
     socialMedia: "",
     observation: "",
@@ -203,7 +203,6 @@ export function ClientQuickActions({ client, onCotizar, onAssignExecutive }: Cli
     if (!form.origin) nextErrors.origin = "Selecciona el origen del cliente.";
     if (!form.firstName.trim()) nextErrors.firstName = "El nombre es obligatorio.";
     if (!form.lastName.trim()) nextErrors.lastName = "El apellido es obligatorio.";
-    if (!form.companyName.trim()) nextErrors.companyName = "El nombre de la empresa es obligatorio.";
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       nextErrors.email = "Ingresa un correo válido.";
     }
@@ -423,8 +422,8 @@ export function ClientQuickActions({ client, onCotizar, onAssignExecutive }: Cli
                 <Field label="Correo electrónico" error={errors.email}>
                   <input type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} className="dashboard-field" />
                 </Field>
-                <Field label="Nombre de la empresa" error={errors.companyName} required>
-                  <input value={form.companyName} onChange={(event) => updateField("companyName", event.target.value)} className="dashboard-field" />
+                <Field label={client.businessId ? "Cliente asociado" : "Cliente informado (opcional)"} error={errors.companyName}>
+                  <input value={form.companyName} readOnly={Boolean(client.businessId)} onChange={(event) => updateField("companyName", event.target.value)} className="dashboard-field" />
                 </Field>
                 <Field label="Dominio / sitio web" error={errors.website}>
                   <input value={form.website} onChange={(event) => updateField("website", event.target.value)} className="dashboard-field" placeholder="www.empresa.cl" />

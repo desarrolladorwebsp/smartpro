@@ -1,759 +1,169 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Building2, Layers3, StickyNote, User } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
+import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
-import { ClientInterestFields } from "@/components/admin/ClientInterestFields";
-import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
-import {
-  DashboardFormActions,
-  DashboardFormField,
-  DashboardFormFooter,
-  DashboardFormModal,
-  DashboardFormSection,
-  dashboardFieldClassName,
-  dashboardTextareaClassName,
-} from "@/components/admin/dashboard-form";
-import type { ClientInterestCatalogService } from "@/lib/clients/interest";
-import { getClientStatusLabel, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
-
-type FormState = {
-  companyName: string;
-  rut: string;
-  contactFirstName: string;
-  contactLastName: string;
-  email: string;
-  phone: string;
-  website: string;
-  notes: string;
-  status: ClientStatus;
-  interestServiceId: string;
-  interestSubcategoryId: string;
-  interestPlanId: string;
-};
-
-const emptyForm: FormState = {
-  companyName: "",
-  rut: "",
-  contactFirstName: "",
-  contactLastName: "",
-  email: "",
-  phone: "",
-  website: "",
-  notes: "",
-  status: "ACTIVO",
-  interestServiceId: "",
-  interestSubcategoryId: "",
-  interestPlanId: "",
-};
+import type { BusinessProfile } from "@/lib/clients/business";
+import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
+import { CLIENT_STATUSES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
 
 const statusStyles: Record<ClientStatus, string> = {
-  ACTIVO: "bg-emerald-100 text-emerald-700",
-  POTENCIAL: "bg-amber-100 text-amber-700",
-  INACTIVO: "bg-slate-200 text-slate-700",
+  POTENCIAL: "bg-amber-50 text-amber-800",
+  ACTIVO: "bg-emerald-50 text-emerald-800",
+  RECURRENTE: "bg-violet-50 text-violet-800",
+  INACTIVO: "bg-slate-100 text-slate-700",
 };
 
-function normalizeRut(value: string): string {
-  const digits = value.replace(/[^0-9kK]/g, "");
-  if (!digits) return "";
+const collapsePreferenceEvent = "smartpro:crm-collapse-preference";
 
-  const body = digits.slice(0, -1);
-  const verifier = digits.slice(-1).toUpperCase();
-
-  if (!body || !verifier) return "";
-
-  return `${body}-${verifier}`;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("es-CL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "C";
-}
-
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-
-  return Boolean(
-    target.closest(
-      "a, button, select, input, textarea, label, [role='button'], [data-row-stop-navigation='true']",
-    ),
-  );
-}
-
-const clientRowInteractiveClassName =
-  "cursor-pointer border-t border-border align-top transition-[background-color,box-shadow] duration-200 hover:bg-primary/[0.04] hover:shadow-[inset_3px_0_0_0_rgba(109,40,217,0.18)] focus-visible:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/25";
-
-const clientCardInteractiveClassName =
-  "cursor-pointer rounded-[20px] border border-border bg-soft-background p-4 transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/20 hover:bg-primary/[0.04] hover:shadow-[0_8px_24px_rgba(109,40,217,0.06)] focus-visible:border-primary/25 focus-visible:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25";
-
-type ClientsDashboardProps = {
-  initialClients?: ClientRecord[];
-};
-
-export function ClientsDashboard({ initialClients = [] }: ClientsDashboardProps) {
-  const router = useRouter();
-  const [clients, setClients] = useState<ClientRecord[]>(initialClients);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | "TODOS">("TODOS");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [submitError, setSubmitError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [listError, setListError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [catalog, setCatalog] = useState<ClientInterestCatalogService[]>([]);
-  const [catalogError, setCatalogError] = useState("");
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
-
-  function openClientDetail(clientId: string) {
-    router.push(`/dashboard/clientes/${clientId}`);
-  }
-
-  function handleClientRowActivate(
-    clientId: string,
-    event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
-  ) {
-    if (isInteractiveTarget(event.target)) return;
-
-    if ("key" in event) {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-    }
-
-    openClientDetail(clientId);
-  }
-
-  const fetchClients = async () => {
-    setIsLoading(true);
-    setListError("");
-    try {
-      const response = await fetch("/api/clients", { method: "GET", cache: "no-store" });
-      const data = (await response.json().catch(() => ({}))) as {
-        clients?: ClientRecord[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        setListError(data.error ?? "No se pudieron cargar los clientes.");
-        return;
-      }
-
-      setClients(Array.isArray(data.clients) ? data.clients : []);
-      router.refresh();
-    } catch {
-      setListError("No se pudieron cargar los clientes.");
-    } finally {
-      setIsLoading(false);
-    }
+function subscribeToCollapsePreference(notify: () => void) {
+  window.addEventListener("storage", notify);
+  window.addEventListener(collapsePreferenceEvent, notify);
+  return () => {
+    window.removeEventListener("storage", notify);
+    window.removeEventListener(collapsePreferenceEvent, notify);
   };
+}
 
-  const filteredClients = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return clients.filter((client) => {
-      const matchesSearch =
-        !query ||
-        [
-          client.companyName,
-          client.rut,
-          `${client.contactFirstName} ${client.contactLastName}`,
-          client.email,
-          client.phone,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-
-      const matchesStatus = statusFilter === "TODOS" || client.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [clients, search, statusFilter]);
-
-  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== "TODOS";
-  const isEmptyCatalog = !isLoading && !listError && clients.length === 0 && !hasActiveFilters;
-
-  function handleFieldChange(field: keyof FormState, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-    setSubmitError("");
-    setSuccessMessage("");
+function readCollapsePreference(key: string) {
+  try {
+    return window.localStorage.getItem(key) ?? "[]";
+  } catch {
+    return "[]";
   }
+}
 
-  function handleInterestChange(next: {
-    interestServiceId: string;
-    interestSubcategoryId: string;
-    interestPlanId: string;
-  }) {
-    setForm((current) => ({ ...current, ...next }));
-    setSubmitError("");
-    setSuccessMessage("");
+function getDefaultCollapsePreference() {
+  return "[]";
+}
+
+function parseCollapsedCards(snapshot: string) {
+  try {
+    const ids: unknown = JSON.parse(snapshot);
+    return new Set<string>(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set<string>();
   }
+}
 
-  async function loadCatalog() {
-    setIsLoadingCatalog(true);
-    setCatalogError("");
+export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey }: {
+  initialClients: ClientRecord[];
+  initialBusinesses: BusinessProfile[];
+  assignable: ClientAssignedExecutive[];
+  preferenceKey: string;
+}) {
+  const [temporaryCollapsed, setTemporaryCollapsed] = useState<Set<string> | null>(null);
+  const collapseSnapshot = useSyncExternalStore(
+    subscribeToCollapsePreference,
+    () => readCollapsePreference(preferenceKey),
+    getDefaultCollapsePreference,
+  );
+  const savedCollapsed = useMemo(() => parseCollapsedCards(collapseSnapshot), [collapseSnapshot]);
+  const collapsed = temporaryCollapsed ?? savedCollapsed;
+  const [view, setView] = useState<"board" | "list">("board");
+  const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [executive, setExecutive] = useState("");
+  const [service, setService] = useState("");
+  const [error, setError] = useState("");
+  const [stages, setStages] = useState<Record<string, ClientCrmStage>>({});
+  const [classifications, setClassifications] = useState<Record<string, ClientStatus>>({});
+  const accounts = useMemo(() => listCommercialClients(initialClients, initialBusinesses), [initialClients, initialBusinesses]);
+  const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
+  const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
+  const query = search.trim().toLowerCase();
+  const visible = accounts.map((account) => ({
+    ...account, crmStage: stages[account.id] ?? account.crmStage, status: classifications[account.id] ?? account.status,
+  })).filter((account) =>
+    (!status || account.status === status) &&
+    (!query || [account.name, account.rut, ...account.contacts.flatMap((contact) =>
+      [personName(contact), contact.email, contact.phone, contact.jobTitle])].join(" ").toLowerCase().includes(query)) &&
+    (!executive || (account.kind === "business" ? account.responsible?.id === executive : account.contacts[0]?.assignedExecutiveId === executive)) &&
+    (!service || account.contacts.some((contact) => contact.interestServiceName === service)));
+
+  const allCollapsed = accounts.length > 0 && accounts.every(({ id }) => collapsed.has(id));
+  function setCardsCollapsed(ids: string[], compact: boolean) {
+    const next = new Set(temporaryCollapsed ?? parseCollapsedCards(readCollapsePreference(preferenceKey)));
+    for (const id of ids) {
+      if (compact) next.add(id);
+      else next.delete(id);
+    }
 
     try {
-      const response = await fetch("/api/catalog", { cache: "no-store" });
-      const data = (await response.json().catch(() => ({}))) as {
-        tree?: Array<{
-          id?: string;
-          name?: string;
-          subcategories?: Array<{
-            id?: string;
-            name?: string;
-            plans?: Array<{ id?: string; name?: string }>;
-          }>;
-        }>;
-        error?: string;
-      };
+      window.localStorage.setItem(preferenceKey, JSON.stringify([...next]));
+      setTemporaryCollapsed(null);
+      window.dispatchEvent(new Event(collapsePreferenceEvent));
+    } catch {
+      setTemporaryCollapsed(next);
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "No se pudo cargar el catálogo.");
-      }
-
-      setCatalog(
-        (data.tree ?? []).flatMap((service) => {
-          if (!service.id || !service.name) return [];
-          return [
-            {
-              id: service.id,
-              name: service.name,
-              categories: (service.subcategories ?? []).flatMap((category) => {
-                if (!category.id || !category.name) return [];
-                return [
-                  {
-                    id: category.id,
-                    name: category.name,
-                    plans: (category.plans ?? []).flatMap((plan) =>
-                      plan.id && plan.name ? [{ id: plan.id, name: plan.name }] : [],
-                    ),
-                  },
-                ];
-              }),
-            },
-          ];
-        }),
-      );
+  async function changeStatus(key: string, value: ClientStatus) {
+    setError("");
+    const [kind, id] = key.split(":");
+    const url = kind === "business" ? `/api/businesses/${encodeURIComponent(id)}/crm` : `/api/clients/${encodeURIComponent(id)}/status`;
+    try {
+      const response = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: value }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar el estado.");
+      setClassifications((current) => ({ ...current, [key]: value }));
     } catch (error) {
-      setCatalog([]);
-      setCatalogError(error instanceof Error ? error.message : "No se pudo cargar el catálogo.");
-    } finally {
-      setIsLoadingCatalog(false);
-    }
-  }
-
-  function openCreateModal() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setErrors({});
-    setSubmitError("");
-    setSuccessMessage("");
-    setIsModalOpen(true);
-    void loadCatalog();
-  }
-
-  function openEditModal(client: ClientRecord) {
-    setEditingId(client.id);
-    setForm({
-      companyName: client.companyName,
-      rut: client.rut,
-      contactFirstName: client.contactFirstName,
-      contactLastName: client.contactLastName,
-      email: client.email,
-      phone: client.phone,
-      website: client.website,
-      notes: client.notes,
-      status: client.status,
-      interestServiceId: client.interestServiceId ?? "",
-      interestSubcategoryId: client.interestSubcategoryId ?? "",
-      interestPlanId: client.interestPlanId ?? "",
-    });
-    setErrors({});
-    setSubmitError("");
-    setSuccessMessage("");
-    setIsModalOpen(true);
-    void loadCatalog();
-  }
-
-  function validateForm(): Partial<Record<keyof FormState, string>> {
-    const nextErrors: Partial<Record<keyof FormState, string>> = {};
-
-    if (!form.companyName.trim()) nextErrors.companyName = "La empresa es obligatoria.";
-    if (!form.contactFirstName.trim()) nextErrors.contactFirstName = "El nombre del contacto es obligatorio.";
-    if (!form.contactLastName.trim()) nextErrors.contactLastName = "El apellido del contacto es obligatorio.";
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      nextErrors.email = "El email no tiene un formato válido.";
-    }
-
-    setErrors(nextErrors);
-    return nextErrors;
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const nextErrors = validateForm();
-
-    if (Object.keys(nextErrors).length > 0) {
-      return;
-    }
-
-    setSubmitError("");
-    setSuccessMessage("");
-    setIsSaving(true);
-
-    try {
-      const payload = {
-        companyName: form.companyName.trim(),
-        rut: normalizeRut(form.rut) || form.rut.trim(),
-        contactFirstName: form.contactFirstName.trim(),
-        contactLastName: form.contactLastName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        website: form.website.trim(),
-        notes: form.notes.trim(),
-        status: form.status,
-        interestServiceId: form.interestServiceId,
-        interestSubcategoryId: form.interestSubcategoryId,
-        interestPlanId: form.interestPlanId,
-      };
-
-      const response = await fetch("/api/clients", {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payload,
-          ...(editingId ? { id: editingId } : {}),
-        }),
-      });
-
-      const data = (await response.json().catch(() => ({}))) as { error?: string; client?: ClientRecord };
-
-      if (!response.ok) {
-        setSubmitError(data.error ?? "No se pudo guardar el cliente.");
-        return;
-      }
-
-      setSuccessMessage(editingId ? "Cliente actualizado correctamente." : "Cliente creado correctamente.");
-      setIsModalOpen(false);
-      setForm(emptyForm);
-      setEditingId(null);
-      await fetchClients();
-    } catch {
-      setSubmitError("No se pudo guardar el cliente.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleChangeStatus(clientId: string, nextStatus: ClientStatus) {
-    try {
-      const response = await fetch(`/api/clients/${clientId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      if (response.ok) {
-        await fetchClients();
-      }
-    } catch {
-      // No-op; show false in UI only if needed in the future.
+      setError(error instanceof Error ? error.message : "No se pudo guardar el estado.");
     }
   }
 
   return (
-    <div className="space-y-6">
-      <DashboardPageHeader
-        icon="clientes"
-        eyebrow="Gestión comercial"
-        title="Clientes"
-        action={{ label: "Nuevo cliente", onClick: openCreateModal }}
-        trailing={
-          <p className="text-sm font-semibold text-muted">
-            {clients.length} {clients.length === 1 ? "cliente" : "clientes"}
-          </p>
-        }
-      />
-
-      <div className="rounded-[24px] border border-border bg-white p-4 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-md">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar empresa, contacto, email o RUT"
-              className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 pr-10 text-sm text-foreground outline-none transition focus:border-primary"
-            />
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as ClientStatus | "TODOS")}
-            className="w-full rounded-2xl border border-border bg-soft-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary lg:max-w-xs"
-          >
-            <option value="TODOS">Todos los estados</option>
-            <option value="ACTIVO">Activo</option>
-            <option value="POTENCIAL">Potencial</option>
-            <option value="INACTIVO">Inactivo</option>
-          </select>
-        </div>
+    <div className={view === "board" ? "flex h-[max(34rem,calc(100dvh-6rem))] min-w-0 flex-col gap-4 sm:h-[max(34rem,calc(100dvh-7rem))] lg:h-[max(34rem,calc(100dvh-4rem))]" : "space-y-5"}>
+      <div className="sticky top-16 z-20 -mt-4 shrink-0 pt-4 sm:-mt-6 sm:pt-6 lg:top-0 lg:-mt-8 lg:pt-8">
+      <DashboardPageHeader icon="clientes" eyebrow="Gestión comercial" title="Clientes"
+        action={{ label: "Nuevo cliente", onClick: () => setCreating(true) }}
+        trailing={<p className="text-sm text-muted">{accounts.length} {accounts.length === 1 ? "cliente" : "clientes"}</p>} />
       </div>
-
-      {listError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {listError}
+      <div role="group" aria-label="Controles de clientes" className="flex shrink-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-3">
+        <input aria-label="Buscar cliente" placeholder="Buscar cliente, contacto o RUT" className="dashboard-field min-w-48 flex-1" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <select aria-label="Filtrar por estado" className="dashboard-field w-auto" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">Todos los estados</option>
+          {CLIENT_STATUSES.map((entry) => <option key={entry} value={entry}>{getClientStatusLabel(entry)}</option>)}
+        </select>
+        <select aria-label="Filtrar por ejecutivo" className="dashboard-field w-auto" value={executive} onChange={(event) => setExecutive(event.target.value)}>
+          <option value="">Todos los ejecutivos</option>
+          {[...executives].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <select aria-label="Filtrar por servicio" className="dashboard-field w-auto" value={service} onChange={(event) => setService(event.target.value)}>
+          <option value="">Todos los servicios</option>
+          {services.map((entry) => <option key={entry}>{entry}</option>)}
+        </select>
+        <div className="flex shrink-0 rounded-xl border border-border p-1">
+          {(["board", "list"] as const).map((entry) => <button key={entry} type="button" aria-pressed={view === entry}
+            onClick={() => setView(entry)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${view === entry ? "bg-primary/10 text-primary" : "text-muted"}`}>
+            {entry === "board" ? "Tablero" : "Lista"}
+          </button>)}
         </div>
-      ) : null}
-
-      {successMessage && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {successMessage}
-        </div>
-      )}
-
-      {isEmptyCatalog ? (
-        <DashboardEmptyState
-          title="0 clientes"
-          description="No hay clientes registrados. Crea el primero para comenzar el seguimiento comercial."
-          action={{ label: "Nuevo cliente", onClick: openCreateModal }}
-        />
-      ) : (
-        <div className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_18px_46px_rgba(16,16,36,0.04)]">
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-foreground">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Empresa</th>
-                <th className="px-4 py-3 font-medium">RUT</th>
-                <th className="px-4 py-3 font-medium">Contacto</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Teléfono</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium">Fecha</th>
-                <th className="px-4 py-3 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }, (_, index) => (
-                  <tr key={`client-skeleton-${index}`} className="border-t border-border">
-                    <td className="px-4 py-3" colSpan={8}>
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
-                        <div className="h-3 w-full max-w-xl animate-pulse rounded-full bg-slate-200/80" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : filteredClients.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted">
-                    No hay clientes registrados con esos filtros.
-                  </td>
-                </tr>
-              ) : (
-                filteredClients.map((client) => (
-                  <tr
-                    key={client.id}
-                    role="link"
-                    tabIndex={0}
-                    aria-label={`Abrir detalle de ${client.companyName}`}
-                    className={clientRowInteractiveClassName}
-                    onClick={(event) => handleClientRowActivate(client.id, event)}
-                    onKeyDown={(event) => handleClientRowActivate(client.id, event)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                          {getInitials(client.companyName)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-foreground">{client.companyName}</div>
-                          <div className="text-xs text-muted">{client.city}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{client.rut}</td>
-                    <td className="px-4 py-3">{client.contactFirstName} {client.contactLastName}</td>
-                    <td className="px-4 py-3 text-muted">{client.email || "—"}</td>
-                    <td className="px-4 py-3">{client.phone || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[client.status]}`}>
-                        {getClientStatusLabel(client.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{formatDate(client.createdAt)}</td>
-                    <td className="px-4 py-3" data-row-stop-navigation="true" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/dashboard/clientes/${client.id}`}
-                          className="text-sm font-medium text-primary"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          Ver
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openEditModal(client);
-                          }}
-                          className="text-sm font-medium text-foreground"
-                        >
-                          Editar
-                        </button>
-                        <select
-                          value={client.status}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => {
-                            event.stopPropagation();
-                            handleChangeStatus(client.id, event.target.value as ClientStatus);
-                          }}
-                          className="rounded-full border border-border bg-soft-background px-2 py-1 text-[11px] text-foreground outline-none"
-                          aria-label={`Cambiar estado para ${client.companyName}`}
-                        >
-                          <option value="ACTIVO">Activo</option>
-                          <option value="POTENCIAL">Potencial</option>
-                          <option value="INACTIVO">Inactivo</option>
-                        </select>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="space-y-3 p-3 md:hidden">
-          {isLoading ? (
-            Array.from({ length: 4 }, (_, index) => (
-              <div key={`client-card-skeleton-${index}`} className="rounded-[20px] border border-border bg-soft-background p-4">
-                <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200/80" />
-                <div className="mt-3 h-3 w-1/2 animate-pulse rounded-full bg-slate-200/80" />
-                <div className="mt-4 h-8 w-24 animate-pulse rounded-full bg-slate-200/80" />
-              </div>
-            ))
-          ) : filteredClients.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-soft-background p-4 text-center text-sm text-muted">
-              No hay clientes registrados con esos filtros.
-            </div>
-          ) : (
-            filteredClients.map((client) => (
-              <div
-                key={client.id}
-                role="link"
-                tabIndex={0}
-                aria-label={`Abrir detalle de ${client.companyName}`}
-                className={clientCardInteractiveClassName}
-                onClick={(event) => handleClientRowActivate(client.id, event)}
-                onKeyDown={(event) => handleClientRowActivate(client.id, event)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-foreground">{client.companyName}</div>
-                    <div className="text-xs text-muted">{client.rut}</div>
-                  </div>
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[client.status]}`}>
-                    {getClientStatusLabel(client.status)}
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-1 text-sm text-muted">
-                  <p><span className="font-medium text-foreground">Contacto:</span> {client.contactFirstName} {client.contactLastName}</p>
-                  <p><span className="font-medium text-foreground">Email:</span> {client.email || "—"}</p>
-                  <p><span className="font-medium text-foreground">Teléfono:</span> {client.phone || "—"}</p>
-                  <p><span className="font-medium text-foreground">Fecha:</span> {formatDate(client.createdAt)}</p>
-                </div>
-
-                <div
-                  className="mt-4 flex flex-wrap gap-2"
-                  data-row-stop-navigation="true"
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  <Link
-                    href={`/dashboard/clientes/${client.id}`}
-                    className="inline-flex rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-primary"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    Ver
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openEditModal(client);
-                    }}
-                    className="inline-flex rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground"
-                  >
-                    Editar
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        </div>
-      )}
-
-      {isModalOpen ? (
-        <DashboardFormModal
-          eyebrow="Clientes"
-          title={editingId ? "Editar cliente" : "Nuevo cliente"}
-          onClose={() => setIsModalOpen(false)}
-          wide
-        >
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
-            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3">
-              <DashboardFormSection icon={Building2} title="Empresa">
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  <DashboardFormField label="Empresa / Razón social" htmlFor="client-company" className="sm:col-span-2" error={errors.companyName}>
-                    <input
-                      id="client-company"
-                      value={form.companyName}
-                      onChange={(event) => handleFieldChange("companyName", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Comercial Andes SpA"
-                      aria-invalid={Boolean(errors.companyName)}
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Estado" htmlFor="client-status">
-                    <select
-                      id="client-status"
-                      value={form.status}
-                      onChange={(event) => handleFieldChange("status", event.target.value as ClientStatus)}
-                      className={dashboardFieldClassName}
-                    >
-                      <option value="ACTIVO">Activo</option>
-                      <option value="POTENCIAL">Potencial</option>
-                      <option value="INACTIVO">Inactivo</option>
-                    </select>
-                  </DashboardFormField>
-                  <DashboardFormField label="RUT (opcional)" htmlFor="client-rut">
-                    <input
-                      id="client-rut"
-                      value={form.rut}
-                      onChange={(event) => handleFieldChange("rut", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Opcional"
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Sitio web" htmlFor="client-website" className="sm:col-span-2">
-                    <input
-                      id="client-website"
-                      value={form.website}
-                      onChange={(event) => handleFieldChange("website", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="www.empresa.cl"
-                    />
-                  </DashboardFormField>
-                </div>
-              </DashboardFormSection>
-
-              <DashboardFormSection icon={User} title="Contacto">
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  <DashboardFormField label="Nombre" htmlFor="client-first-name" error={errors.contactFirstName}>
-                    <input
-                      id="client-first-name"
-                      value={form.contactFirstName}
-                      onChange={(event) => handleFieldChange("contactFirstName", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Andrea"
-                      aria-invalid={Boolean(errors.contactFirstName)}
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Apellido" htmlFor="client-last-name" error={errors.contactLastName}>
-                    <input
-                      id="client-last-name"
-                      value={form.contactLastName}
-                      onChange={(event) => handleFieldChange("contactLastName", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="Pérez"
-                      aria-invalid={Boolean(errors.contactLastName)}
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Email" htmlFor="client-email" error={errors.email}>
-                    <input
-                      id="client-email"
-                      type="email"
-                      value={form.email}
-                      onChange={(event) => handleFieldChange("email", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="andrea@empresa.cl"
-                      aria-invalid={Boolean(errors.email)}
-                    />
-                  </DashboardFormField>
-                  <DashboardFormField label="Teléfono" htmlFor="client-phone">
-                    <input
-                      id="client-phone"
-                      value={form.phone}
-                      onChange={(event) => handleFieldChange("phone", event.target.value)}
-                      className={dashboardFieldClassName}
-                      placeholder="+56 9 1234 5678"
-                    />
-                  </DashboardFormField>
-                </div>
-              </DashboardFormSection>
-
-              <DashboardFormSection icon={Layers3} title="Servicio de interés">
-                <ClientInterestFields
-                  catalog={catalog}
-                  isLoading={isLoadingCatalog}
-                  error={catalogError}
-                  value={{
-                    interestServiceId: form.interestServiceId,
-                    interestSubcategoryId: form.interestSubcategoryId,
-                    interestPlanId: form.interestPlanId,
-                  }}
-                  onChange={handleInterestChange}
-                />
-              </DashboardFormSection>
-
-              <DashboardFormSection icon={StickyNote} title="Notas">
-                <DashboardFormField label="Información relevante" htmlFor="client-notes">
-                  <textarea
-                    id="client-notes"
-                    rows={2}
-                    value={form.notes}
-                    onChange={(event) => handleFieldChange("notes", event.target.value)}
-                    className={dashboardTextareaClassName}
-                    placeholder="Información relevante del cliente..."
-                  />
-                </DashboardFormField>
-              </DashboardFormSection>
-            </div>
-            <DashboardFormFooter error={submitError}>
-              <DashboardFormActions
-                isSaving={isSaving}
-                onCancel={() => setIsModalOpen(false)}
-                submitLabel={editingId ? "Guardar cambios" : "Crear cliente"}
-              />
-            </DashboardFormFooter>
-          </form>
-        </DashboardFormModal>
-      ) : null}
+        {view === "board" && <button type="button" disabled={!accounts.length}
+          onClick={() => setCardsCollapsed(accounts.map(({ id }) => id), !allCollapsed)}
+          aria-label={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
+          title={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
+          className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50">
+          {allCollapsed ? <ChevronsUpDown size={15} aria-hidden="true" /> : <ChevronsDownUp size={15} aria-hidden="true" />}
+          {allCollapsed ? "Expandir todo" : "Minimizar todo"}
+        </button>}
+      </div>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {view === "board" ? <ClientCrmBoard clients={visible} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus}
+        onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
+        : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
+          {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}
+          {visible.map((account) => <Link key={account.id} href={account.href} className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50">
+            <div><p className="font-semibold">{account.name}</p>
+              <p className="text-sm text-muted">{account.contacts.length} {account.contacts.length === 1 ? "contacto" : "contactos"}{account.rut && ` · ${account.rut}`}</p></div>
+            <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{getClientStatusLabel(account.status)}</span>
+          </Link>)}
+        </div>}
+      {creating && <ClientAccountForm onClose={() => setCreating(false)} />}
     </div>
   );
 }

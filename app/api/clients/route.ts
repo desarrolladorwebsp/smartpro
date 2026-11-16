@@ -1,3 +1,4 @@
+import type { ClientStatus } from "@/lib/clients/types";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     const client = await createClientRecord({
       companyName: body.companyName,
       businessName: body.businessName,
+      businessId: body.businessId,
       rut: body.rut,
       contactFirstName: body.contactFirstName,
       firstName: body.firstName,
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
       region: body.region,
       website: body.website,
       notes: body.notes,
-      status: (body.status as "ACTIVO" | "POTENCIAL" | "INACTIVO") ?? "ACTIVO",
+      status: (body.status as ClientStatus) ?? "ACTIVO",
       interestServiceId: body.interestServiceId,
       interestSubcategoryId: body.interestSubcategoryId,
       interestPlanId: body.interestPlanId,
@@ -70,6 +72,7 @@ export async function PUT(request: Request) {
     const client = await updateClientRecord(body.id, {
       companyName: body.companyName,
       businessName: body.businessName,
+      businessId: body.businessId,
       rut: body.rut,
       contactFirstName: body.contactFirstName,
       firstName: body.firstName,
@@ -83,7 +86,7 @@ export async function PUT(request: Request) {
       region: body.region,
       website: body.website,
       notes: body.notes,
-      status: (body.status as "ACTIVO" | "POTENCIAL" | "INACTIVO") ?? "ACTIVO",
+      status: (body.status as ClientStatus) ?? "ACTIVO",
       interestServiceId: body.interestServiceId,
       interestSubcategoryId: body.interestSubcategoryId,
       interestPlanId: body.interestPlanId,

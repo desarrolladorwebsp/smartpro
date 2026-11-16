@@ -38,6 +38,8 @@ export async function POST(request: Request) {
     const session = await requireAdminSession();
     const body = (await request.json().catch(() => ({}))) as {
       clientId?: unknown;
+      accountId?: unknown;
+      agencyId?: unknown;
       items?: unknown;
       notes?: unknown;
       proposal?: unknown;
@@ -51,6 +53,8 @@ export async function POST(request: Request) {
 
     const quote = await createQuoteRecord({
       clientId: String(body.clientId ?? ""),
+      accountId: typeof body.accountId === "string" ? body.accountId : undefined,
+      agencyId: typeof body.agencyId === "string" ? body.agencyId : "smartpro",
       items: parseQuoteItemInputs(body.items),
       proposal: body.proposal,
       notes: typeof body.notes === "string" ? body.notes : "",

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { buildDeliveryIntro, buildPaymentConditionText, buildQuoteCommercialTerms, buildServiceScope } from "./terms";
+import { DEFAULT_AGENCIES } from "../agencies/types";
 
 test("buildPaymentConditionText cubre pago total y abono parcial", () => {
   assert.equal(buildPaymentConditionText(100), "Se requiere el 100% del pago para iniciar el proyecto.");
@@ -26,6 +27,7 @@ test("buildServiceScope usa los ítems reales del plan y elimina vacíos", () =>
 
 test("buildQuoteCommercialTerms arma las condiciones en el orden comercial", () => {
   const terms = buildQuoteCommercialTerms({
+    agency: DEFAULT_AGENCIES[0]!,
     items: [{ planName: "Plan Pro", includedItems: ["Diseño personalizado", "Hosting"] }],
     deliveryBusinessDays: 20,
     initialPaymentPercent: 50,
@@ -44,4 +46,15 @@ test("buildQuoteCommercialTerms arma las condiciones en el orden comercial", () 
   assert.ok(terms.sections[3].items?.includes("Transferencia bancaria"));
   assert.ok(terms.sections[3].paragraphs?.some((line) => line.includes("97610224")));
   assert.ok(terms.sections[3].paragraphs?.some((line) => line.includes("Vicuña Mackenna 920")));
+});
+
+test("las condiciones usan la cuenta y oficinas de la agencia guardada", () => {
+  const terms = buildQuoteCommercialTerms({
+    agency: DEFAULT_AGENCIES[1]!,
+    items: [], deliveryBusinessDays: 10, initialPaymentPercent: 50, validUntilLabel: "30 de octubre de 2026",
+  });
+  assert.ok(terms.sections[3].paragraphs?.some((line) => line.includes("77174361")));
+  assert.ok(terms.sections[3].paragraphs?.includes("Vilero Group SpA"));
+  assert.deepEqual(terms.sections[3].items, ["Transferencia bancaria"]);
+  assert.ok(!terms.sections[3].paragraphs?.some((line) => line.includes("Vicuña Mackenna")));
 });

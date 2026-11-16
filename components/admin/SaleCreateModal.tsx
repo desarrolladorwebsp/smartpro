@@ -1,9 +1,11 @@
 "use client";
 
+import { CommercialRecipientFields } from "@/components/admin/CommercialRecipientFields";
+import { personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-import type { ClientRecord } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import { quoteDepositAmounts } from "@/lib/quotes/fields";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
@@ -24,7 +26,8 @@ import {
 type SaleCreateModalProps = {
   open: boolean;
   onClose: () => void;
-  clients: ClientRecord[];
+  accounts: CommercialClient[];
+  initialAccountId?: string;
   onCreated?: (sale: SaleRecord) => void;
 };
 
@@ -47,11 +50,13 @@ export function SaleCreateModal({ open, ...props }: SaleCreateModalProps) {
   return <SaleCreateForm {...props} />;
 }
 
-function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalProps, "open">) {
+function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit<SaleCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
+  const directRequest = useRef<{ key: string; details: string; receipt: File | null } | null>(null);
   const quotesRequestRef = useRef(0);
   const [entryMode, setEntryMode] = useState<SaleEntryMode>("DIRECT");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(initialAccountId ?? "");
+  const [contactId, setContactId] = useState("");
   const [quoteId, setQuoteId] = useState("");
   const [quotes, setQuotes] = useState<QuoteForSaleConversion[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
@@ -126,6 +131,9 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   }
 
   function selectClient(nextClientId: string) {
+    setContactId("");
+    setPaymentMethod("");
+    setReceipt(null);
     if (entryMode === "QUOTE") {
       void loadQuotesForClient(nextClientId);
       return;
@@ -144,9 +152,11 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
   function changeEntryMode(nextMode: SaleEntryMode) {
     if (nextMode === entryMode) return;
     setEntryMode(nextMode);
+    setContactId("");
     setQuoteId("");
     setPaidAmount("0");
-    setPaymentMethod(nextMode === "DIRECT" ? "" : "transfer");
+    setPaymentMethod("");
+    setReceipt(null);
     setSubmitError("");
     setQuotesError("");
 
@@ -159,12 +169,20 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     }
   }
 
+  const account = accounts.find((entry) => entry.id === clientId);
+  const contacts = entryMode === "DIRECT"
+    ? (account?.contacts ?? []).map((contact) => ({ id: contact.id, name: personName(contact), email: contact.email }))
+    : [...new Map(quotes.map(({ quote }) => [quote.clientId, {
+        id: quote.clientId, name: quote.clientName, email: quote.clientEmail,
+      }])).values()];
+  const visibleQuotes = quotes.filter(({ quote }) => quote.clientId === contactId);
+
   const selectedOption = useMemo(
     () => quotes.find((entry) => entry.quote.id === quoteId) ?? null,
     [quotes, quoteId],
   );
   const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
-  const deposit = selectedQuote ? quoteDepositAmounts(selectedQuote) : null;
+  const deposit = selectedQuote && selectedQuote.proposal?.showDeposit !== false ? quoteDepositAmounts(selectedQuote) : null;
   const directNetAmount = parseSaleClpInput(netAmount);
   const directAmountsValid =
     netAmount.trim() !== "" && Number.isSafeInteger(directNetAmount) && directNetAmount >= 0;
@@ -179,7 +197,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     receivedAmount >= 0 &&
     receivedAmount <= activeTotal;
   const canSubmit = entryMode === "DIRECT"
-    ? Boolean(clientId && serviceName.trim() && soldAt && directAmountsValid && directTotal > 0 && receivedAmountValid)
+    ? Boolean(clientId && contactId && serviceName.trim() && soldAt && directAmountsValid && directTotal > 0 && receivedAmountValid && (receivedAmount === 0 || paymentMethod))
     : Boolean(selectedQuote && receivedAmountValid && (receivedAmount === 0 || paymentMethod));
 
   async function create() {
@@ -187,6 +205,10 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
 
     if (!clientId) {
       setSubmitError("Selecciona un cliente.");
+      return;
+    }
+    if (!contactId) {
+      setSubmitError("Selecciona un contacto.");
       return;
     }
     if (entryMode === "QUOTE" && !selectedQuote) {
@@ -205,7 +227,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
       setSubmitError("El monto recibido debe ser un monto válido y no puede superar el total de la venta.");
       return;
     }
-    if (entryMode === "QUOTE" && receivedAmount > 0 && !paymentMethod) {
+    if (receivedAmount > 0 && !paymentMethod) {
       setSubmitError("Selecciona un medio de pago para el monto recibido.");
       return;
     }
@@ -227,8 +249,9 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
     try {
       const formData = new FormData();
       formData.append("saleType", entryMode);
+      formData.append("accountId", clientId);
+      formData.append("clientId", contactId);
       if (entryMode === "DIRECT") {
-        formData.append("clientId", clientId);
         formData.append("serviceName", serviceName.trim());
         formData.append("netAmount", String(directNetAmount));
         formData.append("soldAt", soldAt);
@@ -242,7 +265,20 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
         formData.append("receipt", receipt);
       }
 
-      const response = await fetch("/api/sales", { method: "POST", body: formData });
+      let requestKey: string | undefined;
+      if (entryMode === "DIRECT") {
+        const details = JSON.stringify([clientId, contactId, serviceName.trim(), directNetAmount, soldAt, observation, receivedAmount, paymentMethod]);
+        if (directRequest.current?.details !== details || directRequest.current.receipt !== receipt) {
+          directRequest.current = { key: crypto.randomUUID(), details, receipt };
+        }
+        requestKey = directRequest.current.key;
+      }
+
+      const response = await fetch("/api/sales", {
+        method: "POST",
+        body: formData,
+        headers: requestKey ? { "Idempotency-Key": requestKey } : undefined,
+      });
       const data = (await response.json().catch(() => ({}))) as { sale?: SaleRecord; error?: string };
       if (!response.ok || !data.sale) {
         throw new Error(data.error ?? "No se pudo registrar la venta.");
@@ -311,24 +347,9 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
             </button>
           </div>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-foreground">Cliente</span>
-            <select
-              value={clientId}
-              onChange={(event) => {
-                selectClient(event.target.value);
-              }}
-              className="dashboard-field"
-              disabled={isSaving}
-            >
-              <option value="">Selecciona un cliente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.companyName} — {client.contactFirstName} {client.contactLastName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CommercialRecipientFields accounts={accounts} accountId={clientId} onAccountChange={selectClient}
+            contacts={contacts} contactId={contactId} loading={isLoadingQuotes} disabled={isSaving}
+            onContactChange={(id) => { setContactId(id); setQuoteId(""); setPaidAmount("0"); setPaymentMethod(""); setReceipt(null); setSubmitError(""); }} />
 
           {entryMode === "QUOTE" ? (
             <>
@@ -340,14 +361,15 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                     const nextId = event.target.value;
                     setQuoteId(nextId);
                     setSubmitError("");
-                    const next = quotes.find((entry) => entry.quote.id === nextId);
-                    setPaidAmount(next?.convertible ? String(quoteDepositAmounts(next.quote).total) : "0");
+                    setPaidAmount("0");
+                    setPaymentMethod("");
+                    setReceipt(null);
                   }}
                   className="dashboard-field"
-                  disabled={!clientId || isLoadingQuotes || isSaving}
+                  disabled={!contactId || isLoadingQuotes || isSaving}
                 >
                   <option value="">{isLoadingQuotes ? "Cargando cotizaciones..." : "Selecciona una cotización"}</option>
-                  {quotes.map((entry) => (
+                  {visibleQuotes.map((entry) => (
                     <option key={entry.quote.id} value={entry.quote.id} disabled={!entry.convertible}>
                       {entry.quote.number} · {getQuoteStatusLabel(entry.quote.status)} · {formatCurrency(entry.quote.total)}
                       {entry.convertible ? "" : ` — ${entry.reason ?? "No convertible"}`}
@@ -465,7 +487,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 className="dashboard-field"
                 disabled={isSaving || receivedAmount <= 0 || activeTotal <= 0}
               >
-                {entryMode === "DIRECT" ? <option value="">Sin especificar (opcional)</option> : <option value="">Selecciona un medio de pago</option>}
+                <option value="">Selecciona un medio de pago</option>
                 {SALE_MANUAL_PAYMENT_METHODS.map((method) => (
                   <option key={method} value={method}>
                     {getSalePaymentMethodLabel(method)}
@@ -473,7 +495,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
                 ))}
               </select>
               {entryMode === "DIRECT" ? (
-                <p className="mt-1.5 text-xs text-muted">Puedes registrar el total, un abono parcial o dejar el pago pendiente. Si no indicas el medio, quedará como “Otro medio”.</p>
+                <p className="mt-1.5 text-xs text-muted">Indica el medio de pago cuando registres un monto recibido.</p>
               ) : null}
             </label>
           </div>
@@ -497,6 +519,7 @@ function SaleCreateForm({ onClose, clients, onCreated }: Omit<SaleCreateModalPro
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-foreground">Comprobante de pago</span>
             <input
+              key={`${entryMode}:${clientId}:${contactId}:${quoteId}`}
               type="file"
               accept={SALE_RECEIPT_ACCEPT}
               disabled={isSaving}

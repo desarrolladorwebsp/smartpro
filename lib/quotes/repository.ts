@@ -1,7 +1,12 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
-import { getClientById } from "../clients/repository";
+import { getAgencySnapshot } from "../agencies/repository";
+import { ensureAgencySchema } from "../agencies/schema";
+import { getSmartProFallback, parseAgencyIdentity, SMARTPRO_AGENCY_ID } from "../agencies/types";
+import { resolveCommercialRecipient } from "../clients/commercial-recipient";
+import { parseContactSnapshot, personName } from "../clients/commercial-clients";
+import { parseBusinessRecipient } from "../clients/business";
 import { notifyQuoteCreated, notifyQuoteSent, notifyQuoteStatusChanged } from "../notifications/events";
 import { formatCurrency, TAX_RATE } from "../orders/service";
 import { getServicePlanById } from "../services/repository";
@@ -61,6 +66,8 @@ function formatClientAddress(client: {
 }
 
 function toQuoteRecord(row: QuoteRow): QuoteRecord {
+  const businessRecipient = parseBusinessRecipient(row.businessRecipient);
+  const contactSnapshot = parseContactSnapshot(row.contactSnapshot);
   const items = [...row.items]
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((item) => ({
@@ -84,12 +91,18 @@ function toQuoteRecord(row: QuoteRow): QuoteRecord {
     number: row.number,
     status: isQuoteStatus(row.status) ? row.status : "DRAFT",
     clientId: row.clientId,
-    clientName: `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
-    clientCompany: row.client.companyName,
-    clientEmail: row.client.email,
-    clientPhone: row.client.phone,
-    clientRut: row.client.rut,
-    clientAddress: formatClientAddress(row.client),
+    businessId: row.businessId,
+    contactId: row.contactId,
+    contactSnapshot,
+    clientName: contactSnapshot?.name ?? `${row.client.contactFirstName} ${row.client.contactLastName}`.trim(),
+    businessRecipient,
+    clientCompany: businessRecipient?.name ?? (contactSnapshot ? contactSnapshot.legacyCompanyName ?? "" : row.client.companyName),
+    clientEmail: contactSnapshot?.email ?? row.client.email,
+    clientPhone: contactSnapshot?.phone ?? row.client.phone,
+    clientRut: businessRecipient?.rut ?? contactSnapshot?.rut ?? row.client.rut,
+    clientAddress: businessRecipient?.address ?? contactSnapshot?.address ?? formatClientAddress(row.client),
+    agencyId: row.agencyId || SMARTPRO_AGENCY_ID,
+    agency: parseAgencyIdentity(row.agencySnapshot, getSmartProFallback()),
     createdByEmail: row.createdByEmail,
     notes: row.notes,
     proposal: row.proposal as QuoteProposal | null,
@@ -243,6 +256,7 @@ function quoteItemCreateData(items: QuoteItemRecord[]) {
 export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteRecord[]> {
   const prisma = getPrisma();
   await ensureQuoteSchema(prisma);
+  await ensureAgencySchema(prisma);
 
   const query = filters.query?.trim();
   const from = parseDateFilter(filters.from);
@@ -253,6 +267,7 @@ export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteR
     where: {
       ...(status ? { status } : {}),
       ...(filters.clientId ? { clientId: filters.clientId } : {}),
+      ...(filters.businessId ? { businessId: filters.businessId } : filters.individualOnly ? { businessId: null } : {}),
       ...(from || to
         ? {
             createdAt: {
@@ -266,6 +281,7 @@ export async function listQuotes(filters: QuoteListFilters = {}): Promise<QuoteR
             OR: [
               { number: { contains: query } },
               { notes: { contains: query } },
+              { business: { name: { contains: query } } },
               { client: { companyName: { contains: query } } },
               { client: { email: { contains: query } } },
               { client: { contactFirstName: { contains: query } } },
@@ -292,6 +308,7 @@ export async function countQuotesByClientId(clientId: string): Promise<number> {
 
 export async function getQuoteById(id: string): Promise<QuoteRecord | null> {
   await ensureQuoteSchema(getPrisma());
+  await ensureAgencySchema(getPrisma());
   const row = await getPrisma().quote.findUnique({
     where: { id },
     include: quoteInclude,
@@ -310,6 +327,8 @@ function validateVisibleFields(
 
 export async function createQuoteRecord(input: {
   clientId: string;
+  accountId?: string;
+  agencyId?: string;
   items: QuoteItemInput[];
   notes?: string;
   proposal?: unknown;
@@ -322,11 +341,8 @@ export async function createQuoteRecord(input: {
 }): Promise<QuoteRecord> {
   const prisma = getPrisma();
   await ensureQuoteSchema(prisma);
-  const client = await getClientById(input.clientId);
-  if (!client) {
-    throw new Error("El cliente no existe.");
-  }
-
+  const agency = await getAgencySnapshot(input.agencyId || SMARTPRO_AGENCY_ID);
+  const { client, business: businessRecipient, contactSnapshot } = await resolveCommercialRecipient(input.clientId, input.accountId);
   const status = input.status ?? "CREATED";
   if (status !== "DRAFT" && status !== "CREATED") {
     throw new Error("La cotización solo puede guardarse como borrador o creada.");
@@ -377,6 +393,12 @@ export async function createQuoteRecord(input: {
           number,
           status,
           clientId: client.id,
+          contactId: client.contactId,
+          businessRecipient: businessRecipient ?? undefined,
+          businessId: businessRecipient?.id,
+          contactSnapshot,
+          agencyId: agency.id,
+          agencySnapshot: agency,
           createdByEmail,
           notes,
           proposal,
@@ -484,14 +506,28 @@ export async function updateQuoteRecord(
   validateVisibleFields(input, proposal);
 
   const updated = await getPrisma().$transaction(async (tx) => {
+    const contact = existing.status === "DRAFT"
+      ? await tx.client.findUnique({ where: { id: existing.clientId } })
+      : null;
+    const contactSnapshot = contact && contact.businessId === (existing.businessId ?? null) ? {
+      ...(existing.contactSnapshot ?? {
+        rut: existing.clientRut,
+        address: existing.clientAddress,
+        legacyCompanyName: existing.clientCompany,
+      }),
+      name: personName(contact),
+      email: contact.email,
+      phone: contact.phone,
+    } : undefined;
     await tx.quoteItem.deleteMany({ where: { quoteId: existing.id } });
 
     return tx.quote.update({
-      where: { id: existing.id },
+      where: { id: existing.id, status: existing.status, updatedAt: new Date(existing.updatedAt) },
       data: {
         status,
         notes,
         proposal,
+        contactSnapshot,
         validUntil,
         deliveryBusinessDays,
         initialPaymentPercent,

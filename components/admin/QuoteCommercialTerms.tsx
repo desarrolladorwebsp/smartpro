@@ -9,6 +9,7 @@ type QuoteCommercialTermsProps = {
 export function QuoteCommercialTerms({ quote }: QuoteCommercialTermsProps) {
   const terms = buildQuoteCommercialTerms({
     items: quote.items,
+    agency: quote.agency,
     deliveryBusinessDays: quote.deliveryBusinessDays,
     initialPaymentPercent: quote.initialPaymentPercent,
     proposal: quote.proposal,

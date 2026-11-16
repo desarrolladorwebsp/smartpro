@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { QuoteCommercialTerms } from "@/components/admin/QuoteCommercialTerms";
 import { QuoteMoneySummary } from "@/components/quotes/QuoteMoneySummary";
 import { QuotePaymentActions } from "@/components/quotes/QuotePaymentActions";
+import { SMARTPRO_AGENCY_ID } from "@/lib/agencies/types";
 import { SMARTPRO_COMPANY } from "@/lib/quotes/company";
 import { PAYMENT_SETUP_NOTICE } from "@/lib/quotes/proposal";
 import { getQuotePaymentBlockReason } from "@/lib/quotes/checkout";
@@ -76,6 +77,8 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
   }
 
   const blockReason = getQuotePaymentBlockReason(quote, alreadySold);
+  const agency = quote.agency;
+  const supportsOnlinePayments = quote.agencyId === SMARTPRO_AGENCY_ID;
   const taxPercent = Math.round((quote.items[0]?.taxRate ?? 0.19) * 100);
   const deposit = quoteDepositAmounts(quote);
 
@@ -84,17 +87,10 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
       <header className="bg-navy text-white">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Link href="/" className="inline-flex items-center">
-            <Image
-              src="/images/logo/logo-smartpro-full.png"
-              alt="SmartPro"
-              width={210}
-              height={52}
-              className="h-12 w-auto"
-              priority
-            />
+            {agency.logoUrl.startsWith("/") ? <Image src={agency.logoUrl} alt={agency.brandName} width={210} height={52} className="h-12 w-auto" priority unoptimized /> : <span className="text-2xl font-bold">{agency.brandName}</span>}
           </Link>
           <div className="text-left sm:text-right">
-            <p className="text-sm font-semibold">{SMARTPRO_COMPANY.tagline}</p>
+            {agency.tagline ? <p className="text-sm font-semibold">{agency.tagline}</p> : null}
             <p className="mt-1 text-xs text-white/70">Ideas · Tecnología · Resultados</p>
           </div>
         </div>
@@ -122,18 +118,17 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <InfoCard title="Emitida por">
-              <p className="font-semibold text-foreground">{SMARTPRO_COMPANY.brandName}</p>
-              <p>{SMARTPRO_COMPANY.legalName}</p>
-              <p>
-                {SMARTPRO_COMPANY.address}, {SMARTPRO_COMPANY.commune}
-              </p>
-              <p>{SMARTPRO_COMPANY.phone}</p>
-              <p>{SMARTPRO_COMPANY.email}</p>
-              <p>{SMARTPRO_COMPANY.website.replace(/^https?:\/\//, "")}</p>
+              <p className="font-semibold text-foreground">{agency.brandName}</p>
+              {agency.legalName ? <p>{agency.legalName}</p> : null}
+              {agency.rut ? <p>RUT {agency.rut}</p> : null}
+              {[agency.address, agency.commune].filter(Boolean).length ? <p>{[agency.address, agency.commune].filter(Boolean).join(", ")}</p> : null}
+              {agency.phone ? <p>{agency.phone}</p> : null}
+              {agency.email ? <p>{agency.email}</p> : null}
+              {agency.website ? <p>{agency.website.replace(/^https?:\/\//, "")}</p> : null}
             </InfoCard>
             <InfoCard title="Cliente">
               <p className="font-semibold text-foreground">{quote.clientCompany || quote.clientName}</p>
-              {quote.clientName ? <p>{quote.clientName}</p> : null}
+              {quote.clientCompany && quote.clientName ? <p>{quote.clientName}</p> : null}
               {quote.clientRut ? <p>RUT {quote.clientRut}</p> : null}
               {quote.clientEmail ? <p className="break-all">{quote.clientEmail}</p> : null}
               {quote.clientPhone ? <p>{quote.clientPhone}</p> : null}
@@ -174,7 +169,7 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
             <QuoteMoneySummary quote={quote} taxPercent={taxPercent} />
           </div>
 
-          {quote.proposal ? <p className="mt-8 rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm text-muted">{PAYMENT_SETUP_NOTICE}</p> : <div className="mt-8">
+          {quote.proposal ? <p className="mt-8 rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm text-muted">{PAYMENT_SETUP_NOTICE}</p> : supportsOnlinePayments ? <div className="mt-8">
             <QuotePaymentActions
               token={token}
               autoPay={autoPay}
@@ -184,7 +179,7 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
               depositAmountLabel={formatCurrency(deposit.total)}
               remainingAmountLabel={deposit.isFull ? null : formatCurrency(quote.total - deposit.total)}
             />
-          </div>}
+          </div> : <p className="mt-8 rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm text-muted">Para coordinar el pago, usa los datos bancarios de {agency.brandName} que aparecen más abajo.</p>}
 
           {quote.notes ? (
             <div className="mt-8">
@@ -201,9 +196,9 @@ export default async function QuotePublicPage({ params, searchParams }: QuotePub
 
       <footer className="border-t border-white/10 bg-navy py-6 text-center text-xs text-white/75">
         <p>
-          {SMARTPRO_COMPANY.brandName} · {SMARTPRO_COMPANY.email} · {SMARTPRO_COMPANY.phone}
+          {[agency.brandName, agency.email, agency.phone].filter(Boolean).join(" · ")}
         </p>
-        <p className="mt-1">{SMARTPRO_COMPANY.website.replace(/^https?:\/\//, "")}</p>
+        {agency.website ? <p className="mt-1">{agency.website.replace(/^https?:\/\//, "")}</p> : null}
       </footer>
     </div>
   );

@@ -4,6 +4,9 @@ import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { QuotesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { QuotesDashboard } from "@/components/admin/QuotesDashboard";
 import { requireAdminSession } from "@/lib/auth";
+import { listBusinesses } from "@/lib/clients/business-repository";
+import { listCommercialClients } from "@/lib/clients/commercial-clients";
+import type { BusinessProfile } from "@/lib/clients/business";
 import { listClients } from "@/lib/clients/repository";
 import { getPrismaClient } from "@/lib/db";
 import type { ClientRecord } from "@/lib/clients/types";
@@ -30,10 +33,11 @@ async function QuotesPageContent({ searchParams }: QuotesPageProps) {
 
   let quotes: QuoteRecord[] = [];
   let clients: ClientRecord[] = [];
+  let businesses: BusinessProfile[] = [];
   let loadError = false;
 
   try {
-    [quotes, clients] = await Promise.all([listQuotes(), listClients()]);
+    [quotes, clients, businesses] = await Promise.all([listQuotes(), listClients(), listBusinesses()]);
   } catch (error) {
     console.error("[smartpro:dashboard:cotizaciones] Error de conexión a la base de datos", error);
     loadError = true;
@@ -61,5 +65,5 @@ async function QuotesPageContent({ searchParams }: QuotesPageProps) {
     [author.firstName, author.lastName].map((part) => part?.trim()).filter(Boolean).join(" "),
   ]));
 
-  return <QuotesDashboard initialQuotes={quotes} clients={clients} initialClientId={params.clientId} authorNames={authorNames} />;
+  return <QuotesDashboard initialQuotes={quotes} accounts={listCommercialClients(clients, businesses)} initialClientId={params.clientId} authorNames={authorNames} />;
 }

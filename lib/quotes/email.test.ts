@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildQuoteEmail } from "./email";
 import type { QuoteRecord } from "./types";
+import { DEFAULT_AGENCIES } from "../agencies/types";
 
 const quote: QuoteRecord = {
   id: "quote-1",
@@ -15,6 +16,8 @@ const quote: QuoteRecord = {
   clientPhone: "+56 9 1111 1111",
   clientRut: "76.123.456-7",
   clientAddress: "Santiago",
+  agencyId: "smartpro",
+  agency: DEFAULT_AGENCIES[0]!,
   createdByEmail: "ejecutivo@smartpro.cl",
   notes: "Propuesta válida por 15 días.",
   validUntil: "2026-09-24T23:59:59.000Z",
@@ -56,7 +59,7 @@ test("buildQuoteEmail reutiliza la plantilla corporativa y el número de cotizac
     const { html, text } = buildQuoteEmail(quote, "https://smartpro.cl");
 
     assert.match(html, /Cotización COT-2026-0001/);
-    assert.match(html, /logo-smartpro-01\.png/);
+    assert.match(html, /logo-smartpro-full\.png/);
     assert.match(html, /#6D28D9/);
     assert.match(html, /Equipo SmartPro/);
     assert.match(html, /Empresa Demo SpA/);
@@ -65,6 +68,25 @@ test("buildQuoteEmail reutiliza la plantilla corporativa y el número de cotizac
     assert.doesNotMatch(html, /localhost/);
     assert.match(text, /COT-2026-0001/);
     assert.match(text, /https:\/\/smartpro\.cl/);
+  } finally {
+    if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
+    else process.env.ADMIN_SESSION_SECRET = previousSecret;
+  }
+});
+
+test("buildQuoteEmail muestra los datos de la agencia seleccionada y omite el logo no configurado", () => {
+  const previousSecret = process.env.ADMIN_SESSION_SECRET;
+  process.env.ADMIN_SESSION_SECRET = "email-agency-secret";
+  try {
+    const { html, text } = buildQuoteEmail({ ...quote, agencyId: "smartstudio", agency: DEFAULT_AGENCIES[1]! }, "https://smartpro.cl");
+    assert.match(html, /SmartStudio/);
+    assert.match(html, /Vilero Group SpA/);
+    assert.match(html, /77174361/);
+    assert.doesNotMatch(html, /logo-smartpro-01\.png/);
+    assert.doesNotMatch(html, /97610224/);
+    assert.match(text, /contacto@smartstudio\.cl/);
+    assert.match(text, /Equipo SmartStudio/);
+    assert.match(html, /https:\/\/smartpro\.cl\/cotizacion\//);
   } finally {
     if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
     else process.env.ADMIN_SESSION_SECRET = previousSecret;

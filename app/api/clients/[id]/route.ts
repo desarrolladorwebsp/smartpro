@@ -1,3 +1,4 @@
+import type { ClientStatus } from "@/lib/clients/types";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
@@ -28,6 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const client = await updateClientRecord(id, {
       companyName: body.companyName,
       businessName: body.businessName,
+      businessId: body.businessId,
       rut: body.rut,
       contactFirstName: body.contactFirstName,
       firstName: body.firstName,
@@ -41,7 +43,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       region: body.region,
       website: body.website,
       notes: body.notes,
-      status: (body.status as "ACTIVO" | "POTENCIAL" | "INACTIVO") ?? "ACTIVO",
+      status: (body.status as ClientStatus) ?? "ACTIVO",
       interestServiceId: body.interestServiceId,
       interestSubcategoryId: body.interestSubcategoryId,
       interestPlanId: body.interestPlanId,

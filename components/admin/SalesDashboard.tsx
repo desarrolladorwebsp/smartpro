@@ -10,7 +10,7 @@ import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast"
 import { SaleCreateModal } from "@/components/admin/SaleCreateModal";
 import { SaleInvoiceModal } from "@/components/admin/SaleInvoiceModal";
 import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
-import type { ClientRecord } from "@/lib/clients/types";
+import { commercialClientFilters, recordBelongsToClient, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { formatCurrency } from "@/lib/orders/service";
 import { summarizeFilteredSales } from "@/lib/sales/summary";
 import {
@@ -45,14 +45,13 @@ function formatDate(value: string | null): string {
 
 type SalesDashboardProps = {
   initialSales: SaleRecord[];
-  clients: ClientRecord[];
+  accounts: CommercialClient[];
   initialClientId?: string;
 };
 
-export function SalesDashboard({ initialSales, clients: initialClients, initialClientId }: SalesDashboardProps) {
+export function SalesDashboard({ initialSales, accounts, initialClientId }: SalesDashboardProps) {
   const router = useRouter();
   const [sales, setSales] = useState(initialSales);
-  const [clients, setClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaleStatus | "ALL">("ALL");
   const [collectionFilter, setCollectionFilter] = useState<"ALL" | "DUE">("ALL");
@@ -69,10 +68,7 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
 
   const refreshSales = useCallback(async () => {
     try {
-      const [salesResponse, clientsResponse] = await Promise.all([
-        fetch("/api/sales", { cache: "no-store" }),
-        fetch("/api/clients", { cache: "no-store" }),
-      ]);
+      const salesResponse = await fetch("/api/sales", { cache: "no-store" });
 
       if (salesResponse.ok) {
         const data = (await salesResponse.json()) as { sales?: SaleRecord[] };
@@ -81,12 +77,6 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
         }
       }
 
-      if (clientsResponse.ok) {
-        const data = (await clientsResponse.json()) as { clients?: ClientRecord[] };
-        if (Array.isArray(data.clients)) {
-          setClients(data.clients);
-        }
-      }
     } catch {
       // Keep the last successful snapshot visible.
     }
@@ -118,7 +108,7 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
           .includes(query);
       const matchesStatus = statusFilter === "ALL" || sale.status === statusFilter;
       const matchesCollection = collectionFilter === "ALL" || (sale.status !== "CANCELLED" && sale.balanceDue > 0);
-      const matchesClient = clientFilter === "ALL" || sale.clientId === clientFilter;
+      const matchesClient = clientFilter === "ALL" || (clientFilter.includes(":") ? recordBelongsToClient(sale, clientFilter) : sale.clientId === clientFilter);
       const soldAt = new Date(sale.soldAt);
       const matchesFrom = !fromDate || soldAt >= fromDate;
       const matchesTo = !toDate || soldAt <= toDate;
@@ -179,10 +169,8 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
           </select>
           <select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} className="dashboard-field">
             <option value="ALL">Todos los clientes</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.companyName}
-              </option>
+            {commercialClientFilters(accounts, sales, clientFilter).map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
             ))}
           </select>
           <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="dashboard-field" aria-label="Desde" />
@@ -226,10 +214,10 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
                     onClick={() => router.push(`/dashboard/ventas/${encodeURIComponent(sale.id)}`)}
                     className="cursor-pointer border-t border-border transition-colors hover:bg-slate-50"
                   >
-                    <td className="px-4 py-3 font-semibold"><Link href={`/dashboard/ventas/${encodeURIComponent(sale.id)}`} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>{sale.number}</Link></td>
+                    <td className="px-4 py-3 font-semibold"><Link href={`/dashboard/ventas/${encodeURIComponent(sale.id)}`} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>{sale.number}</Link><div className="mt-1 text-xs font-medium text-muted">{sale.agency.brandName}</div></td>
                     <td className="px-4 py-3">
-                      <div className="font-medium">{sale.clientCompany}</div>
-                      <div className="text-xs text-muted">{sale.clientName}</div>
+                      <div className="font-medium">{sale.clientCompany || sale.clientName}</div>
+                      {sale.clientCompany && <div className="text-xs text-muted">{sale.clientName}</div>}
                     </td>
                     <td className="px-4 py-3">
                       {sale.quoteId && sale.quoteNumber ? (
@@ -321,7 +309,8 @@ export function SalesDashboard({ initialSales, clients: initialClients, initialC
       <SaleCreateModal
         open={isCreateOpen}
         onClose={closeCreate}
-        clients={clients}
+        accounts={accounts}
+        initialAccountId={accounts.some((entry) => entry.id === clientFilter) ? clientFilter : undefined}
         onCreated={(sale) => {
           setSales((current) => [sale, ...current.filter((entry) => entry.id !== sale.id)]);
           setSearch("");

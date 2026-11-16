@@ -1,8 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { inflateSync } from "node:zlib";
 
 import { buildQuotePdf } from "./pdf";
 import type { QuoteRecord } from "./types";
+import { DEFAULT_AGENCIES } from "../agencies/types";
+
+function searchablePdfText(pdf: Buffer): string {
+  const source = pdf.toString("latin1");
+  const streams = [...source.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((match) => {
+    const stream = Buffer.from(match[1] ?? "", "latin1");
+    try { return inflateSync(stream).toString("latin1"); } catch { return ""; }
+  });
+  const decodedStreams = streams.join("\n");
+  const hexStrings = [...decodedStreams.matchAll(/<([0-9A-Fa-f]+)>/g)]
+    .map((match) => Buffer.from(match[1] ?? "", "hex").toString("latin1"))
+    .join(" ");
+  return `${source}\n${decodedStreams}\n${hexStrings}`;
+}
 
 const quote: QuoteRecord = {
   id: "quote-1",
@@ -15,6 +30,8 @@ const quote: QuoteRecord = {
   clientPhone: "+56 9 1111 1111",
   clientRut: "76.123.456-7",
   clientAddress: "Santa Elena 941 B",
+  agencyId: "smartpro",
+  agency: DEFAULT_AGENCIES[0]!,
   createdByEmail: "ejecutivo@smartpro.cl",
   notes: "Incluye implementación inicial.",
   validUntil: "2026-09-24T23:59:59.000Z",
@@ -56,7 +73,7 @@ test("buildQuotePdf genera un PDF corporativo con datos de la cotización", asyn
 
   try {
     const pdf = await buildQuotePdf(quote);
-    const searchable = pdf.toString("latin1").replace(/\0/g, "");
+    const searchable = searchablePdfText(pdf).replace(/\0/g, "");
 
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
     assert.ok(pdf.length > 1000);
@@ -70,6 +87,28 @@ test("buildQuotePdf genera un PDF corporativo con datos de la cotización", asyn
     assert.match(searchable, /pago=mercadopago/);
     assert.match(searchable, /#datos-bancarios/);
     assert.doesNotMatch(searchable, /pago=webpay.*119000|119000.*pago=webpay/);
+  } finally {
+    if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
+    else process.env.ADMIN_SESSION_SECRET = previousSecret;
+    if (previousUrl === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = previousUrl;
+  }
+});
+
+test("buildQuotePdf usa solo la identidad y cuenta bancaria de SmartStudio", async () => {
+  const previousSecret = process.env.ADMIN_SESSION_SECRET;
+  const previousUrl = process.env.APP_URL;
+  process.env.ADMIN_SESSION_SECRET = "pdf-agency-secret";
+  process.env.APP_URL = "https://smartpro.cl";
+  try {
+    const pdf = await buildQuotePdf({ ...quote, agencyId: "smartstudio", agency: DEFAULT_AGENCIES[1]! });
+    const searchable = searchablePdfText(pdf).replace(/\0/g, "");
+    assert.match(searchable, /SmartStudio/);
+    assert.match(searchable, /Vilero Group SpA/);
+    assert.match(searchable, /77174361/);
+    assert.doesNotMatch(searchable, /97610224/);
+    assert.doesNotMatch(searchable, /pago=webpay/);
+    assert.doesNotMatch(searchable, /smartpro\.cl|Agencia de marketing digital|Ideas.*Tecnología/);
   } finally {
     if (previousSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
     else process.env.ADMIN_SESSION_SECRET = previousSecret;

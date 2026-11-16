@@ -3,11 +3,11 @@ import { sendEmail } from "../email/resend";
 import { renderCorporateEmail } from "../email/template";
 import { formatCurrency } from "../orders/service";
 import { buildQuotePaymentUrls } from "./access";
-import { SMARTPRO_COMPANY } from "./company";
 import { buildQuotePdf } from "./pdf";
 import { PAYMENT_SETUP_NOTICE, paymentScheduleText, proposalHasRenewal } from "./proposal";
 import { formatQuoteDiscountLabel } from "./pricing";
 import { getQuoteStatusLabel, type QuoteRecord } from "./types";
+import { SMARTPRO_AGENCY_ID } from "../agencies/types";
 
 function formatDate(value: string | null): string {
   if (!value) return "Sin vencimiento";
@@ -24,18 +24,18 @@ function formatDate(value: string | null): string {
 export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
   const greetingName = quote.clientName || quote.clientCompany || "equipo";
   const accessUrls = buildQuotePaymentUrls(quote.id, appUrl);
-  const paymentUrls = quote.proposal ? null : accessUrls;
+  const paymentUrls = quote.agencyId === SMARTPRO_AGENCY_ID && !quote.proposal ? accessUrls : null;
   const proposal = quote.proposal;
   const totalLabel = proposalHasRenewal(proposal) ? "Base cotizada" : "Total de la cotización";
   const viewUrl = accessUrls?.viewUrl ?? appUrl.replace(/\/$/, "");
 
   return renderCorporateEmail({
-    title: `Cotización ${quote.number} — SmartPro`,
-    preheader: `Adjuntamos la cotización ${quote.number} por ${formatCurrency(quote.total)}.`,
+    title: `Cotización ${quote.number} — ${quote.agency.brandName}`,
+    preheader: `Cotización ${quote.number} · ${totalLabel}: ${formatCurrency(quote.total)}.`,
     heading: `Cotización ${quote.number}`,
     greeting: `Hola ${greetingName},`,
     intro: [
-      `Adjuntamos la cotización ${quote.number} preparada por ${SMARTPRO_COMPANY.brandName} para ${quote.clientCompany || quote.clientName}.`,
+      `Adjuntamos la cotización ${quote.number} preparada por ${quote.agency.brandName} para ${quote.clientCompany || quote.clientName}.`,
       "El documento PDF incluye el detalle de servicios, valores e información de pago.",
     ],
     highlight: {
@@ -43,6 +43,17 @@ export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
       value: formatCurrency(quote.total),
     },
     details: [
+      { label: "Agencia", value: quote.agency.brandName },
+      { label: "Entidad legal", value: quote.agency.legalName },
+      ...(quote.agency.rut ? [{ label: "RUT", value: quote.agency.rut }] : []),
+      ...(quote.agency.email ? [{ label: "Correo de contacto", value: quote.agency.email }] : []),
+      ...(quote.agency.phone ? [{ label: "Teléfono", value: quote.agency.phone }] : []),
+      { label: "Titular de la cuenta", value: quote.agency.bankAccountHolder },
+      ...(quote.agency.bankRut ? [{ label: "RUT del titular", value: quote.agency.bankRut }] : []),
+      ...(quote.agency.bankName ? [{ label: "Banco", value: quote.agency.bankName }] : []),
+      ...(quote.agency.bankAccountType ? [{ label: "Tipo de cuenta", value: quote.agency.bankAccountType }] : []),
+      ...(quote.agency.bankAccountNumber ? [{ label: "Número de cuenta", value: quote.agency.bankAccountNumber }] : []),
+      ...(quote.agency.bankEmail ? [{ label: "Correo de la cuenta", value: quote.agency.bankEmail }] : []),
       { label: "Número", value: quote.number },
       { label: "Estado", value: getQuoteStatusLabel(quote.status) },
       { label: "Emisión", value: formatDate(quote.createdAt) },
@@ -63,8 +74,11 @@ export function buildQuoteEmail(quote: QuoteRecord, appUrl = getAppUrl()) {
     closing: "Quedamos atentos para resolver cualquier consulta y coordinar el siguiente paso.",
     cta: {
       href: viewUrl,
-      label: paymentUrls ? "Ver cotización y pagar" : proposal ? "Ver cotización" : "Visitar SmartPro",
+      label: paymentUrls ? "Ver cotización y pagar" : `Ver cotización de ${quote.agency.brandName}`,
     },
+    brandName: quote.agency.brandName,
+    brandLogoUrl: quote.agency.logoUrl,
+    signature: `Equipo ${quote.agency.brandName}`,
     appUrl,
   });
 }
@@ -79,8 +93,9 @@ export async function sendQuoteEmail(quote: QuoteRecord) {
   const pdf = await buildQuotePdf(outboundQuote);
 
   return sendEmail({
+    ...(quote.agency.email ? { from: `${quote.agency.brandName} <${quote.agency.email}>` } : {}),
     to: quote.clientEmail,
-    subject: `Cotización ${quote.number} — SmartPro`,
+    subject: `Cotización ${quote.number} — ${quote.agency.brandName}`,
     html,
     text,
     attachments: [

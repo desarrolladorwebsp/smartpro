@@ -25,7 +25,7 @@
     "db:notifications:schema": "npx tsx scripts/apply-notifications-schema.ts",
     "api:client": "npx tsx scripts/manage-api-client.ts",
     "api:smoke": "npx tsx scripts/smoke-api.ts",
-    "prebuild": "node prisma/migrations/ensure-user-soft-delete-schema.mjs"
+    "prebuild": "node prisma/migrations/ensure-user-soft-delete-schema.mjs && node prisma/migrations/verify-crm-release.mjs"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",

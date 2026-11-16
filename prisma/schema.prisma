@@ -44,6 +44,7 @@ model User {
   invitedInvitations Invitation[] @relation("InvitationInvitedBy")
   acceptedInvitations Invitation[] @relation("InvitationAcceptedBy")
   sessions           Session[]
+  assignedAccounts   Business[]
   assignedClients    Client[]     @relation("ClientAssignedExecutive")
   sales              Sale[]       @relation("SaleExecutive")
 
@@ -92,6 +93,14 @@ enum ClientStatus {
   ACTIVO
   POTENCIAL
   INACTIVO
+  RECURRENTE
+}
+
+enum ClientCrmStage {
+  NEW
+  CONTACTED
+  QUOTED
+  NEGOTIATION
 }
 
 enum ClientCommercialStatus {
@@ -220,6 +229,51 @@ model ApiWebhookDelivery {
   @@index([status, nextAttemptAt])
 }
 
+model Business {
+  id      String   @id @default(cuid())
+  name    String
+  rut     String?  @unique @db.VarChar(16)
+  address String   @default("")
+  clients Client[]
+  website String @default("")
+  notes String? @db.Text
+  crmPosition Int?
+  responsibleId String?
+  responsible User? @relation(fields: [responsibleId], references: [id], onDelete: SetNull)
+  contacts ClientContact[]
+  clientNotes ClientNote[]
+  crmStage ClientCrmStage @default(NEW)
+  status ClientStatus @default(POTENCIAL)
+  quotes Quote[]
+  sales Sale[]
+
+  @@index([responsibleId])
+}
+
+model Contact {
+  id        String @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String
+  email     String @default("")
+  jobTitle  String @default("")
+  clients   ClientContact[]
+  quotes    Quote[]
+  sales     Sale[]
+}
+
+model ClientContact {
+  accountId String
+  contactId String
+  legacyClientId String @unique
+  account Business @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  legacyClient Client @relation(fields: [legacyClientId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, contactId])
+  @@index([contactId])
+}
+
 model Client {
   id               String       @id @default(cuid())
   companyName      String
@@ -236,6 +290,10 @@ model Client {
   notes            String       @default("") @db.Text
   status           ClientStatus @default(ACTIVO)
   commercialStatus ClientCommercialStatus @default(PROSPECTO)
+  crmStage         ClientCrmStage @default(NEW)
+  businessId       String?
+  business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
   assignedExecutiveId String?
   assignedExecutive   User?     @relation("ClientAssignedExecutive", fields: [assignedExecutiveId], references: [id], onDelete: SetNull)
   interestServiceId          String?
@@ -252,6 +310,7 @@ model Client {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
+  commercialContact ClientContact?
   clientNotes    ClientNote[]
   initialContact InitialContact?
   quotes         Quote[]
@@ -261,6 +320,7 @@ model Client {
   @@index([status])
   @@index([commercialStatus])
   @@index([assignedExecutiveId])
+  @@index([businessId])
   @@index([rut])
   @@index([interestServiceId])
   @@index([interestSubcategoryId])
@@ -270,14 +330,17 @@ model Client {
 
 model ClientNote {
   id             String   @id @default(cuid())
-  clientId       String
-  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId       String?
+  client         Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  accountId      String?
+  account        Business? @relation(fields: [accountId], references: [id], onDelete: Cascade)
   title          String   @default("")
   content        String   @db.Text
   executiveEmail String
   createdAt      DateTime @default(now())
 
   @@index([clientId])
+  @@index([accountId, createdAt])
 }
 
 model InitialContact {
@@ -494,14 +557,48 @@ enum QuoteDiscountType {
   AMOUNT
 }
 
+model Agency {
+  id                 String   @id @db.VarChar(64)
+  brandName          String
+  legalName          String   @default("")
+  rut                String   @default("") @db.VarChar(32)
+  tagline            String   @default("")
+  address            String   @default("")
+  commune            String   @default("")
+  postalCode         String   @default("") @db.VarChar(32)
+  offices            String   @default("") @db.Text
+  phone              String   @default("") @db.VarChar(64)
+  contactName        String   @default("")
+  email              String   @default("")
+  website            String   @default("") @db.VarChar(255)
+  logoUrl            String   @default("") @db.VarChar(500)
+  bankAccountHolder  String   @default("")
+  bankRut            String   @default("") @db.VarChar(32)
+  bankName           String   @default("") @db.VarChar(100)
+  bankAccountType    String   @default("") @db.VarChar(100)
+  bankAccountNumber  String   @default("") @db.VarChar(100)
+  bankEmail          String   @default("")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 model Quote {
   id             String      @id @default(cuid())
   number         String      @unique
   status         QuoteStatus @default(DRAFT)
   clientId       String
+  businessRecipient Json?
+  businessId     String?
+  business       Business? @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  contactSnapshot Json?
+  contactId      String?
+  contact        Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdByEmail String
+  agencyId       String      @default("smartpro") @db.VarChar(64)
+  agencySnapshot Json?
   proposal       Json?
+  createdByEmail String
   notes                   String      @default("") @db.Text
   validUntil              DateTime?
   deliveryBusinessDays    Int         @default(15)
@@ -520,8 +617,11 @@ model Quote {
   sale           Sale?
 
   @@index([clientId])
+  @@index([businessId])
+  @@index([contactId])
   @@index([status])
   @@index([createdAt])
+  @@index([agencyId])
 }
 
 model QuoteItem {
@@ -573,9 +673,17 @@ model Sale {
   status           SaleStatus      @default(REGISTERED)
   source           SaleSource      @default(MANUAL)
   clientId         String
+  businessRecipient Json?
+  businessId     String?
+  business       Business? @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  contactSnapshot Json?
+  contactId      String?
+  contact        Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   client           Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   quoteId          String?         @unique
   quote            Quote?          @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  agencyId         String          @default("smartpro") @db.VarChar(64)
+  agencySnapshot   Json?
   orderId          String?         @unique
   order            Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
   paymentMethod    PaymentMethod?
@@ -584,6 +692,8 @@ model Sale {
   apiClientId      String?
   apiClient        ApiClient?      @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
   externalReference String         @default("")
+  directRequestKey  String?        @unique @db.Char(64)
+  directRequestHash String?        @db.Char(64)
   createdByEmail   String
   soldAt           DateTime        @default(now())
   observation      String          @default("") @db.Text
@@ -602,19 +712,23 @@ model Sale {
   liorenInvoicePdf          String?             @db.LongText
   liorenInvoiceEmailSentAt  DateTime?
   liorenInvoiceEmailError   String?             @db.Text
-  archivedAt                DateTime?
-  archivedByEmail           String?             @db.VarChar(255)
-  archiveReason             String?             @db.Text
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   payments         SalePayment[]
   internalComments SaleInternalComment[]
 
   @@index([clientId])
+  @@index([businessId])
+  @@index([contactId])
   @@index([executiveId])
   @@index([status])
   @@index([soldAt])
   @@index([apiClientId])
+  @@index([agencyId])
+
+  archivedAt                DateTime?
+  archivedByEmail           String?             @db.VarChar(255)
+  archiveReason             String?             @db.Text
   @@index([archivedAt])
 }
 

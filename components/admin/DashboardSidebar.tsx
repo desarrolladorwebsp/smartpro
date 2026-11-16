@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bell,
+  Building2,
   FileText,
   Images,
   KeyRound,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { label: "Ventas", href: "/dashboard/ventas", icon: ShoppingBag, adminOnly: false },
   { label: "Ejecutivos", href: "/dashboard/ejecutivos", icon: UserCog, adminOnly: true },
   { label: "APIs", href: "/dashboard/apis", icon: KeyRound, adminOnly: true },
+  { label: "Agencias", href: "/dashboard/agencias", icon: Building2, adminOnly: true },
 ] as const;
 
 const LOGO_SRC = "/images/logo/logo-smartpro-full.png";

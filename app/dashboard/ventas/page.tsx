@@ -4,6 +4,9 @@ import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { SalesPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { SalesDashboard } from "@/components/admin/SalesDashboard";
 import { requireAdminSession } from "@/lib/auth";
+import { listBusinesses } from "@/lib/clients/business-repository";
+import { listCommercialClients } from "@/lib/clients/commercial-clients";
+import type { BusinessProfile } from "@/lib/clients/business";
 import { listClients } from "@/lib/clients/repository";
 import type { ClientRecord } from "@/lib/clients/types";
 import { listSales } from "@/lib/sales/repository";
@@ -29,10 +32,11 @@ async function SalesPageContent({ searchParams }: SalesPageProps) {
 
   let sales: SaleRecord[] = [];
   let clients: ClientRecord[] = [];
+  let businesses: BusinessProfile[] = [];
   let loadError = false;
 
   try {
-    [sales, clients] = await Promise.all([listSales(), listClients()]);
+    [sales, clients, businesses] = await Promise.all([listSales(), listClients(), listBusinesses()]);
   } catch (error) {
     console.error("[smartpro:dashboard:ventas] Error de conexión a la base de datos", error);
     loadError = true;
@@ -49,5 +53,5 @@ async function SalesPageContent({ searchParams }: SalesPageProps) {
     );
   }
 
-  return <SalesDashboard initialSales={sales} clients={clients} initialClientId={params.clientId} />;
+  return <SalesDashboard initialSales={sales} accounts={listCommercialClients(clients, businesses)} initialClientId={params.clientId} />;
 }
