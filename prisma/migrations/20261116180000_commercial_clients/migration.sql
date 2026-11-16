@@ -23,7 +23,7 @@ UPDATE `Quote` q LEFT JOIN `Client` c ON c.id = q.clientId
 JOIN `Business` b ON b.id = CASE
   WHEN q.businessRecipient IS NULL THEN c.businessId
   ELSE JSON_UNQUOTE(JSON_EXTRACT(q.businessRecipient, '$.id')) END
-SET q.businessId = b.id;
+SET q.businessId = b.id, q.updatedAt = q.updatedAt;
 
 UPDATE `Sale` s LEFT JOIN `Quote` q ON q.id = s.quoteId
 LEFT JOIN `Client` c ON c.id = s.clientId
@@ -31,4 +31,4 @@ JOIN `Business` b ON b.id = CASE
   WHEN s.businessRecipient IS NOT NULL THEN JSON_UNQUOTE(JSON_EXTRACT(s.businessRecipient, '$.id'))
   WHEN s.quoteId IS NOT NULL THEN q.businessId
   ELSE c.businessId END
-SET s.businessId = b.id;
+SET s.businessId = b.id, s.updatedAt = s.updatedAt;

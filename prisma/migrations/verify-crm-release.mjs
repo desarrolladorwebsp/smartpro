@@ -70,6 +70,12 @@ try {
 
   await assertNoDemos();
   const before = await snapshot();
+  const automaticDates = await connection.query(
+    "SELECT TABLE_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('Quote', 'Sale') AND COLUMN_NAME = 'updatedAt' AND LOWER(EXTRA) LIKE '%on update%' ORDER BY TABLE_NAME",
+  );
+  if (automaticDates.length) {
+    console.log(`[smartpro:crm] Fechas automáticas de modificación en: ${automaticDates.map(({ name }) => name).join(", ")}.`);
+  }
 
   for (const [folder, table, field, expectedType] of steps) {
     if (table) {

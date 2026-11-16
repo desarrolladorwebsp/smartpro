@@ -82,13 +82,14 @@ export async function ensureAgencySchema(client: PrismaClient): Promise<void> {
     const smartpro = DEFAULT_AGENCIES.find((agency) => agency.id === SMARTPRO_AGENCY_ID)!;
     const smartproSnapshot = JSON.stringify(smartpro);
     await client.$executeRawUnsafe(
-      "UPDATE `Quote` SET `agencyId` = 'smartpro', `agencySnapshot` = ? WHERE `agencySnapshot` IS NULL OR `agencyId` = ''",
+      "UPDATE `Quote` SET `agencyId` = 'smartpro', `agencySnapshot` = ?, `updatedAt` = `updatedAt` WHERE `agencySnapshot` IS NULL OR `agencyId` = ''",
       smartproSnapshot,
     );
     await client.$executeRawUnsafe(`
       UPDATE \`Sale\` AS sale
       LEFT JOIN \`Quote\` AS quote ON quote.\`id\` = sale.\`quoteId\`
-      SET sale.\`agencyId\` = COALESCE(NULLIF(quote.\`agencyId\`, ''), 'smartpro'),
+      SET sale.\`updatedAt\` = sale.\`updatedAt\`,
+          sale.\`agencyId\` = COALESCE(NULLIF(quote.\`agencyId\`, ''), 'smartpro'),
           sale.\`agencySnapshot\` = COALESCE(quote.\`agencySnapshot\`, ?)
       WHERE sale.\`agencySnapshot\` IS NULL OR sale.\`agencyId\` = ''
     `, smartproSnapshot);

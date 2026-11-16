@@ -51,14 +51,14 @@ SELECT c.id, c.contactFirstName, c.contactLastName, c.phone, c.email FROM `Clien
 INSERT INTO `ClientContact` (`accountId`, `contactId`, `legacyClientId`)
 SELECT COALESCE(c.businessId, CONCAT('cliente-', c.id)), c.id, c.id FROM `Client` c;
 
-UPDATE `Client` c SET c.businessId = CONCAT('cliente-', c.id) WHERE c.businessId IS NULL;
+UPDATE `Client` c SET c.businessId = CONCAT('cliente-', c.id), c.updatedAt = c.updatedAt WHERE c.businessId IS NULL;
 
 UPDATE `Quote` q JOIN `ClientContact` link ON link.legacyClientId = q.clientId
-SET q.contactId = link.contactId,
+SET q.updatedAt = q.updatedAt, q.contactId = link.contactId,
     q.businessId = COALESCE(q.businessId, CASE WHEN link.accountId = CONCAT('cliente-', q.clientId) THEN link.accountId END);
 
 UPDATE `Sale` s JOIN `ClientContact` link ON link.legacyClientId = s.clientId LEFT JOIN `Quote` q ON q.id = s.quoteId
-SET s.contactId = COALESCE(q.contactId, link.contactId),
+SET s.updatedAt = s.updatedAt, s.contactId = COALESCE(q.contactId, link.contactId),
     s.businessId = COALESCE(s.businessId, q.businessId, CASE WHEN link.accountId = CONCAT('cliente-', s.clientId) THEN link.accountId END);
 
 COMMIT;

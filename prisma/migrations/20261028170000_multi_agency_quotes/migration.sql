@@ -48,11 +48,12 @@ UPDATE `Quote` SET `agencySnapshot` = JSON_OBJECT(
   'website', 'https://smartpro.cl', 'logoUrl', '/images/logo/logo-smartpro-full.png',
   'bankAccountHolder', 'Empresa Comercial LyV SpA', 'bankRut', '78.206.607-2', 'bankName', 'Banco BCI',
   'bankAccountType', 'Cuenta Corriente en pesos', 'bankAccountNumber', '97610224', 'bankEmail', 'contacto@smartpro.cl'
-) WHERE `agencySnapshot` IS NULL;
+), `updatedAt` = `updatedAt` WHERE `agencySnapshot` IS NULL;
 
 UPDATE `Sale` AS sale
 LEFT JOIN `Quote` AS quote ON quote.`id` = sale.`quoteId`
-SET sale.`agencyId` = COALESCE(quote.`agencyId`, 'smartpro'),
+SET sale.`updatedAt` = sale.`updatedAt`,
+    sale.`agencyId` = COALESCE(quote.`agencyId`, 'smartpro'),
     sale.`agencySnapshot` = COALESCE(quote.`agencySnapshot`, JSON_OBJECT(
       'id', 'smartpro', 'brandName', 'SmartPro', 'legalName', 'Empresa Comercial LyV SpA', 'rut', '78.206.607-2',
       'tagline', 'Agencia de marketing digital', 'address', 'Santa Elena 941B', 'commune', 'Santiago, Chile',
