@@ -31,9 +31,10 @@ const steps = [
   ["20261116190000_clients_and_contacts", "Sale", "contactId"],
   ["20261116191000_quick_client_notes", "ClientNote", "accountId"],
   ["20261116192000_crm_order_responsible", "Business", "responsibleId"],
+  ["20261116194000_crm_archive", "Client", "crmReactivateOn"],
 ];
 
-const protectedTables = ["Client", "ClientNote", "Contact", "ClientContact", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];
+const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];
 const migrationColumns = new Set(["businessId", "agencyId", "agencySnapshot", "contactId", "contactSnapshot"]);
 
 async function snapshot() {

@@ -96,6 +96,11 @@ enum ClientStatus {
   RECURRENTE
 }
 
+enum CrmArchiveState {
+  LOST
+  PAUSED
+}
+
 enum ClientCrmStage {
   NEW
   CONTACTED
@@ -243,11 +248,14 @@ model Business {
   contacts ClientContact[]
   clientNotes ClientNote[]
   crmStage ClientCrmStage @default(NEW)
+  crmArchiveState CrmArchiveState?
+  crmReactivateOn DateTime? @db.Date
   status ClientStatus @default(POTENCIAL)
   quotes Quote[]
   sales Sale[]
 
   @@index([responsibleId])
+  @@index([crmArchiveState, crmReactivateOn])
 }
 
 model Contact {
@@ -291,6 +299,8 @@ model Client {
   status           ClientStatus @default(ACTIVO)
   commercialStatus ClientCommercialStatus @default(PROSPECTO)
   crmStage         ClientCrmStage @default(NEW)
+  crmArchiveState  CrmArchiveState?
+  crmReactivateOn  DateTime? @db.Date
   businessId       String?
   business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
 
@@ -319,6 +329,7 @@ model Client {
   @@index([email])
   @@index([status])
   @@index([commercialStatus])
+  @@index([crmArchiveState, crmReactivateOn])
   @@index([assignedExecutiveId])
   @@index([businessId])
   @@index([rut])

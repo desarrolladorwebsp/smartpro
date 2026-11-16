@@ -9,6 +9,7 @@ import { ClientsPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { listBusinesses } from "@/lib/clients/business-repository";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listClients } from "@/lib/clients/repository";
+import { reactivatePausedCrmClients } from "@/lib/clients/crm-archive-repository";
 import type { ClientRecord } from "@/lib/clients/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   let loadError = false;
 
   try {
+    await reactivatePausedCrmClients();
     [clients, businesses, executives] = await Promise.all([listClients(), listBusinesses(), listAssignableExecutives()]);
   } catch (error) {
     console.error("[smartpro:dashboard:clientes] Error de conexión a la base de datos", error);
@@ -49,5 +51,13 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   const { empresa } = await searchParams;
   const businessId = businesses.find(({ id }) => id === empresa)?.id;
   if (businessId) redirect(`/dashboard/clientes/ficha/${encodeURIComponent(businessId)}`);
-  return <ClientsDashboard preferenceKey={`smartpro:crm:collapsed:${session.email.trim().toLowerCase()}`} initialClients={clients} initialBusinesses={businesses} assignable={executives.map(({ id, firstName, lastName, email }) => ({ id, firstName, lastName: lastName ?? "", email }))} />;
+  const hasPaused = businesses.some((entry) => entry.crmArchiveState === "PAUSED") ||
+    clients.some((entry) => !entry.businessId && entry.crmArchiveState === "PAUSED");
+  return <ClientsDashboard
+    preferenceKey={`smartpro:crm:collapsed:${session.email.trim().toLowerCase()}`}
+    hasPaused={hasPaused}
+    initialClients={clients.filter((entry) => entry.businessId || !entry.crmArchiveState)}
+    initialBusinesses={businesses.filter((entry) => !entry.crmArchiveState)}
+    assignable={executives.map(({ id, firstName, lastName, email }) => ({ id, firstName, lastName: lastName ?? "", email }))}
+  />;
 }

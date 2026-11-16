@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { BriefcaseBusiness, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
@@ -34,6 +35,7 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
   const [classifying, setClassifying] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null);
+  const [archive, setArchive] = useState<{ client: CommercialClient; state: CrmArchiveState } | null>(null);
   const [noteClient, setNoteClient] = useState<CommercialClient | null>(null);
   const noteTrigger = useRef<HTMLButtonElement | null>(null);
   const saving = useRef(false);
@@ -286,15 +288,25 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                           className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary">
                           <StickyNote size={14} aria-hidden="true" /> Nota
                         </button>
-                        <select data-stage-control aria-label={`Mover a otra etapa: ${client.name}`} value="" aria-disabled={pending !== null}
+                        <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
                           className="min-h-8 min-w-0 flex-1 truncate rounded-lg border border-border bg-white px-1.5 text-xs font-semibold text-foreground focus-visible:outline-primary aria-disabled:opacity-60"
                           onChange={(event) => {
-                            if (isClientCrmStage(event.target.value)) void move(client, event.target.value, true);
+                            if (saving.current) return;
+                            const state = event.target.value;
+                            if (isCrmArchiveState(state)) {
+                              setArchive({ client, state });
+                            } else if (isClientCrmStage(state)) {
+                              const label = CRM_STAGES.find((entry) => entry.id === state)?.label;
+                              if (window.confirm(`¿Cambiar el estado de ${client.name} a «${label}»?`)) {
+                                void move(client, state, true);
+                              }
+                            }
                           }}>
-                          <option value="">{pending === client.id ? "Guardando…" : "Mover"}</option>
+                          <option value="">{pending === client.id ? "Guardando…" : "Cambiar estado"}</option>
                           {CRM_STAGES.filter((entry) => entry.id !== stage.id).map((entry) => (
                             <option key={entry.id} value={entry.id}>{entry.label}</option>
                           ))}
+                          {CRM_ARCHIVE_STATES.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
                         </select>
                       </div>}
                     </li>;
@@ -311,6 +323,12 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
           })}
         </div>
       </div>
+      {archive && <ArchiveClientForm {...archive} onClose={() => setArchive(null)} onSaved={() => {
+        const label = CRM_ARCHIVE_STATES.find((entry) => entry.id === archive.state)?.label;
+        setFeedback({ error: false, message: `${archive.client.name} pasó a «${label}».` });
+        setArchive(null);
+        router.refresh();
+      }} />}
       {noteClient && <QuickNoteForm client={noteClient} onClose={closeNote} onSaved={() => {
         closeNote();
         setFeedback({ error: false, message: `Nota guardada para ${noteClient.name}.` });
@@ -324,6 +342,71 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
   );
 }
 
+
+function ArchiveClientForm({ client, state, onClose, onSaved }: {
+  client: CommercialClient;
+  state: CrmArchiveState;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const paused = state === "PAUSED";
+  const saving = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving.current) return;
+    const reactivateOn = new FormData(event.currentTarget).get("reactivateOn");
+    if (paused && !parseReactivationDate(reactivateOn)) {
+      setError("Elige una fecha de reactivación posterior a hoy.");
+      return;
+    }
+
+    const account = parseCommercialClientId(client.id)!;
+    saving.current = true;
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/clientes/${encodeURIComponent(account.id)}/archivo`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: account.kind, state, confirmed: true, reactivateOn }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error ?? "No se pudo guardar el cambio.");
+      onSaved();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo guardar el cambio.");
+    } finally {
+      saving.current = false;
+      setPending(false);
+    }
+  }
+
+  return (
+    <DashboardFormModal eyebrow="Clientes" title={paused ? "Poner en pausa" : "Marcar como perdido"}
+      onClose={() => { if (!saving.current) onClose(); }}>
+      <form onSubmit={submit} className="flex min-h-0 flex-col">
+        <div className="space-y-3 overflow-y-auto p-4">
+          <p className="break-words text-sm font-semibold">{client.name}</p>
+          <p className="text-sm text-muted">{paused
+            ? "La tarjeta volverá a su columna en la fecha elegida."
+            : "La tarjeta se archivará sin reactivación automática."}</p>
+          {paused && <label className="block text-sm font-medium">
+            Fecha de reactivación
+            <input name="reactivateOn" type="date" min={new Date(Date.parse(crmToday() + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10)} required autoFocus className="dashboard-field mt-1.5" />
+          </label>}
+        </div>
+        <DashboardFormFooter error={error}>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} disabled={pending} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold">Cancelar</button>
+            <button type="submit" disabled={pending} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{pending ? "Guardando…" : "Confirmar cambio"}</button>
+          </div>
+        </DashboardFormFooter>
+      </form>
+    </DashboardFormModal>
+  );
+}
 
 function QuickNoteForm({ client, onClose, onSaved }: { client: CommercialClient; onClose: () => void; onSaved: () => void }) {
   const saving = useRef(false);

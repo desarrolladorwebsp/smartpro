@@ -89,8 +89,8 @@ export async function associateConfirmedBusinessClients(businessId: string, clie
 export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, anchor?: { id: string; after: boolean }) {
   return database().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM Business ORDER BY id FOR UPDATE`;
-    const current = await tx.business.findUnique({ where: { id }, select: { crmStage: true } });
-    if (!current) return false;
+    const current = await tx.business.findUnique({ where: { id }, select: { crmStage: true, crmArchiveState: true } });
+    if (!current || current.crmArchiveState) return false;
     if (!anchor && current.crmStage === crmStage) return true;
     const cards = await tx.business.findMany({
       where: { crmStage, id: { not: id } },

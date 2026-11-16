@@ -1,7 +1,9 @@
 import type { ClientAssignedExecutive, ClientCrmStage, ClientRecord, ClientStatus } from "./types";
 
 export type BusinessRecord = { id: string; name: string; rut: string; address: string };
-export type BusinessProfile = BusinessRecord & { crmStage: ClientCrmStage; status: ClientStatus; crmPosition?: number | null; responsible?: ClientAssignedExecutive | null; website?: string; notes?: string | null };
+import type { CrmArchiveState } from "./crm-archive";
+
+export type BusinessProfile = BusinessRecord & { crmStage: ClientCrmStage; status: ClientStatus; crmPosition?: number | null; crmArchiveState?: CrmArchiveState | null; responsible?: ClientAssignedExecutive | null; website?: string; notes?: string | null };
 
 export function parseBusinessRecipient(value: unknown): BusinessRecord | null {
   if (!value || typeof value !== "object") return null;

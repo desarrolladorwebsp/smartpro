@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
 import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
@@ -49,12 +50,20 @@ function parseCollapsedCards(snapshot: string) {
   }
 }
 
-export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey }: {
+export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey, hasPaused }: {
   initialClients: ClientRecord[];
   initialBusinesses: BusinessProfile[];
   assignable: ClientAssignedExecutive[];
   preferenceKey: string;
+  hasPaused: boolean;
 }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (!hasPaused) return;
+    const timer = window.setInterval(() => router.refresh(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [hasPaused, router]);
+
   const [temporaryCollapsed, setTemporaryCollapsed] = useState<Set<string> | null>(null);
   const collapseSnapshot = useSyncExternalStore(
     subscribeToCollapsePreference,

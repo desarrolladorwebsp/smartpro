@@ -46,6 +46,7 @@ export type ClientRecord = {
   status: ClientStatus;
   commercialStatus: ClientCommercialStatus;
   crmStage?: ClientCrmStage;
+  crmArchiveState?: import("./crm-archive").CrmArchiveState | null;
   businessId?: string | null;
   contactId?: string;
   jobTitle?: string;

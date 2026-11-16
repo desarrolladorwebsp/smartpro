@@ -88,6 +88,7 @@ type ClientRow = {
   business?: { name: string } | null;
   commercialContact?: { contact: { id: string; firstName: string; lastName: string; email: string; phone: string; jobTitle: string } } | null;
   crmStage?: ClientRecord["crmStage"];
+  crmArchiveState?: ClientRecord["crmArchiveState"];
   id: string;
   companyName: string;
   rut: string;
@@ -216,6 +217,7 @@ function toClientRecord(client: ClientRow): ClientRecord {
     status: client.status,
     commercialStatus: client.commercialStatus,
     crmStage: client.crmStage,
+    crmArchiveState: client.crmArchiveState,
     businessId: client.businessId,
     businessName: client.business?.name,
     assignedExecutiveId: client.assignedExecutiveId,
@@ -625,7 +627,7 @@ export async function updateClientStatus(id: string, status: ClientStatus): Prom
 }
 
 export async function updateClientCrmStage(id: string, crmStage: NonNullable<ClientRecord["crmStage"]>): Promise<boolean> {
-  const result = await getPrisma().client.updateMany({ where: { id }, data: { crmStage } });
+  const result = await getPrisma().client.updateMany({ where: { id, crmArchiveState: null }, data: { crmStage } });
   return result.count === 1;
 }
 
