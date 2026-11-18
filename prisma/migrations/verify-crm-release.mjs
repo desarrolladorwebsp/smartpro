@@ -36,6 +36,7 @@ const steps = [
   ["20261117160000_calendar_client_links", "CalendarReminder", "clientKey"],
   ["20261117170000_calendar_zoom_meetings", "CalendarZoomMeeting", "id"],
   ["20261117180000_calendar_reminder_time", "CalendarReminder", "time"],
+  ["20261118170000_calendar_invitation_delivery", "CalendarZoomMeeting", "clientInvitationStatus"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

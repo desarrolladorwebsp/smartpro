@@ -1,9 +1,9 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Bell, Video } from "lucide-react";
+import { Bell, ChevronDown, Video } from "lucide-react";
 
-import type { CalendarClient, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
+import type { CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
 import { createCalendarReminder, bookCalendarZoomMeeting } from "@/app/dashboard/calendario/actions";
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "./dashboard-form";
 
@@ -11,12 +11,13 @@ function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es-CL");
 }
 
-export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clients, initialClientKey, onClose, onSaved, onMeetingSaved }: {
+export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clients, participants, initialClientKey, onClose, onSaved, onMeetingSaved }: {
   date: string;
   time: string;
   startTime: string;
   zoomConfigured: boolean;
   clients: CalendarClient[];
+  participants: CalendarParticipant[];
   initialClientKey: string;
   onClose: () => void;
   onSaved: (reminder: CalendarReminder) => void;
@@ -33,6 +34,9 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
   const searchResultsId = useId();
   const [contactId, setContactId] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [sendInvitation, setSendInvitation] = useState(false);
+  const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [bookingResult, setBookingResult] = useState<{ internalInvitation?: "sent" | "failed"; existing?: boolean }>({});
   const [meeting, setMeeting] = useState<CalendarZoomMeeting | null>(null);
   const selectedClient = clients.find((client) => client.id === clientKey);
   const contacts = selectedClient?.contacts ?? [];
@@ -123,7 +127,7 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         <select aria-label="Contacto (opcional)" name="contactId" value={contactId} onChange={(event) => setContactId(event.target.value)}
           disabled={!contacts.length} className="dashboard-field mt-1.5 disabled:opacity-60">
           <option value="">{clientKey ? (contacts.length ? "Sin contacto" : "Sin contactos disponibles") : "Selecciona un cliente primero"}</option>
-          {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
+          {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.email ? `${contact.name} - ${contact.email}` : contact.name}</option>)}
         </select>
       </label>
     </div>
@@ -141,6 +145,7 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         const result = await bookCalendarZoomMeeting(form);
         if (result.meeting) {
           setMeeting(result.meeting);
+          setBookingResult({ internalInvitation: result.internalInvitation, existing: result.existing });
           onMeetingSaved(result.meeting);
         } else setError(result.error);
       } else {
@@ -178,6 +183,24 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         <div className="space-y-3 p-4">
           <p role="status" className="font-medium text-emerald-700">Reunión agendada en Zoom.</p>
           <p className="text-sm">{meeting.title} · {time} · {meeting.duration} min</p>
+          {meeting.clientInvitationStatus === "PENDING" && (
+            <p role="status" className="text-sm text-amber-800">Invitación al cliente pendiente de entrega.</p>
+          )}
+          {meeting.clientInvitationStatus === "DELIVERED" && (
+            <p role="status" className="text-sm text-emerald-700">Invitación entregada al servidor de correo del cliente.</p>
+          )}
+          {meeting.clientInvitationStatus === "FAILED" && (
+            <p role="alert" className="text-sm text-amber-800">No se pudo enviar la invitación al cliente. Puedes compartir el enlace.</p>
+          )}
+          {bookingResult.internalInvitation === "sent" && (
+            <p role="status" className="text-sm text-emerald-700">Invitación interna enviada.</p>
+          )}
+          {bookingResult.internalInvitation === "failed" && (
+            <p role="alert" className="text-sm text-amber-800">Revisa el envío interno. Una o más copias no se pudieron enviar.</p>
+          )}
+          {bookingResult.existing && (
+            <p role="status" className="text-sm text-muted">La reunión ya estaba agendada. Se evitó un envío duplicado.</p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white" onClick={async () => {
               try {
@@ -210,6 +233,47 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
               </select>
             </label>
             {associationFields}
+            <div className="space-y-3 border-t border-border pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="sendInvitation" checked={sendInvitation}
+                  onChange={(event) => setSendInvitation(event.target.checked)}
+                  className="size-4 accent-primary" />
+                Enviar invitación al cliente por correo
+              </label>
+              {sendInvitation && (
+                <label className="block text-sm font-medium">
+                  Correo del destinatario
+                  <input key={clientKey + ":" + contactId} type="email" name="invitationEmail" required maxLength={254}
+                    defaultValue={contacts.find((contact) => contact.id === contactId)?.email ?? ""}
+                    placeholder="nombre@empresa.cl" className="dashboard-field mt-1.5" />
+                </label>
+              )}
+            </div>
+            <fieldset disabled={pending} className="space-y-2">
+              <legend className="text-sm font-medium">Participantes</legend>
+              {participants.length > 0 ? (
+                <details className="group rounded-2xl border border-border bg-surface-alt">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-sm focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+                    {participantIds.length > 0
+                      ? `${participantIds.length} ${participantIds.length === 1 ? "seleccionado" : "seleccionados"}`
+                      : "Seleccionar usuarios"}
+                    <ChevronDown size={16} aria-hidden="true" className="shrink-0 group-open:rotate-180" />
+                  </summary>
+                  <div className="max-h-44 space-y-0.5 overflow-y-auto border-t border-border px-2 py-1">
+                    {participants.map(({ id, name }) => (
+                      <label key={id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-primary/10">
+                        <input type="checkbox" name="participantIds" value={id} checked={participantIds.includes(id)}
+                          onChange={({ target: { checked } }) => setParticipantIds((previous) =>
+                            checked ? [...previous, id] : previous.filter((selected) => selected !== id))}
+                          className="size-4 shrink-0 accent-primary" />
+                        {name}
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              ) : <p className="text-sm text-muted">No hay usuarios activos disponibles.</p>}
+              <p className="text-xs text-muted">Los usuarios seleccionados reciben una invitación interna. Se envía una copia a contacto@smartpro.cl.</p>
+            </fieldset>
             {!zoomConfigured && <p className="text-sm text-muted">Conecta la cuenta de Zoom para agendar.</p>}
           </div>
           <DashboardFormFooter error={error}>

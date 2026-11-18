@@ -834,6 +834,12 @@ model CalendarReminder {
   @@index([ownerEmail, date])
 }
 
+enum CalendarInvitationDelivery {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
 model CalendarZoomMeeting {
   id String @id @default(cuid())
   ownerEmail String
@@ -846,6 +852,11 @@ model CalendarZoomMeeting {
   contactId String?
   zoomId String?
   joinUrl String? @db.Text
+  clientInvitationEmail String? @db.VarChar(254)
+  clientInvitationStatus CalendarInvitationDelivery?
+  clientInvitationResendId String? @unique
+  clientInvitationEventAt DateTime?
+  clientInvitationFailure String? @db.VarChar(255)
 
   @@unique([host, date, time])
   @@index([ownerEmail, date])

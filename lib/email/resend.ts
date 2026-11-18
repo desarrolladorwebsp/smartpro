@@ -11,11 +11,12 @@ export type SendEmailInput = {
   text: string;
   html?: string;
   attachments?: EmailAttachment[];
+  tags?: { name: string; value: string }[];
 };
 
 export type SendEmailResult =
-  | { delivered: true; provider: "resend" }
-  | { delivered: false; provider: "console" | "resend"; error?: string };
+  | { delivered: true; provider: "resend"; id?: string }
+  | { delivered: false; provider: "console" | "resend"; error?: string; uncertain?: boolean };
 
 function normalizeRecipients(to: string | string[]): string[] {
   const recipients = (Array.isArray(to) ? to : [to])
@@ -91,20 +92,23 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         text,
         ...(html ? { html } : {}),
         ...(attachments ? { attachments } : {}),
+        ...(input.tags?.length ? { tags: input.tags } : {}),
       }),
     });
 
     if (!response.ok) {
       const message = await response.text();
       console.error("[smartpro:email] Error al enviar correo", message);
-      return { delivered: false, provider: "resend", error: message };
+      return { delivered: false, provider: "resend", error: message, ...(response.status >= 500 ? { uncertain: true } : {}) };
     }
 
-    return { delivered: true, provider: "resend" };
+    const result = await response.json().catch(() => null);
+    const id = typeof result?.id === "string" && result.id.length <= 191 ? result.id : undefined;
+    return { delivered: true, provider: "resend", ...(id ? { id } : {}) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error de red al enviar el correo.";
     console.error("[smartpro:email] Error al enviar correo", message);
-    return { delivered: false, provider: "resend", error: message };
+    return { delivered: false, provider: "resend", error: message, uncertain: true };
   }
 }
 

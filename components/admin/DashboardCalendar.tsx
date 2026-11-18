@@ -1,9 +1,11 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { useId, useState } from "react";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useState } from "react";
+import { calendarTimeSlots, formatCalendarTime } from "@/lib/calendar-slots";
 import { CalendarSlotDialog } from "./CalendarSlotDialog";
-import type { CalendarClient, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
+import type { CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
 
 const views = ["Día", "Semana", "Mes"] as const;
 type CalendarView = (typeof views)[number];
@@ -14,24 +16,109 @@ const monthLabel = new Intl.DateTimeFormat("es-CL", { month: "long", year: "nume
 const weekday = new Intl.DateTimeFormat("es-CL", { weekday: "short", timeZone: "UTC" });
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-const timeSlots = Array.from({ length: 22 }, (_, index) => {
-  const hours = 9 + Math.floor(index / 2);
-  return `${hours % 12 || 12}:${index % 2 ? "30" : "00"} ${hours < 12 ? "a. m." : "p. m."}`;
-});
+type CalendarActivity = CalendarReminder | CalendarZoomMeeting;
 
-function slotTime(index: number) {
-  return String(9 + Math.floor(index / 2)).padStart(2, "0") + (index % 2 ? ":30" : ":00");
+function groupByDate<T extends CalendarActivity>(activities: T[]) {
+  const grouped = new Map<string, T[]>();
+  for (const activity of activities) {
+    const day = grouped.get(activity.date);
+    if (day) day.push(activity);
+    else grouped.set(activity.date, [activity]);
+  }
+  return grouped;
 }
 
-function ActivityPreview({ label, details }: { label: string; details: string }) {
-  const tooltipId = useId();
+function activityPeople(clients: CalendarClient[], activity: CalendarActivity) {
+  const client = clients.find(({ id }) => id === activity.clientKey);
+  const contact = client?.contacts.find(({ id }) => id === activity.contactId);
+  return [client?.name, contact?.name].filter(Boolean);
+}
+
+const invitationStatuses = {
+  PENDING: { Icon: Clock, label: "Pendiente de entrega", color: "bg-amber-50 text-amber-800", description: "Esperando confirmación de Resend." },
+  DELIVERED: { Icon: CircleCheck, label: "Entregada", color: "bg-emerald-50 text-emerald-800", description: "El servidor de correo del cliente aceptó la invitación." },
+  FAILED: { Icon: CircleX, label: "Falló la entrega", color: "bg-red-50 text-red-800", description: "La invitación al cliente no se pudo entregar." },
+};
+
+function InvitationDelivery({ meeting }: { meeting: CalendarZoomMeeting }) {
+  if (!meeting.clientInvitationStatus) return null;
+  const { Icon, label, color, description } = invitationStatuses[meeting.clientInvitationStatus];
+  const detail = meeting.clientInvitationFailure || description;
+
   return (
-    <span tabIndex={0} aria-describedby={tooltipId} className="group relative block rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary focus-visible:outline-primary">
-      <span className="block truncate">{label}</span>
-      <span id={tooltipId} role="tooltip" className="pointer-events-none absolute inset-x-0 top-full z-20 mt-1 hidden max-h-32 overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-navy p-2 text-left font-normal text-white shadow-lg group-focus:block group-hover:block">
-        {details}
-      </span>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${color}`}
+      role="status" title={detail} aria-label={`Invitación al cliente: ${label}. ${detail}`}>
+      <Icon size={14} aria-hidden="true" className="shrink-0" />{label}
     </span>
+  );
+}
+
+function ActivityRow({ activity, clients }: { activity: CalendarActivity; clients: CalendarClient[] }) {
+  const isMeeting = "joinUrl" in activity;
+  const Icon = isMeeting ? Video : Bell;
+  const details = [
+    isMeeting ? "Reunión por Zoom" : "Recordatorio",
+    isMeeting && `${activity.duration} min`,
+    ...activityPeople(clients, activity),
+  ].filter(Boolean).join(" · ");
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-white px-3 py-2.5 text-sm">
+      <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${isMeeting ? "bg-primary/10 text-primary" : "bg-amber-50 text-amber-700"}`}>
+        <Icon size={16} aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium tabular-nums text-muted">{activity.time ?? "Sin hora"}</p>
+        <p className="whitespace-pre-wrap break-words font-semibold">{isMeeting ? activity.title : activity.note}</p>
+        <p className="mt-0.5 break-words text-xs text-muted">{details}</p>
+      </div>
+      {isMeeting && (
+        <div className={`flex flex-wrap items-center justify-end gap-x-2 gap-y-1 ${activity.clientInvitationStatus ? "w-full sm:w-auto" : ""}`}>
+          <InvitationDelivery meeting={activity} />
+          <a href={activity.joinUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex min-h-8 shrink-0 items-center rounded-md px-1 font-semibold text-primary hover:underline">Abrir Zoom</a>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function CalendarTimeButton({ time, activities, clients, onClick }: {
+  time: string;
+  activities: CalendarActivity[];
+  clients: CalendarClient[];
+  onClick: () => void;
+}) {
+  const tooltipId = useId();
+  const hasActivities = activities.length > 0;
+  return (
+    <li className="group relative min-w-0">
+      <button type="button" onClick={onClick} aria-describedby={hasActivities ? tooltipId : undefined}
+        className="relative h-11 w-full rounded-lg border border-border bg-slate-50 px-2 text-sm font-medium tabular-nums hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary">
+        {formatCalendarTime(time)}
+        {hasActivities && (
+          <span aria-hidden="true" className="absolute inset-x-2 bottom-1 flex justify-center gap-0.5 overflow-hidden">
+            {activities.map((activity) => {
+              const isMeeting = "joinUrl" in activity;
+              return <span key={`${isMeeting ? "meeting" : "reminder"}:${activity.id}`}
+                className={`size-1.5 shrink-0 rounded-full ${isMeeting ? "bg-primary" : "bg-amber-500"}`} />;
+            })}
+          </span>
+        )}
+      </button>
+      {hasActivities && (
+        <div id={tooltipId} role="tooltip"
+          className="absolute inset-x-0 top-full z-20 hidden max-h-44 space-y-2 overflow-y-auto rounded-lg bg-navy p-2.5 text-xs text-white shadow-lg group-focus-within:block group-hover:block">
+          {activities.map((activity) => {
+            const isMeeting = "joinUrl" in activity;
+            return <div key={`${isMeeting ? "meeting" : "reminder"}:${activity.id}`} className="break-words">
+              <p className="font-semibold">{isMeeting ? "Reunión por Zoom" : "Recordatorio"}</p>
+              <p className="whitespace-pre-wrap">{isMeeting ? activity.title : activity.note}</p>
+              <p className="text-white/75">{[isMeeting && `${activity.duration} min`, ...activityPeople(clients, activity)].filter(Boolean).join(" · ")}</p>
+            </div>;
+          })}
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -62,36 +149,52 @@ function monday(date: Date) {
   return addDays(date, -((date.getUTCDay() + 6) % 7));
 }
 
-export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients }: {
+export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients, participants }: {
   initialClientKey: string;
   initialToday: string;
   initialReminders: CalendarReminder[];
   initialMeetings: CalendarZoomMeeting[];
   zoomConfigured: boolean;
   clients: CalendarClient[];
+  participants: CalendarParticipant[];
 }) {
-  const [meetings, setMeetings] = useState(initialMeetings);
+  const router = useRouter();
+  const [newMeetings, setNewMeetings] = useState<CalendarZoomMeeting[]>([]);
+  const serverMeetingIds = new Set(initialMeetings.map(({ id }) => id));
+  const meetings = [...initialMeetings, ...newMeetings.filter(({ id }) => !serverMeetingIds.has(id))];
+  const hasPendingInvitations = meetings.some(({ clientInvitationStatus }) => clientInvitationStatus === "PENDING");
+
+  useEffect(() => {
+    if (!hasPendingInvitations) return;
+    function refreshVisibleCalendar() {
+      if (document.visibilityState === "visible") router.refresh();
+    }
+    const interval = window.setInterval(refreshVisibleCalendar, 30_000);
+    window.addEventListener("focus", refreshVisibleCalendar);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshVisibleCalendar);
+    };
+  }, [hasPendingInvitations, router]);
   const [reminders, setReminders] = useState(initialReminders);
   const [slot, setSlot] = useState<string | null>(null);
   const [view, setView] = useState<CalendarView>(initialClientKey ? "Día" : "Semana");
   const [selected, setSelected] = useState(() => new Date(`${initialToday}T00:00:00Z`));
   const selectedDate = selected.toISOString().slice(0, 10);
-  const remindersByDate = new Map<string, CalendarReminder[]>();
-  for (const reminder of reminders) {
-    const day = remindersByDate.get(reminder.date);
-    if (day) day.push(reminder);
-    else remindersByDate.set(reminder.date, [reminder]);
+  const remindersByDate = groupByDate(reminders);
+  const meetingsByDate = groupByDate(meetings);
+  function activitiesFor(date: string): CalendarActivity[] {
+    return [...(meetingsByDate.get(date) ?? []), ...(remindersByDate.get(date) ?? [])]
+      .sort((a, b) => (a.time ?? "24:00").localeCompare(b.time ?? "24:00"));
   }
-  const dayMeetings = meetings.filter((meeting) => meeting.date === selectedDate).sort((a, b) => a.time.localeCompare(b.time));
-  function activityDetails(type: string, activity: CalendarReminder | CalendarZoomMeeting, text: string, duration?: string) {
-    const client = clients.find(({ id }) => id === activity.clientKey);
-    const contact = client?.contacts.find(({ id }) => id === activity.contactId);
-    return [[type, activity.time, duration].filter(Boolean).join(" · "), text, client?.name, contact?.name].filter(Boolean).join("\n");
-  }
-  const slotIndex = slot ? timeSlots.indexOf(slot) : 0;
-  const startTime = slotTime(slotIndex);
-  const dayReminders = remindersByDate.get(selectedDate) ?? [];
+  const dayActivities = view === "Día" ? activitiesFor(selectedDate) : [];
   const weekStart = monday(selected);
+  const agendaDays = (view === "Semana" ? Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)) : [selected])
+    .map((date) => {
+      const key = date.toISOString().slice(0, 10);
+      return { date, key, activities: view === "Día" ? dayActivities : activitiesFor(key) };
+    }).filter(({ activities }) => activities.length > 0);
+  const agendaTitle = view === "Día" ? "Actividades del día" : "Actividades de la semana";
   const monthStart = monday(firstOfMonth(selected));
   const monthEnd = addDays(firstOfMonth(moveMonth(selected, 1)), -1);
   const monthCells = Math.ceil((monthEnd.getTime() - monthStart.getTime() + 86_400_000) / (7 * 86_400_000)) * 7;
@@ -142,55 +245,12 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
         <h2 aria-live="polite" className="px-4 py-3 text-base font-semibold capitalize sm:px-5 sm:text-lg">{period}</h2>
 
         {view === "Día" ? (
-          <>
           <ul aria-label="Horarios del día" className="grid grid-cols-2 gap-2 border-t border-border p-3 sm:grid-cols-4 sm:p-5">
-            {timeSlots.map((time, index) => {
-              const hour = slotTime(index);
-              return (
-                <li key={time} className="min-w-0 space-y-1">
-                  <button type="button" onClick={() => setSlot(time)} className="min-h-11 w-full rounded-lg border border-border bg-slate-50 px-2 text-sm font-medium tabular-nums hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary">{time}</button>
-                  {dayMeetings.filter((meeting) => meeting.time === hour).map((meeting) => (
-                    <ActivityPreview key={meeting.id} label={meeting.title}
-                      details={activityDetails("Reunión por Zoom", meeting, meeting.title, meeting.duration + " min")} />
-                  ))}
-                  {dayReminders.filter((reminder) => reminder.time === hour).map((reminder) => (
-                    <ActivityPreview key={reminder.id} label={reminder.note}
-                      details={activityDetails("Recordatorio", reminder, reminder.note)} />
-                  ))}
-                </li>
-              );
-            })}
+            {calendarTimeSlots.map((time) => (
+              <CalendarTimeButton key={time} time={time} activities={dayActivities.filter((activity) => activity.time === time)}
+                clients={clients} onClick={() => setSlot(time)} />
+            ))}
           </ul>
-          {dayMeetings.length > 0 && (
-            <ul aria-label="Reuniones de Zoom del día" className="space-y-2 border-t border-border p-3 sm:p-5">
-              {dayMeetings.map((meeting) => {
-                const client = clients.find(({ id }) => id === meeting.clientKey);
-                const contact = client?.contacts.find(({ id }) => id === meeting.contactId);
-                return <li key={meeting.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-                  <div>
-                    <p className="font-medium">{meeting.time} · {meeting.title}</p>
-                    <p className="text-xs text-muted">{[meeting.duration + " min", client?.name, contact?.name].filter(Boolean).join(" · ")}</p>
-                  </div>
-                  <a href={meeting.joinUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary">Abrir Zoom</a>
-                </li>;
-              })}
-            </ul>
-          )}
-          {dayReminders.length > 0 && (
-            <ul aria-label="Recordatorios del día" className="space-y-2 border-t border-border p-3 sm:p-5">
-              {dayReminders.map((reminder) => {
-                const client = clients.find(({ id }) => id === reminder.clientKey);
-                const contact = client?.contacts.find(({ id }) => id === reminder.contactId);
-                return <li key={reminder.id} className="break-words rounded-lg bg-primary/10 px-3 py-2 text-sm text-foreground">
-                  <p className="text-xs font-medium text-muted">{reminder.time ?? "Sin hora"}</p>
-                  <p className="mt-1 whitespace-pre-wrap">{reminder.note}</p>
-                  {client && <p className="mt-1 text-xs text-muted">{[client.name, contact?.name].filter(Boolean).join(" · ")}</p>}
-                </li>;
-              })}
-            </ul>
-          )}
-
-          </>
         ) : (
           <div className="border-t border-border">
             {view === "Mes" && (
@@ -203,14 +263,14 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
                 const date = addDays(view === "Semana" ? weekStart : monthStart, index);
                 const key = date.toISOString().slice(0, 10);
                 const isToday = key === initialToday;
-                const meetingCount = meetings.filter((meeting) => meeting.date === key).length;
+                const meetingCount = meetingsByDate.get(key)?.length ?? 0;
                 const reminderCount = remindersByDate.get(key)?.length ?? 0;
                 const reminderLabel = reminderCount === 1 ? "1 recordatorio" : `${reminderCount} recordatorios`;
                 const outsideMonth = view === "Mes" && date.getUTCMonth() !== selected.getUTCMonth();
                 return (
                   <button key={key} type="button" aria-label={[fullDate.format(date), reminderCount > 0 ? reminderLabel : "", meetingCount ? (meetingCount === 1 ? "1 reunión" : `${meetingCount} reuniones`) : ""].filter(Boolean).join(", ")} aria-current={isToday ? "date" : undefined}
                     onClick={() => openDay(date)}
-                    className={`min-w-0 p-1 text-center transition-colors hover:bg-primary/10 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${view === "Semana" ? "min-h-28 sm:min-h-44" : "min-h-14 sm:min-h-20"} ${outsideMonth ? "bg-slate-50 text-muted" : "bg-white text-foreground"}`}>
+                    className={`min-w-0 p-1 text-center transition-colors hover:bg-primary/10 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${view === "Semana" ? "min-h-20 sm:min-h-24" : "min-h-14 sm:min-h-20"} ${outsideMonth ? "bg-slate-50 text-muted" : "bg-white text-foreground"}`}>
                     <span className="flex h-full flex-col items-center justify-start gap-1 pt-1">
                       {view === "Semana" && <span className="text-xs capitalize text-muted">{weekday.format(date)}</span>}
                       <span className={`grid size-7 place-items-center rounded-full text-sm tabular-nums ${isToday ? "bg-primary font-semibold text-white" : ""}`}>{date.getUTCDate()}</span>
@@ -224,10 +284,34 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
             </div>
           </div>
         )}
+        {view !== "Mes" && (
+          <section aria-label={agendaTitle} className="border-t border-border bg-slate-50/70 px-3 py-4 sm:px-5">
+            <h3 className="text-base font-semibold">{agendaTitle}</h3>
+            {agendaDays.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">No hay reuniones ni recordatorios {view === "Día" ? "este día" : "esta semana"}.</p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {agendaDays.map(({ date, key, activities }) => (
+                  <div key={key}>
+                    {view === "Semana" && <h4 className="mb-2 text-sm font-semibold capitalize">{fullDate.format(date)}</h4>}
+                    <ul aria-label={fullDate.format(date)} className="space-y-2">
+                      {activities.map((activity) => (
+                        <ActivityRow key={`${"joinUrl" in activity ? "meeting" : "reminder"}:${activity.id}`} activity={activity} clients={clients} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </section>
-      {slot && <CalendarSlotDialog date={selectedDate} time={slot} startTime={startTime} zoomConfigured={zoomConfigured} clients={clients} initialClientKey={initialClientKey}
+      {slot && <CalendarSlotDialog date={selectedDate} time={formatCalendarTime(slot)} startTime={slot} zoomConfigured={zoomConfigured} clients={clients} participants={participants} initialClientKey={initialClientKey}
         onClose={() => setSlot(null)}
-        onMeetingSaved={(meeting) => setMeetings((current) => [...current.filter(({ id }) => id !== meeting.id), meeting])}
+        onMeetingSaved={(meeting) => {
+          setNewMeetings((current) => [...current.filter(({ id }) => id !== meeting.id), meeting]);
+          router.refresh();
+        }}
         onSaved={(reminder) => {
           setReminders((current) => [...current, reminder]);
           setSelected(new Date(`${reminder.date}T00:00:00Z`));
