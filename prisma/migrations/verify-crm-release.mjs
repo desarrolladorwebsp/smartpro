@@ -32,6 +32,10 @@ const steps = [
   ["20261116191000_quick_client_notes", "ClientNote", "accountId"],
   ["20261116192000_crm_order_responsible", "Business", "responsibleId"],
   ["20261116194000_crm_archive", "Client", "crmReactivateOn"],
+  ["20261117150000_calendar_reminders", "CalendarReminder", "id"],
+  ["20261117160000_calendar_client_links", "CalendarReminder", "clientKey"],
+  ["20261117170000_calendar_zoom_meetings", "CalendarZoomMeeting", "id"],
+  ["20261117180000_calendar_reminder_time", "CalendarReminder", "time"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

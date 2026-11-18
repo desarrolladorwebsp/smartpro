@@ -820,3 +820,33 @@ model AdminNotification {
   @@index([readAt])
   @@index([type])
 }
+
+model CalendarReminder {
+  time String? @db.VarChar(5)
+  clientKey String?
+  contactId String?
+  id String @id @default(cuid())
+  ownerEmail String
+  date DateTime @db.Date
+  note String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ownerEmail, date])
+}
+
+model CalendarZoomMeeting {
+  id String @id @default(cuid())
+  ownerEmail String
+  host String
+  date DateTime @db.Date
+  time String @db.VarChar(5)
+  title String
+  duration Int
+  clientKey String?
+  contactId String?
+  zoomId String?
+  joinUrl String? @db.Text
+
+  @@unique([host, date, time])
+  @@index([ownerEmail, date])
+}

@@ -1,0 +1,3 @@
+ALTER TABLE `CalendarReminder`
+  ADD COLUMN `clientKey` VARCHAR(191) NULL,
+  ADD COLUMN `contactId` VARCHAR(191) NULL;

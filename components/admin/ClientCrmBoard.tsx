@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { BriefcaseBusiness, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
+import { BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
 import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus } from "@/lib/clients/types";
 
 import { DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
@@ -288,6 +288,11 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                           className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary">
                           <StickyNote size={14} aria-hidden="true" /> Nota
                         </button>
+                        <Link href={`/dashboard/calendario?cliente=${encodeURIComponent(client.id)}`}
+                          aria-label={`Agendar en calendario para ${client.name}`} title="Agendar en calendario"
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/15 focus-visible:outline-primary">
+                          <CalendarPlus size={15} aria-hidden="true" />
+                        </Link>
                         <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
                           className="min-h-8 min-w-0 flex-1 truncate rounded-lg border border-border bg-white px-1.5 text-xs font-semibold text-foreground focus-visible:outline-primary aria-disabled:opacity-60"
                           onChange={(event) => {
