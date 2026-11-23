@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ContactButton, EditClientButton } from "@/components/admin/ClientAccountForms";
+import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth";
 import { getBusiness } from "@/lib/clients/business-repository";
@@ -18,7 +18,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
   await requireAdminSession();
   const { id } = await params;
   const business = await getBusiness(id);
-  if (!business) notFound();
+  if (!business || business.deletedAt) notFound();
   const [contacts, quotes, sales, notes] = await Promise.all([
     listClients({ businessId: id }),
     listQuotes({ businessId: id }),
@@ -37,7 +37,10 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
       <header className={panel}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold">{business.name}</h1>
-          <EditClientButton account={{ ...business, rut: business.rut ?? "" }} />
+          <div className="flex flex-wrap gap-2">
+            <EditClientButton account={{ ...business, rut: business.rut ?? "" }} />
+            <DeleteClientButton id={business.id} kind="business" name={business.name} />
+          </div>
         </div>
         {(business.rut || business.address) && <p className="text-sm text-muted">{[business.rut, business.address].filter(Boolean).join(" · ")}</p>}
         {business.website && <p className="text-sm text-muted">{business.website}</p>}

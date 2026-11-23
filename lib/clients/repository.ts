@@ -9,6 +9,7 @@ import { CLIENT_ORIGINS, type ClientOrigin, type QuoteMotive } from "./contact-o
 import { emptyClientInterest, formatClientInterestLabel, resolveClientInterest } from "./interest";
 import { getCatalogTree } from "../services/repository";
 import { type ClientCommercialStatus, type ClientRecord, type ClientStatus } from "./types";
+import { visibleClientWhere } from "./visibility";
 
 export {
   getAssignedExecutiveName,
@@ -369,7 +370,7 @@ function validateClientPayload(normalized: ClientRecord) {
 
 export async function listClients(filters: { businessId?: string } = {}): Promise<ClientRecord[]> {
   const clients = await getPrisma().client.findMany({
-    where: filters,
+    where: { ...filters, ...visibleClientWhere },
     include: CLIENT_RELATIONS,
     orderBy: { createdAt: "desc" },
   });
@@ -377,9 +378,9 @@ export async function listClients(filters: { businessId?: string } = {}): Promis
   return clients.map(toClientRecord);
 }
 
-export async function getClientById(id: string): Promise<ClientRecord | null> {
+export async function getClientById(id: string, { visibleOnly = false } = {}): Promise<ClientRecord | null> {
   const client = await getPrisma().client.findUnique({
-    where: { id },
+    where: { ...(visibleOnly ? visibleClientWhere : {}), id },
     include: CLIENT_RELATIONS,
   });
   return client ? toClientRecord(client) : null;

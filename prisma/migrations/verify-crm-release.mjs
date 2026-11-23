@@ -37,10 +37,33 @@ const steps = [
   ["20261117170000_calendar_zoom_meetings", "CalendarZoomMeeting", "id"],
   ["20261117180000_calendar_reminder_time", "CalendarReminder", "time"],
   ["20261118170000_calendar_invitation_delivery", "CalendarZoomMeeting", "clientInvitationStatus"],
+  ["20261117120000_client_crm_history", "ClientCrmHistory", "id"],
 ];
 
-const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];
+const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "ClientCrmHistory", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];
 const migrationColumns = new Set(["businessId", "agencyId", "agencySnapshot", "contactId", "contactSnapshot"]);
+
+async function ensureClientSoftDeleteSchema() {
+  const folder = "20261123120000_client_soft_delete";
+  const sql = await readFile(new URL(`./${folder}/migration.sql`, import.meta.url), "utf8");
+  const statements = sql.split(/;\s*(?:\r?\n|$)/).filter((part) => part.trim());
+  const guards = [
+    ["Business", "COLUMNS", "COLUMN_NAME", "deletedAt"],
+    ["Client", "COLUMNS", "COLUMN_NAME", "deletedAt"],
+    ["Business", "STATISTICS", "INDEX_NAME", "Business_deletedAt_idx"],
+    ["Client", "STATISTICS", "INDEX_NAME", "Client_deletedAt_idx"],
+  ];
+  if (statements.length !== guards.length) throw new Error("Migración de clientes incompleta.");
+
+  for (const [index, [table, catalog, field, name]] of guards.entries()) {
+    const existing = await connection.query(
+      `SELECT 1 FROM information_schema.${catalog} WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND ${field} = ?`,
+      [table, name],
+    );
+    if (existing.length === 0) await connection.query(statements[index]);
+  }
+  console.log("[smartpro:crm] Esquema de eliminación lógica de clientes verificado.");
+}
 
 async function snapshot() {
   const tables = new Map();
@@ -95,6 +118,7 @@ try {
     console.log(`[smartpro:crm] Migración aplicada: ${folder}`);
   }
 
+  await ensureClientSoftDeleteSchema();
   await assertNoDemos();
   for (const [table, { columns, digests }] of before) {
     const query = 'SELECT ' + columns.map((name) => '`' + name + '`').join(', ') + ' FROM `' + table + '`';

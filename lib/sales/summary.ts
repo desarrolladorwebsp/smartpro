@@ -40,8 +40,8 @@ function getPeriodFromDate(date: Date): SalesPeriod {
   };
 }
 
-function isCancelled(sale: Pick<SaleRecord, "status">) {
-  return sale.status === "CANCELLED";
+function countsInSalesSummary(sale: Pick<SaleRecord, "status" | "clientHidden">) {
+  return sale.status !== "CANCELLED" && !sale.clientHidden;
 }
 
 function inMonth(iso: string, period: SalesPeriod) {
@@ -53,7 +53,7 @@ function inMonth(iso: string, period: SalesPeriod) {
 
 export function buildSalesSummary(sales: SaleRecord[], now = new Date(), selectedPeriod?: SalesPeriod): SalesSummary {
   const period = selectedPeriod ?? getPeriodFromDate(now);
-  const active = sales.filter((sale) => !isCancelled(sale)).map(withSalePaymentTotals);
+  const active = sales.filter(countsInSalesSummary).map(withSalePaymentTotals);
   const collectedByMethod: Partial<Record<SalePaymentMethod, number>> = {};
   let collectedMonth = 0;
 
@@ -96,7 +96,7 @@ export function buildSalesSummary(sales: SaleRecord[], now = new Date(), selecte
 }
 
 export function summarizeFilteredSales(sales: SaleRecord[]) {
-  const active = sales.filter((sale) => !isCancelled(sale)).map(withSalePaymentTotals);
+  const active = sales.filter(countsInSalesSummary).map(withSalePaymentTotals);
   return {
     sold: active.reduce((sum, sale) => sum + roundClp(sale.total), 0),
     collected: active.reduce((sum, sale) => sum + sale.paidAmount, 0),

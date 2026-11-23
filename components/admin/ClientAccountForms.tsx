@@ -86,14 +86,13 @@ export function ClientAccountForm({ account, onClose }: { account?: BusinessProf
     try {
       if (account) {
         await save(`/api/clientes/${encodeURIComponent(account.id)}`, "PATCH", data);
-        router.refresh();
       } else {
-        const { account: created } = await save("/api/clientes", "POST", {
+        await save("/api/clientes", "POST", {
           ...data, contacts: contacts.map((id) => readContact(fields, `contact-${id}-`)),
         });
-        router.push(`/dashboard/clientes/ficha/${encodeURIComponent(created.id)}`);
       }
       onClose();
+      router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "No se pudo guardar el cliente.");
     } finally {
@@ -213,4 +212,64 @@ export function ContactButton({ accountId, contact }: { accountId: string; conta
       </form>
     </DashboardFormModal>}
   </>;
+}
+
+export function DeleteClientButton({ id, kind, name }: {
+  id: string;
+  kind: "business" | "person";
+  name: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const saving = useRef(false);
+
+  function close() {
+    if (!saving.current) setOpen(false);
+  }
+
+  async function confirm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
+    setPending(true);
+    setError("");
+    try {
+      await save(`/api/clientes/${encodeURIComponent(id)}`, "DELETE", { kind, confirmed: true });
+      router.replace("/dashboard/clientes");
+      router.refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "No se pudo eliminar el cliente.");
+    } finally {
+      saving.current = false;
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <button type="button" onClick={() => { setError(""); setOpen(true); }}
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-700">
+        <Trash2 size={15} aria-hidden="true" /> Eliminar cliente
+      </button>
+      {open && <DashboardFormModal title="Eliminar cliente" eyebrow="Clientes" onClose={close}>
+        <form onSubmit={confirm} className="flex min-h-0 flex-col">
+          <div className="space-y-2 overflow-y-auto px-4 py-3 text-sm">
+            <p className="break-words font-semibold">{name}</p>
+            <p className="text-muted">La ficha se ocultará de Clientes y se excluirá de los indicadores. Se conservarán sus datos e historial.</p>
+          </div>
+          <DashboardFormFooter error={error}>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={close} disabled={pending} autoFocus className={linkButton}>Cancelar</button>
+              <button type="submit" disabled={pending}
+                className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60">
+                {pending ? "Eliminando…" : "Eliminar cliente"}
+              </button>
+            </div>
+          </DashboardFormFooter>
+        </form>
+      </DashboardFormModal>}
+    </>
+  );
 }

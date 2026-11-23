@@ -64,6 +64,32 @@ export async function createAccount(input: unknown) {
   });
 }
 
+export async function hideCommercialClient(id: string, kind: "business" | "person", actorEmail: string) {
+  return database().$transaction(async (tx) => {
+    const where = { id, deletedAt: null };
+    const data = { deletedAt: new Date() };
+    const result = kind === "business"
+      ? await tx.business.updateMany({ where, data })
+      : await tx.client.updateMany({ where: { ...where, businessId: null }, data });
+    if (result.count === 0) {
+      const existing = kind === "business"
+        ? await tx.business.findUnique({ where: { id }, select: { deletedAt: true } })
+        : await tx.client.findUnique({ where: { id, businessId: null }, select: { deletedAt: true } });
+      return Boolean(existing?.deletedAt);
+    }
+
+    await tx.clientCrmHistory.create({ data: {
+      ...(kind === "business" ? { accountId: id } : { clientId: id }),
+      event: "DELETION",
+      fromState: "VISIBLE",
+      toState: "DELETED",
+      actorEmail,
+      note: "",
+    } });
+    return true;
+  });
+}
+
 export async function updateAccount(id: string, input: unknown) {
   const db = database();
   const current = await db.business.findUniqueOrThrow({ where: { id }, select: { rut: true } });

@@ -12,14 +12,14 @@ export async function archiveCrmClient(
   const db = database();
   const data = { crmArchiveState, crmReactivateOn };
   const result = kind === "business"
-    ? await db.business.updateMany({ where: { id, crmArchiveState: null }, data })
-    : await db.client.updateMany({ where: { id, businessId: null, crmArchiveState: null }, data });
+    ? await db.business.updateMany({ where: { id, deletedAt: null, crmArchiveState: null }, data })
+    : await db.client.updateMany({ where: { id, businessId: null, deletedAt: null, crmArchiveState: null }, data });
   return result.count === 1;
 }
 
 export async function reactivatePausedCrmClients(now = new Date()) {
   const db = database();
-  const where = { crmArchiveState: "PAUSED" as const, crmReactivateOn: { lte: new Date(crmToday(now) + "T00:00:00Z") } };
+  const where = { deletedAt: null, crmArchiveState: "PAUSED" as const, crmReactivateOn: { lte: new Date(crmToday(now) + "T00:00:00Z") } };
   const data = { crmArchiveState: null, crmReactivateOn: null };
   const [accounts, contacts] = await db.$transaction([
     db.business.updateMany({ where, data }),

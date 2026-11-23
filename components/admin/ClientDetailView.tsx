@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { DeleteClientButton } from "@/components/admin/ClientAccountForms";
 import { ClientQuickActions } from "@/components/admin/ClientQuickActions";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import type { SaleRecord } from "@/lib/sales/types";
@@ -175,6 +176,8 @@ export function ClientDetailView({ initialClient, executives, initialQuotes, not
                 ))}
               </select>
             </label>
+            {!client.businessId && <DeleteClientButton id={client.id} kind="person"
+              name={[client.contactFirstName, client.contactLastName].filter(Boolean).join(" ")} />}
             <Link
               href="/dashboard/clientes"
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-border bg-white px-3.5 text-sm font-semibold text-foreground transition hover:border-primary/30 hover:text-primary"

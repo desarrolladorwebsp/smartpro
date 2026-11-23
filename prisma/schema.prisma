@@ -247,15 +247,18 @@ model Business {
   responsible User? @relation(fields: [responsibleId], references: [id], onDelete: SetNull)
   contacts ClientContact[]
   clientNotes ClientNote[]
+  crmHistory ClientCrmHistory[]
   crmStage ClientCrmStage @default(NEW)
   crmArchiveState CrmArchiveState?
   crmReactivateOn DateTime? @db.Date
+  deletedAt DateTime?
   status ClientStatus @default(POTENCIAL)
   quotes Quote[]
   sales Sale[]
 
   @@index([responsibleId])
   @@index([crmArchiveState, crmReactivateOn])
+  @@index([deletedAt])
 }
 
 model Contact {
@@ -301,6 +304,7 @@ model Client {
   crmStage         ClientCrmStage @default(NEW)
   crmArchiveState  CrmArchiveState?
   crmReactivateOn  DateTime? @db.Date
+  deletedAt        DateTime?
   businessId       String?
   business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
 
@@ -322,6 +326,7 @@ model Client {
 
   commercialContact ClientContact?
   clientNotes    ClientNote[]
+  crmHistory ClientCrmHistory[]
   initialContact InitialContact?
   quotes         Quote[]
   sales          Sale[]
@@ -330,6 +335,7 @@ model Client {
   @@index([status])
   @@index([commercialStatus])
   @@index([crmArchiveState, crmReactivateOn])
+  @@index([deletedAt])
   @@index([assignedExecutiveId])
   @@index([businessId])
   @@index([rut])
@@ -819,6 +825,24 @@ model AdminNotification {
   @@index([createdAt])
   @@index([readAt])
   @@index([type])
+}
+
+model ClientCrmHistory {
+  id String @id @default(cuid())
+  accountId String?
+  account Business? @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  clientId String?
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  event String @db.VarChar(32)
+  fromState String @db.VarChar(32)
+  toState String @db.VarChar(32)
+  note String @db.Text
+  actorEmail String
+  reactivateOn DateTime? @db.Date
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([clientId, createdAt])
 }
 
 model CalendarReminder {

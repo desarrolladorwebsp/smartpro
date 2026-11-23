@@ -44,16 +44,7 @@ import {
 
 export { getSaleStatusLabel, type QuoteForSaleConversion, type SaleRecord, type SaleSource, type SaleStatus } from "./types";
 
-type SaleRow = Prisma.SaleGetPayload<{
-  include: {
-    client: true;
-    business: { select: { name: true } };
-    quote: { select: { id: true; number: true } };
-    order: true;
-    executive: true;
-    payments: true;
-  };
-}>;
+type SaleRow = Prisma.SaleGetPayload<{ include: typeof saleInclude }>;
 
 function getPrisma() {
   if (!prisma) {
@@ -115,6 +106,7 @@ function toSaleRecord(row: SaleRow): SaleRecord {
     clientId: row.clientId,
     businessId: row.businessId,
     accountName: row.business?.name,
+    clientHidden: Boolean(row.client.deletedAt || (row.businessId ? row.business?.deletedAt : row.client.business?.deletedAt)),
     contactSnapshot,
     businessRecipient,
     clientCompany: businessRecipient?.name ?? (contactSnapshot ? contactSnapshot.legacyCompanyName ?? "" : row.client.companyName),
@@ -163,8 +155,8 @@ function toSaleRecord(row: SaleRow): SaleRecord {
 }
 
 const saleInclude = {
-  client: true,
-  business: { select: { name: true } },
+  client: { include: { business: { select: { deletedAt: true } } } },
+  business: { select: { name: true, deletedAt: true } },
   // Sales only needs the quote identifier and number. Selecting the full row
   // would also require optional quote schema changes to be deployed first.
   quote: { select: { id: true, number: true } },

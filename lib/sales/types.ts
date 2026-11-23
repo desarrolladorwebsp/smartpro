@@ -183,6 +183,7 @@ export type SaleRecord = {
   clientId: string;
   businessId?: string | null;
   accountName?: string;
+  clientHidden?: boolean;
   contactSnapshot?: import("../clients/commercial-clients").ContactSnapshot | null;
   businessRecipient?: import("../clients/business").BusinessRecord | null;
   clientCompany: string;

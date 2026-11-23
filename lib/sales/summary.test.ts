@@ -81,6 +81,24 @@ test("summarizeFilteredSales ignora canceladas", () => {
   assert.equal(totals.receivable, 119000);
 });
 
+test("los indicadores de ventas excluyen clientes ocultos, incluidos sus abonos y saldos", () => {
+  const hidden = sale({
+    id: "hidden", clientId: "hidden-client", clientHidden: true, total: 60000,
+    payments: [{ id: "p1", saleId: "hidden", amount: 20000, method: "cash", paidAt: "2026-10-12T12:00:00.000Z",
+      receiptPath: "", receiptFileName: "", orderId: null, source: "MANUAL", createdByEmail: "ejecutivo@smartpro.cl", observation: "" }],
+  });
+  const sales = [sale({}), hidden];
+  const summary = buildSalesSummary(sales, new Date("2026-10-12T15:00:00.000Z"));
+
+  assert.equal(summary.soldTotal, 119000);
+  assert.equal(summary.soldMonth, 119000);
+  assert.equal(summary.collectedMonth, 0);
+  assert.equal(summary.receivableTotal, 119000);
+  assert.deepEqual(summary.collectedByMethod, {});
+  assert.deepEqual(summary.debtors.map(({ clientId }) => clientId), ["client-1"]);
+  assert.deepEqual(summarizeFilteredSales(sales), { sold: 119000, collected: 0, receivable: 119000 });
+});
+
 test("consolida los saldos por empresa aunque las ventas tengan contactos distintos", () => {
   const summary = buildSalesSummary([
     sale({ businessId: "company", clientId: "contact-a" }),

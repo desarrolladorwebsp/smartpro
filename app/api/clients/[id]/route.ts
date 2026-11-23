@@ -8,7 +8,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   try {
     await requireAdminSession();
     const { id } = await params;
-    const client = await getClientById(id);
+    const client = await getClientById(id, { visibleOnly: true });
 
     if (!client) {
       return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });

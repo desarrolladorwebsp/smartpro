@@ -13,7 +13,7 @@ export async function getBusiness(id: string | null | undefined) {
 }
 
 export async function listBusinesses() {
-  const businesses = await database().business.findMany({ orderBy: { name: "asc" }, include: { responsible: { select: { id: true, firstName: true, lastName: true, email: true } } } });
+  const businesses = await database().business.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, include: { responsible: { select: { id: true, firstName: true, lastName: true, email: true } } } });
   return businesses.map((business) => ({ ...business, rut: business.rut ?? "", responsible: business.responsible && { ...business.responsible, lastName: business.responsible.lastName ?? "" } }));
 }
 

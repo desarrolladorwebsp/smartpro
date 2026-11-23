@@ -38,7 +38,7 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
   let loadError = false;
 
   try {
-    client = await getClientById(id);
+    client = await getClientById(id, { visibleOnly: true });
 
     if (client) {
       [clientNotes, clientQuotes, executives, sales] = await Promise.all([
