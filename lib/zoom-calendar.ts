@@ -1,11 +1,21 @@
 import "server-only";
 
-export function zoomCalendarConfig() {
-  const accountId = process.env.ZOOM_ACCOUNT_ID?.trim();
-  const clientId = process.env.ZOOM_CLIENT_ID?.trim();
-  const clientSecret = process.env.ZOOM_CLIENT_SECRET?.trim();
-  const host = process.env.ZOOM_HOST_EMAIL?.trim().toLowerCase();
+function readZoomAccount(prefix: "ZOOM" | "ZOOM_PRIMARY") {
+  const accountId = process.env[`${prefix}_ACCOUNT_ID`]?.trim();
+  const clientId = process.env[`${prefix}_CLIENT_ID`]?.trim();
+  const clientSecret = process.env[`${prefix}_CLIENT_SECRET`]?.trim();
+  const host = process.env[`${prefix}_HOST_EMAIL`]?.trim().toLowerCase();
   return accountId && clientId && clientSecret && host ? { accountId, clientId, clientSecret, host } : null;
+}
+
+export function zoomCalendarConfig(meetingHost?: string) {
+  const primary = readZoomAccount("ZOOM_PRIMARY");
+  const existing = readZoomAccount("ZOOM");
+
+  if (meetingHost === undefined) return primary ?? existing;
+  const host = meetingHost.trim().toLowerCase();
+  if (primary?.host === host) return primary;
+  return existing?.host === host ? existing : null;
 }
 
 type ZoomCalendarConfig = NonNullable<ReturnType<typeof zoomCalendarConfig>>;

@@ -21,12 +21,17 @@ export async function GET(request: Request) {
   try {
     if (!prisma) throw new Error("Base de datos no disponible.");
     const ownerEmail = session.email.toLowerCase();
-    const host = zoomCalendarConfig()?.host;
     const activityId = params.get("activityId");
-    const exclude = activityId && activityId.length <= 191 ? { NOT: { id: activityId, ownerEmail } } : undefined;
+    const activity = activityId && activityId.length <= 191 ? { id: activityId, ownerEmail } : undefined;
+    const exclude = activity ? { NOT: activity } : undefined;
+    const zoom = params.get("kind") === "zoom";
+    const editedMeeting = zoom && activity
+      ? await prisma.calendarZoomMeeting.findFirst({ where: activity, select: { host: true } })
+      : undefined;
+    const host = editedMeeting?.host ?? zoomCalendarConfig()?.host;
     const [meetings, reminders] = await Promise.all([
       prisma.calendarZoomMeeting.findMany({
-        where: { date, OR: [{ ownerEmail }, ...(host ? [{ host }] : [])], ...(params.get("kind") === "zoom" ? exclude : {}) },
+        where: { date, OR: [{ ownerEmail }, ...(host ? [{ host }] : [])], ...(zoom ? exclude : {}) },
         select: { time: true, duration: true },
       }),
       prisma.calendarReminder.findMany({

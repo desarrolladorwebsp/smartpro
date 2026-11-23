@@ -79,14 +79,14 @@ export async function deleteCalendarActivity(
       const meeting = await prisma.calendarZoomMeeting.findFirst({ where });
       if (!meeting?.joinUrl) return {};
       if (!meeting.zoomId) return { error: "La reunión no tiene un identificador registrado en Zoom." };
-      const config = zoomCalendarConfig();
-      if (!config) return { error: "Conecta la cuenta de Zoom para eliminar esta reunión." };
       activity = meetingView(meeting, meeting.joinUrl);
       plan = await planCalendarNotifications(prisma, form, activity, true, activity.notificationTargets?.clientEmail);
       const removed = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM CalendarZoomMeeting WHERE id = ${id} AND ownerEmail = ${where.ownerEmail} FOR UPDATE`;
         const current = await tx.calendarZoomMeeting.findFirst({ where });
         if (!current?.joinUrl || !current.zoomId) return null;
+        const config = zoomCalendarConfig(current.host);
+        if (!config) throw new CalendarInputError("Conecta la cuenta anfitriona de Zoom para eliminar esta reunión.");
         const result = await deleteZoomMeeting(config, current.zoomId);
         if (result.error) throw new CalendarInputError(result.error);
         await tx.calendarZoomMeeting.delete({ where });
@@ -327,8 +327,8 @@ export async function updateCalendarZoomMeeting(id: string, form: FormData) {
         data: { date: parsedDate, time, title, duration, ...link, notificationTargets: plan.targets },
       });
       if (changedInZoom) {
-        const config = zoomCalendarConfig();
-        if (!config || !current.zoomId) throw new CalendarInputError("Conecta la cuenta de Zoom para editar esta reunión.");
+        const config = zoomCalendarConfig(current.host);
+        if (!config || !current.zoomId) throw new CalendarInputError("Conecta la cuenta anfitriona de Zoom para editar esta reunión.");
         const remote = await updateZoomMeeting(config, current.zoomId, { title, duration, ...(moved ? { date, time } : {}) });
         if (remote.error) throw new CalendarInputError(remote.error);
       }
