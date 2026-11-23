@@ -2,84 +2,121 @@
 
 import { getCurrentAdminSession } from "@/lib/auth";
 import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
-import type { CalendarLink, CalendarZoomMeeting } from "@/components/admin/calendar-types";
-import { Prisma } from "@prisma/client";
-import { createZoomMeeting, deleteZoomMeeting, zoomCalendarConfig } from "@/lib/zoom-calendar";
+import type { CalendarActivity, CalendarLink, CalendarReminder, CalendarZoomMeeting } from "@/components/admin/calendar-types";
+import { Prisma, type CalendarReminder as ReminderRow, type CalendarZoomMeeting as MeetingRow } from "@prisma/client";
+import { createZoomMeeting, deleteZoomMeeting, updateZoomMeeting, zoomCalendarConfig } from "@/lib/zoom-calendar";
 import { prisma } from "@/lib/db";
-import { listAssignableExecutives } from "@/lib/executives/repository";
-import { sendEmail, type SendEmailInput } from "@/lib/email/resend";
 import { buildZoomInvitationEmail } from "@/lib/email/zoom-invitation";
 import { ZOOM_INVITATION_TAG, sendTrackedZoomInvitation } from "@/lib/email/zoom-delivery";
 
-const ZOOM_INVITATION_COPY = "contacto@smartpro.cl";
+import { parseCalendarDate } from "@/lib/calendar-slots";
+import { readCalendarNotificationTargets } from "@/lib/calendar-notification-targets";
+import {
+  CalendarInputError, internalCalendarRecipients, notifyCalendarActivity, planCalendarNotifications, sendCalendarEmail,
+  type ActivityNotices, type NotificationPlan, type NotificationStatus,
+} from "@/lib/calendar-activity-notifications";
 
-export async function deleteCalendarActivity(id: string, kind: "reminder" | "zoom"): Promise<{ error?: string }> {
+type ZoomBookingResult =
+  | { meeting: CalendarZoomMeeting; internalInvitation?: NotificationStatus; existing?: boolean }
+  | { meeting?: never; error: string };
+
+const validTime = /^(09|1[0-9]):(00|30)$/;
+const chileClock = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "America/Santiago", dateStyle: "short", timeStyle: "short", hourCycle: "h23",
+});
+
+function isFuture(date: string, time: string) {
+  return date + "T" + time > chileClock.format(new Date()).replace(" ", "T");
+}
+
+function validActivityId(id: string) {
+  return typeof id === "string" && Boolean(id.trim()) && id.length <= 191;
+}
+
+function calendarError(error: unknown, fallback: string) {
+  if (error instanceof CalendarInputError) return { error: error.message };
+  console.error("[smartpro:calendario]", error);
+  return { error: fallback };
+}
+
+function reminderView(row: Pick<ReminderRow,
+  "id" | "date" | "time" | "note" | "clientKey" | "contactId" | "notificationTargets">): CalendarReminder {
+  const { id, date, time, note, clientKey, contactId, notificationTargets } = row;
+  return { id, date: date.toISOString().slice(0, 10), time, note, clientKey, contactId,
+    notificationTargets: readCalendarNotificationTargets(notificationTargets) };
+}
+
+function meetingView(row: Pick<MeetingRow,
+  "id" | "date" | "time" | "title" | "duration" | "clientKey" | "contactId" | "notificationTargets" |
+  "clientInvitationEmail" | "clientInvitationStatus" | "clientInvitationFailure">, joinUrl: string): CalendarZoomMeeting {
+  const { id, date, time, title, duration, clientKey, contactId, clientInvitationStatus, clientInvitationFailure } = row;
+  return { id, date: date.toISOString().slice(0, 10), time, title, duration, clientKey, contactId, joinUrl,
+    clientInvitationStatus, clientInvitationFailure,
+    notificationTargets: readCalendarNotificationTargets(row.notificationTargets, row.clientInvitationEmail) };
+}
+
+export async function deleteCalendarActivity(
+  id: string, kind: "reminder" | "zoom", form = new FormData(),
+): Promise<{ error?: string; notices?: ActivityNotices }> {
   const session = await getCurrentAdminSession();
   if (!session) return { error: "Inicia sesión para eliminar actividades." };
   if (!prisma) return { error: "Base de datos no disponible." };
-  if (typeof id !== "string" || !id.trim() || id.length > 191 || (kind !== "reminder" && kind !== "zoom")) {
+  if (!validActivityId(id) || (kind !== "reminder" && kind !== "zoom")) {
     return { error: "La actividad seleccionada no es válida." };
   }
 
   const where = { id, ownerEmail: session.email.toLowerCase() };
   try {
+    let activity: CalendarActivity;
+    let plan: NotificationPlan;
     if (kind === "reminder") {
-      await prisma.calendarReminder.deleteMany({ where });
-      return {};
+      const reminder = await prisma.calendarReminder.findFirst({ where });
+      if (!reminder) return {};
+      activity = reminderView(reminder);
+      plan = await planCalendarNotifications(prisma, form, activity, false, activity.notificationTargets?.clientEmail);
+      if (!(await prisma.calendarReminder.deleteMany({ where })).count) return {};
+    } else {
+      const meeting = await prisma.calendarZoomMeeting.findFirst({ where });
+      if (!meeting?.joinUrl) return {};
+      if (!meeting.zoomId) return { error: "La reunión no tiene un identificador registrado en Zoom." };
+      const config = zoomCalendarConfig();
+      if (!config) return { error: "Conecta la cuenta de Zoom para eliminar esta reunión." };
+      activity = meetingView(meeting, meeting.joinUrl);
+      plan = await planCalendarNotifications(prisma, form, activity, true, activity.notificationTargets?.clientEmail);
+      const removed = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM CalendarZoomMeeting WHERE id = ${id} AND ownerEmail = ${where.ownerEmail} FOR UPDATE`;
+        const current = await tx.calendarZoomMeeting.findFirst({ where });
+        if (!current?.joinUrl || !current.zoomId) return null;
+        const result = await deleteZoomMeeting(config, current.zoomId);
+        if (result.error) throw new CalendarInputError(result.error);
+        await tx.calendarZoomMeeting.delete({ where });
+        return meetingView(current, current.joinUrl);
+      }, { timeout: 30_000 });
+      if (!removed) return {};
+      activity = removed;
     }
-
-    const meeting = await prisma.calendarZoomMeeting.findFirst({
-      where: { ...where, joinUrl: { not: null } },
-      select: { zoomId: true },
-    });
-    if (!meeting) return {};
-    if (!meeting.zoomId) return { error: "La reunión no tiene un identificador registrado en Zoom." };
-    const config = zoomCalendarConfig();
-    if (!config) return { error: "Conecta la cuenta de Zoom para eliminar esta reunión." };
-
-    // If the local deletion fails, retrying accepts Zoom's meeting-not-found response.
-    const result = await deleteZoomMeeting(config, meeting.zoomId);
-    if (result.error) return result;
-    await prisma.calendarZoomMeeting.deleteMany({ where: { ...where, zoomId: meeting.zoomId } });
-    return {};
+    const notices = await notifyCalendarActivity(activity, "deleted", plan);
+    return notices.client || notices.internal ? { notices } : {};
   } catch (error) {
-    console.error("[smartpro:calendario] No se pudo eliminar la actividad.", error);
-    return { error: "No se pudo eliminar la actividad del calendario. Vuelve a intentarlo." };
-  }
-}
-
-type InvitationStatus = "sent" | "failed";
-type ZoomBookingResult =
-  | { meeting: CalendarZoomMeeting; internalInvitation?: InvitationStatus; existing?: boolean }
-  | { meeting?: never; error: string };
-
-async function sendInvitationEmail(input: SendEmailInput): Promise<InvitationStatus> {
-  try {
-    const result = await sendEmail(input);
-    return result.delivered ? "sent" : "failed";
-  } catch {
-    return "failed";
+    return calendarError(error, "No se pudo eliminar la actividad. Vuelve a intentarlo.");
   }
 }
 
 async function inviteZoomMeetingAttendees(
   db: NonNullable<typeof prisma>,
-  meeting: Parameters<typeof buildZoomInvitationEmail>[0] & { id: string },
-  recipient: string,
-  participantEmails: string[],
+  meeting: CalendarZoomMeeting,
+  plan: NotificationPlan,
 ) {
+  const { recipient } = plan;
+  const { to: internalTo, bcc: internalBcc, clientAlsoInternal: customerAlsoInternal } = internalCalendarRecipients(plan);
   try {
     const email = buildZoomInvitationEmail(meeting);
-    const customerAddress = recipient.toLowerCase();
-    const internalAddresses = new Set([ZOOM_INVITATION_COPY, ...participantEmails]);
-    const customerAlsoInternal = internalAddresses.delete(customerAddress);
-    const [internalTo, ...internalBcc] = internalAddresses;
     const [invitation, internalInvitation] = await Promise.all([
       recipient ? sendTrackedZoomInvitation(db, meeting.id, {
         ...email, to: recipient, tags: [{ name: ZOOM_INVITATION_TAG, value: meeting.id }],
       }) : undefined,
-      internalTo ? sendInvitationEmail({
-        ...email, to: internalTo, bcc: internalBcc.length ? internalBcc : undefined,
+      internalTo ? sendCalendarEmail({
+        ...email, to: internalTo, bcc: internalBcc,
       }) : undefined,
     ]);
     const internalDelivery = customerAlsoInternal && invitation?.delivery.clientInvitationStatus === "FAILED"
@@ -116,35 +153,27 @@ export async function createCalendarReminder(form: FormData) {
   const session = await getCurrentAdminSession();
   if (!session) return { error: "Inicia sesión para guardar el recordatorio." };
 
-  const date = form.get("date");
-  const note = form.get("note");
+  const date = parseCalendarDate(form.get("date"));
   const time = form.get("time");
-  if (typeof time !== "string" || !/^(09|1[0-9]):(00|30)$/.test(time)) {
-    return { error: "Elige un horario válido." };
-  }
-  const content = typeof note === "string" ? note.trim() : "";
-  if (!content || content.length > 4000) return { error: "Escribe una nota de hasta 4.000 caracteres." };
-  if (typeof date !== "string" || !/^[1-9]\d{3}-\d{2}-\d{2}$/.test(date)) return { error: "Elige una fecha válida." };
-  const reminderDate = new Date(`${date}T00:00:00Z`);
-  if (!Number.isFinite(reminderDate.getTime()) || reminderDate.toISOString().slice(0, 10) !== date) {
-    return { error: "Elige una fecha válida." };
-  }
+  const rawNote = form.get("note");
+  const note = typeof rawNote === "string" ? rawNote.trim() : "";
+  if (!date || typeof time !== "string" || !validTime.test(time)) return { error: "Elige una fecha y hora válidas." };
+  if (!note || note.length > 4000) return { error: "Escribe una nota de hasta 4.000 caracteres." };
 
   try {
     if (!prisma) throw new Error("Base de datos no disponible.");
     const link = await resolveCalendarLink(form);
     if (!link) return { error: "Revisa el cliente y el contacto seleccionados." };
-    const reminder = await prisma.calendarReminder.create({
-      data: { ownerEmail: session.email.toLowerCase(), date: reminderDate, time, note: content, ...link },
-      select: { id: true, note: true },
+    const plan = await planCalendarNotifications(prisma, form, link, false);
+    const row = await prisma.calendarReminder.create({
+      data: { ownerEmail: session.email.toLowerCase(), date, time, note, ...link, notificationTargets: plan.targets },
     });
-    return { reminder: { ...reminder, ...link, date, time } };
+    const reminder = reminderView(row);
+    return { reminder, notices: await notifyCalendarActivity(reminder, "created", plan) };
   } catch (error) {
-    console.error("[smartpro:calendario] No se pudo guardar el recordatorio.", error);
-    return { error: "No se pudo guardar el recordatorio. Inténtalo de nuevo." };
+    return calendarError(error, "No se pudo guardar el recordatorio. Inténtalo de nuevo.");
   }
 }
-
 
 export async function bookCalendarZoomMeeting(form: FormData): Promise<ZoomBookingResult> {
   const session = await getCurrentAdminSession();
@@ -155,7 +184,8 @@ export async function bookCalendarZoomMeeting(form: FormData): Promise<ZoomBooki
 
   const date = form.get("date");
   const time = form.get("time");
-  const title = String(form.get("title") ?? "").trim();
+  const rawTitle = form.get("title");
+  const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
   const duration = Number(form.get("duration"));
   if (typeof date !== "string" || !/^[1-9]\d{3}-\d{2}-\d{2}$/.test(date) ||
       typeof time !== "string" || !/^(09|1[0-9]):(00|30)$/.test(time) ||
@@ -163,41 +193,18 @@ export async function bookCalendarZoomMeeting(form: FormData): Promise<ZoomBooki
     return { error: "Revisa el horario, el título y la duración." };
   }
   const meetingDate = new Date(date + "T00:00:00Z");
-  const now = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "America/Santiago", dateStyle: "short", timeStyle: "short", hourCycle: "h23",
-  }).format(new Date()).replace(" ", "T");
-  if (!Number.isFinite(meetingDate.getTime()) || meetingDate.toISOString().slice(0, 10) !== date || date + "T" + time <= now) {
+  if (!parseCalendarDate(date) || !isFuture(date, time)) {
     return { error: "Elige una fecha y hora futuras." };
-  }
-
-  const wantsInvitation = form.get("sendInvitation") === "on";
-  const rawRecipient = form.get("invitationEmail");
-  const recipient = wantsInvitation && typeof rawRecipient === "string" ? rawRecipient.trim() : "";
-  if (wantsInvitation && (recipient.length > 254 || !/^[^\s@,<>;]+@[^\s@,<>;]+\.[^\s@,<>;]+$/.test(recipient))) {
-    return { error: "Escribe un correo válido para enviar la invitación." };
-  }
-
-  const participantIds = new Set<string>();
-  for (const id of form.getAll("participantIds")) {
-    if (typeof id !== "string" || !id || id.length > 191) {
-      return { error: "Revisa los participantes seleccionados." };
-    }
-    participantIds.add(id);
   }
 
   const ownerEmail = session.email.toLowerCase();
   try {
     const link = await resolveCalendarLink(form);
     if (!link) return { error: "Revisa el cliente y el contacto seleccionados." };
-    const participants = participantIds.size
-      ? (await listAssignableExecutives()).filter(({ id }) => participantIds.has(id))
-      : [];
-    if (participants.length !== participantIds.size) {
-      return { error: "Algún participante ya no está disponible. Actualiza el calendario y vuelve a seleccionarlo." };
-    }
-    const participantEmails = participants.map(({ email }) => email.trim().toLowerCase());
+    const plan = await planCalendarNotifications(prisma, form, link, true);
+    const { recipient } = plan;
     const meeting = await prisma.calendarZoomMeeting.create({
-      data: { ownerEmail, host: config.host, date: meetingDate, time, title, duration, ...link },
+      data: { ownerEmail, host: config.host, date: meetingDate, time, title, duration, ...link, notificationTargets: plan.targets },
     });
     const zoom = await createZoomMeeting(config, { date, time, title, duration });
     if (zoom.status === "rejected") {
@@ -214,9 +221,9 @@ export async function bookCalendarZoomMeeting(form: FormData): Promise<ZoomBooki
         ...(recipient ? { clientInvitationEmail: recipient.toLowerCase(), clientInvitationStatus: "PENDING" } : {}),
       },
     });
-    const bookedMeeting = { id: meeting.id, date, time, title, duration, ...link, joinUrl: zoom.joinUrl };
+    const bookedMeeting = { id: meeting.id, date, time, title, duration, ...link, joinUrl: zoom.joinUrl, notificationTargets: plan.targets };
     // Only the request that creates the reservation sends invitations.
-    const { internalInvitation, ...delivery } = await inviteZoomMeetingAttendees(prisma, bookedMeeting, recipient, participantEmails);
+    const { internalInvitation, ...delivery } = await inviteZoomMeetingAttendees(prisma, bookedMeeting, plan);
     return { meeting: { ...bookedMeeting, ...delivery }, internalInvitation };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -224,15 +231,115 @@ export async function bookCalendarZoomMeeting(form: FormData): Promise<ZoomBooki
         where: { host_date_time: { host: config.host, date: meetingDate, time } },
       });
       if (existing?.ownerEmail === ownerEmail && existing.joinUrl) {
-        const { id, title, duration, clientKey, contactId, joinUrl, clientInvitationStatus, clientInvitationFailure } = existing;
-        return {
-          meeting: { id, date, time, title, duration, clientKey, contactId, joinUrl, clientInvitationStatus, clientInvitationFailure },
-          existing: true,
-        };
+        return { meeting: meetingView(existing, existing.joinUrl), existing: true };
       }
       return { error: "Ese horario ya está ocupado o tiene una reserva pendiente de confirmar." };
     }
-    console.error("[smartpro:calendario] Error al guardar la reserva de Zoom.", error);
-    return { error: "No se pudo completar el registro. Revisa el calendario y la cuenta de Zoom antes de volver a reservar." };
+    return calendarError(error, "No se pudo completar el registro. Revisa el calendario y Zoom antes de volver a reservar.");
+  }
+}
+
+function savedRecipient(
+  current: CalendarLink & { notificationTargets?: unknown; clientInvitationEmail?: string | null },
+  link: CalendarLink,
+) {
+  return current.clientKey === link.clientKey && current.contactId === link.contactId
+    ? readCalendarNotificationTargets(current.notificationTargets, current.clientInvitationEmail).clientEmail : "";
+}
+
+function sameTargets(previous: unknown, targets: NotificationPlan["targets"]) {
+  const saved = readCalendarNotificationTargets(previous);
+  return saved.clientEmail === targets.clientEmail && saved.participantIds.join(",") === targets.participantIds.join(",");
+}
+
+export async function updateCalendarReminder(id: string, form: FormData) {
+  const session = await getCurrentAdminSession();
+  if (!session) return { error: "Inicia sesión para editar el recordatorio." };
+  if (!prisma || !validActivityId(id)) return { error: "El recordatorio no está disponible." };
+  const date = parseCalendarDate(form.get("date"));
+  const time = form.get("time");
+  const rawNote = form.get("note");
+  const note = typeof rawNote === "string" ? rawNote.trim() : "";
+  if (!date || typeof time !== "string" || (time && !validTime.test(time))) return { error: "Elige una fecha y hora válidas." };
+  if (!note || note.length > 4000) return { error: "Escribe una nota de hasta 4.000 caracteres." };
+
+  const where = { id, ownerEmail: session.email.toLowerCase() };
+  try {
+    const prior = await prisma.calendarReminder.findFirst({ where });
+    if (!prior) return { error: "El recordatorio ya no está disponible." };
+    const link = await resolveCalendarLink(form);
+    if (!link) return { error: "Revisa el cliente y el contacto seleccionados." };
+    const plan = await planCalendarNotifications(prisma, form, link, false, savedRecipient(prior, link));
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM CalendarReminder WHERE id = ${id} AND ownerEmail = ${where.ownerEmail} FOR UPDATE`;
+      const current = await tx.calendarReminder.findFirst({ where });
+      if (!current) throw new CalendarInputError("El recordatorio ya no está disponible.");
+      if (!time && current.time) throw new CalendarInputError("Elige una hora válida.");
+      const changed = current.date.getTime() !== date.getTime() || current.time !== (time || null) || current.note !== note ||
+        current.clientKey !== link.clientKey || current.contactId !== link.contactId || !sameTargets(current.notificationTargets, plan.targets);
+      const row = changed ? await tx.calendarReminder.update({
+        where, data: { date, time: time || null, note, ...link, notificationTargets: plan.targets },
+      }) : current;
+      return { reminder: reminderView(row), changed };
+    });
+    const notices = result.changed ? await notifyCalendarActivity(result.reminder, "updated", plan) : undefined;
+    return { reminder: result.reminder, notices };
+  } catch (error) {
+    return calendarError(error, "No se pudo editar el recordatorio. Vuelve a intentarlo.");
+  }
+}
+
+export async function updateCalendarZoomMeeting(id: string, form: FormData) {
+  const session = await getCurrentAdminSession();
+  if (!session) return { error: "Inicia sesión para editar la reunión." };
+  if (!prisma || !validActivityId(id)) return { error: "La reunión no está disponible." };
+  const date = form.get("date");
+  const parsedDate = parseCalendarDate(date);
+  const time = form.get("time");
+  const rawTitle = form.get("title");
+  const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+  const duration = Number(form.get("duration"));
+  if (typeof date !== "string" || !parsedDate || typeof time !== "string" || !validTime.test(time) ||
+      !title || title.length > 191 || ![15, 30, 40].includes(duration)) {
+    return { error: "Revisa el horario, el título y la duración." };
+  }
+
+  const where = { id, ownerEmail: session.email.toLowerCase() };
+  try {
+    const prior = await prisma.calendarZoomMeeting.findFirst({ where });
+    if (!prior?.joinUrl) return { error: "La reunión ya no está disponible." };
+    const link = await resolveCalendarLink(form);
+    if (!link) return { error: "Revisa el cliente y el contacto seleccionados." };
+    const plan = await planCalendarNotifications(prisma, form, link, true, savedRecipient(prior, link));
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM CalendarZoomMeeting WHERE id = ${id} AND ownerEmail = ${where.ownerEmail} FOR UPDATE`;
+      const current = await tx.calendarZoomMeeting.findFirst({ where });
+      if (!current?.joinUrl) throw new CalendarInputError("La reunión ya no está disponible.");
+      const moved = current.date.getTime() !== parsedDate.getTime() || current.time !== time;
+      if (moved && !isFuture(date, time)) throw new CalendarInputError("Elige una fecha y hora futuras.");
+      const changedInZoom = moved || current.title !== title || current.duration !== duration;
+      const changed = changedInZoom || current.clientKey !== link.clientKey || current.contactId !== link.contactId ||
+        !sameTargets(current.notificationTargets, plan.targets);
+      if (!changed) return { meeting: meetingView(current, current.joinUrl), changed };
+      // Reserve the new slot before calling Zoom. An occupied slot fails before sending a change to Zoom.
+      const row = await tx.calendarZoomMeeting.update({
+        where,
+        data: { date: parsedDate, time, title, duration, ...link, notificationTargets: plan.targets },
+      });
+      if (changedInZoom) {
+        const config = zoomCalendarConfig();
+        if (!config || !current.zoomId) throw new CalendarInputError("Conecta la cuenta de Zoom para editar esta reunión.");
+        const remote = await updateZoomMeeting(config, current.zoomId, { title, duration, ...(moved ? { date, time } : {}) });
+        if (remote.error) throw new CalendarInputError(remote.error);
+      }
+      return { meeting: meetingView(row, current.joinUrl), changed };
+    }, { timeout: 30_000 });
+    const notices = result.changed ? await notifyCalendarActivity(result.meeting, "updated", plan) : undefined;
+    return { meeting: result.meeting, notices };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "Ese horario ya está ocupado." };
+    }
+    return calendarError(error, "No se pudo editar la reunión. Vuelve a intentarlo.");
   }
 }

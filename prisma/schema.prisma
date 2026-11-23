@@ -846,6 +846,7 @@ model ClientCrmHistory {
 }
 
 model CalendarReminder {
+  notificationTargets Json?
   time String? @db.VarChar(5)
   clientKey String?
   contactId String?
@@ -865,6 +866,7 @@ enum CalendarInvitationDelivery {
 }
 
 model CalendarZoomMeeting {
+  notificationTargets Json?
   id String @id @default(cuid())
   ownerEmail String
   host String

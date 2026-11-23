@@ -1,47 +1,51 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Bell, ChevronDown, Plus, Video } from "lucide-react";
+import { Bell, Plus, Video } from "lucide-react";
 
-import type { CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
-import { createCalendarReminder, bookCalendarZoomMeeting } from "@/app/dashboard/calendario/actions";
+import type { CalendarActivity, CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
+import { createCalendarReminder, bookCalendarZoomMeeting, updateCalendarReminder, updateCalendarZoomMeeting } from "@/app/dashboard/calendario/actions";
 import { formatCalendarTime } from "@/lib/calendar-slots";
 import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
 import { AccountContactForm } from "./ClientAccountForms";
 import { CalendarScheduleFields } from "./CalendarScheduleFields";
+import { activityNoticeMessage, CalendarNotificationFields } from "./CalendarNotificationFields";
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "./dashboard-form";
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es-CL");
 }
 
-export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, participants, initialClientKey, onClose, onSaved, onMeetingSaved, onContactAdded }: {
+export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, participants, initialClientKey, onClose, onSaved, onMeetingSaved, onContactAdded, editing, today = date }: {
   date: string;
   startTime?: string;
+  editing?: CalendarActivity;
+  today?: string;
   zoomConfigured: boolean;
   clients: CalendarClient[];
   participants: CalendarParticipant[];
   initialClientKey: string;
   onClose: () => void;
-  onSaved: (reminder: CalendarReminder) => void;
-  onMeetingSaved?: (meeting: CalendarZoomMeeting) => void;
+  onSaved: (reminder: CalendarReminder, message?: string) => void;
+  onMeetingSaved?: (meeting: CalendarZoomMeeting, message?: string) => void;
   onContactAdded: (clientKey: string, contact: CalendarClient["contacts"][number]) => void;
 }) {
-  const [mode, setMode] = useState<"choose" | "zoom" | "reminder">("choose");
+  const [mode, setMode] = useState<"choose" | "zoom" | "reminder">(() =>
+    editing ? ("joinUrl" in editing ? "zoom" : "reminder") : "choose");
+  const editingMeeting = editing && "joinUrl" in editing ? editing : null;
+  const editingReminder = editing && "note" in editing ? editing : null;
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const saving = useRef(false);
-  const [clientKey, setClientKey] = useState(initialClientKey);
+  const [clientKey, setClientKey] = useState(editing ? (editing.clientKey ?? "") : initialClientKey);
   const [clientQuery, setClientQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
   const searchResults = useRef<HTMLDivElement>(null);
   const searchResultsId = useId();
-  const [contactId, setContactId] = useState("");
+  const [contactId, setContactId] = useState(editing?.contactId ?? "");
   const [addedContacts, setAddedContacts] = useState<Record<string, CalendarClient["contacts"]>>({});
   const [addingContact, setAddingContact] = useState(false);
   const addContactButton = useRef<HTMLButtonElement>(null);
-  const [sendInvitation, setSendInvitation] = useState(false);
-  const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [deliveries, setDeliveries] = useState<{
     internalInvitation?: "sent" | "failed";
     existing?: boolean;
@@ -119,9 +123,9 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
             }}
             className="dashboard-field mt-1.5 w-full" />
         </label>
-        {selectedClient && (
+        {clientKey && (
           <div className={clientInField ? "flex justify-end text-xs text-primary" : "flex items-center justify-between gap-2 rounded-lg bg-primary/10 px-2 py-1.5 text-xs text-primary"}>
-            {!clientInField && <span className="min-w-0 break-words font-medium">{selectedClient.name}</span>}
+            {!clientInField && <span className="min-w-0 break-words font-medium">{selectedClient?.name ?? "Cliente no disponible"}</span>}
             <button type="button" className="shrink-0 font-semibold underline" onClick={() => {
               chooseClient("");
               searchInput.current?.focus();
@@ -167,6 +171,16 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
     </div>
   );
 
+  const savedEmail = editing && (editing.clientKey ?? "") === clientKey && (editing.contactId ?? "") === contactId
+    ? editing.notificationTargets?.clientEmail : undefined;
+  const contactEmail = contacts.find((contact) => contact.id === contactId)?.email
+    ?? (selectedAccount?.kind === "person" && !contactId ? contacts[0]?.email : undefined);
+  const notificationFields = (
+    <CalendarNotificationFields participants={participants} initialIds={editing?.notificationTargets?.participantIds}
+      clientEmail={savedEmail || contactEmail || ""} recipientKey={clientKey + ":" + contactId}
+      zoom={mode === "zoom"} pending={pending} />
+  );
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving.current) return;
@@ -175,7 +189,18 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
     setPending(true);
     setError("");
     try {
-      if (mode === "zoom") {
+      if (editingMeeting) {
+        const result = await updateCalendarZoomMeeting(editingMeeting.id, form);
+        if ("error" in result) setError(result.error ?? "No se pudo editar la reunión.");
+        else {
+          onMeetingSaved?.(result.meeting, activityNoticeMessage(result.notices));
+          onClose();
+        }
+      } else if (editingReminder) {
+        const result = await updateCalendarReminder(editingReminder.id, form);
+        if ("error" in result) setError(result.error ?? "No se pudo editar el recordatorio.");
+        else onSaved(result.reminder, activityNoticeMessage(result.notices));
+      } else if (mode === "zoom") {
         const result = await bookCalendarZoomMeeting(form);
         if (result.meeting) {
           setMeeting(result.meeting);
@@ -187,12 +212,12 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
         } else setError(result.error);
       } else {
         const result = await createCalendarReminder(form);
-        if (result.reminder) onSaved(result.reminder);
-        else setError(result.error);
+        if ("error" in result) setError(result.error ?? "No se pudo guardar el recordatorio.");
+        else onSaved(result.reminder, activityNoticeMessage(result.notices));
       }
     } catch {
-      setError(mode === "zoom"
-        ? "No se pudo confirmar la reserva. Revisa el calendario antes de volver a agendar."
+      setError(editing ? "No se pudo confirmar el cambio. Revisa el calendario antes de guardar de nuevo."
+        : mode === "zoom" ? "No se pudo confirmar la reserva. Revisa el calendario antes de volver a agendar."
         : "No se pudo guardar el recordatorio. Inténtalo de nuevo.");
     } finally {
       setPending(false);
@@ -200,7 +225,8 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
     }
   }
 
-  const title = mode === "zoom" ? "Reunión por Zoom" : mode === "reminder" ? "Nuevo recordatorio" : "Agregar al calendario";
+  const title = editingMeeting ? "Editar reunión de Zoom" : editingReminder ? "Editar recordatorio"
+    : mode === "zoom" ? "Reunión por Zoom" : mode === "reminder" ? "Nuevo recordatorio" : "Agregar al calendario";
 
   function closeContactForm() {
     setAddingContact(false);
@@ -273,61 +299,22 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
               <input type="hidden" name="date" value={date} />
               <input type="hidden" name="time" value={startTime} />
               <p className="text-sm text-muted">{date.split("-").reverse().join("/")} · {timeLabel} · Hora de Chile</p>
-            </> : <CalendarScheduleFields initialDate={date} minDate={date} />}
+            </> : <CalendarScheduleFields initialDate={date} minDate={date < today ? date : today}
+              initialTime={editingMeeting?.time} activityId={editingMeeting?.id} kind="zoom" />}
             <label className="block text-sm font-medium">
               Título
-              <input name="title" required maxLength={191} defaultValue="Reunión SmartPro" className="dashboard-field mt-1.5" />
+              <input name="title" required maxLength={191} defaultValue={editingMeeting?.title ?? "Reunión SmartPro"} className="dashboard-field mt-1.5" />
             </label>
             <label className="block text-sm font-medium">
               Duración
-              <select aria-label="Duración" name="duration" defaultValue="15" className="dashboard-field mt-1.5">
+              <select aria-label="Duración" name="duration" defaultValue={editingMeeting?.duration ?? 15} className="dashboard-field mt-1.5">
                 <option value="15">15 minutos</option>
                 <option value="30">30 minutos</option>
                 <option value="40">40 minutos</option>
               </select>
             </label>
             {associationFields}
-            <div className="space-y-3 border-t border-border pt-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name="sendInvitation" checked={sendInvitation}
-                  onChange={(event) => setSendInvitation(event.target.checked)}
-                  className="size-4 accent-primary" />
-                Enviar invitación al cliente por correo
-              </label>
-              {sendInvitation && (
-                <label className="block text-sm font-medium">
-                  Correo del destinatario
-                  <input key={clientKey + ":" + contactId} type="email" name="invitationEmail" required maxLength={254}
-                    defaultValue={contacts.find((contact) => contact.id === contactId)?.email ?? ""}
-                    placeholder="nombre@empresa.cl" className="dashboard-field mt-1.5" />
-                </label>
-              )}
-            </div>
-            <fieldset disabled={pending} className="space-y-2">
-              <legend className="text-sm font-medium">Participantes</legend>
-              {participants.length > 0 ? (
-                <details className="group rounded-2xl border border-border bg-surface-alt">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-sm focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-                    {participantIds.length > 0
-                      ? `${participantIds.length} ${participantIds.length === 1 ? "seleccionado" : "seleccionados"}`
-                      : "Seleccionar usuarios"}
-                    <ChevronDown size={16} aria-hidden="true" className="shrink-0 group-open:rotate-180" />
-                  </summary>
-                  <div className="max-h-44 space-y-0.5 overflow-y-auto border-t border-border px-2 py-1">
-                    {participants.map(({ id, name }) => (
-                      <label key={id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-primary/10">
-                        <input type="checkbox" name="participantIds" value={id} checked={participantIds.includes(id)}
-                          onChange={({ target: { checked } }) => setParticipantIds((previous) =>
-                            checked ? [...previous, id] : previous.filter((selected) => selected !== id))}
-                          className="size-4 shrink-0 accent-primary" />
-                        {name}
-                      </label>
-                    ))}
-                  </div>
-                </details>
-              ) : <p className="text-sm text-muted">No hay usuarios activos disponibles.</p>}
-              <p className="text-xs text-muted">Los usuarios seleccionados reciben una invitación interna. Se envía una copia a contacto@smartpro.cl.</p>
-            </fieldset>
+            {notificationFields}
             {!zoomConfigured && <p className="text-sm text-muted">Conecta la cuenta de Zoom para agendar.</p>}
           </div>
           <DashboardFormFooter error={error}>
@@ -336,7 +323,7 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
                 className="h-9 rounded-full border border-border px-4 text-sm font-medium">Cancelar</button>
               <button type="submit" disabled={pending || !zoomConfigured}
                 className="h-9 rounded-full bg-primary px-4 text-sm font-semibold text-white disabled:opacity-60">
-                {pending ? "Agendando…" : "Agendar en Zoom"}
+                {pending ? (editing ? "Guardando…" : "Agendando…") : (editing ? "Guardar cambios" : "Agendar en Zoom")}
               </button>
             </div>
           </DashboardFormFooter>
@@ -352,15 +339,17 @@ export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, p
                 <input name="date" type="date" required defaultValue={date} className="dashboard-field mt-1.5" />
               </label>
               <p className="text-sm text-muted">{timeLabel} · Hora de Chile</p>
-            </> : <CalendarScheduleFields initialDate={date} />}
+            </> : <CalendarScheduleFields initialDate={date} initialTime={editingReminder?.time ?? undefined}
+              allowUntimed={editingReminder?.time === null} activityId={editingReminder?.id} kind="reminder" />}
             <label className="block text-sm font-medium">
               Nota
-              <textarea name="note" required maxLength={4000} rows={4} autoFocus className="dashboard-field mt-1.5 resize-y" />
+              <textarea name="note" required maxLength={4000} rows={4} autoFocus defaultValue={editingReminder?.note} className="dashboard-field mt-1.5 resize-y" />
             </label>
             {associationFields}
+            {notificationFields}
           </div>
           <DashboardFormFooter error={error}>
-            <DashboardFormActions isSaving={pending} onCancel={() => { if (!saving.current) onClose(); }} submitLabel="Guardar recordatorio" />
+            <DashboardFormActions isSaving={pending} onCancel={() => { if (!saving.current) onClose(); }} submitLabel={editingReminder ? "Guardar cambios" : "Guardar recordatorio"} />
           </DashboardFormFooter>
         </form>
       )}

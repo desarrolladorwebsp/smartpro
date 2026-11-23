@@ -14,20 +14,23 @@ export async function GET(request: Request) {
   const session = await getCurrentAdminSession();
   if (!session) return NextResponse.json({ error: "Inicia sesión para consultar la agenda." }, { status: 401 });
 
-  const date = parseCalendarDate(new URL(request.url).searchParams.get("date"));
+  const params = new URL(request.url).searchParams;
+  const date = parseCalendarDate(params.get("date"));
   if (!date) return NextResponse.json({ error: "Elige una fecha válida." }, { status: 400 });
 
   try {
     if (!prisma) throw new Error("Base de datos no disponible.");
     const ownerEmail = session.email.toLowerCase();
     const host = zoomCalendarConfig()?.host;
+    const activityId = params.get("activityId");
+    const exclude = activityId && activityId.length <= 191 ? { NOT: { id: activityId, ownerEmail } } : undefined;
     const [meetings, reminders] = await Promise.all([
       prisma.calendarZoomMeeting.findMany({
-        where: { date, OR: [{ ownerEmail }, ...(host ? [{ host }] : [])] },
+        where: { date, OR: [{ ownerEmail }, ...(host ? [{ host }] : [])], ...(params.get("kind") === "zoom" ? exclude : {}) },
         select: { time: true, duration: true },
       }),
       prisma.calendarReminder.findMany({
-        where: { date, ownerEmail, time: { not: null } },
+        where: { date, ownerEmail, time: { not: null }, ...(params.get("kind") === "reminder" ? exclude : {}) },
         select: { time: true },
       }),
     ]);

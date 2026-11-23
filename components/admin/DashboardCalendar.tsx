@@ -1,13 +1,14 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Trash2, Video } from "lucide-react";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Pencil, Trash2, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition, type FormEvent } from "react";
 import { deleteCalendarActivity } from "@/app/dashboard/calendario/actions";
 import { calendarTimeSlots, formatCalendarTime } from "@/lib/calendar-slots";
 import { CalendarSlotDialog } from "./CalendarSlotDialog";
+import { activityNoticeMessage, CalendarNotificationFields } from "./CalendarNotificationFields";
 import { DashboardFormFooter, DashboardFormModal } from "./dashboard-form";
-import type { CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
+import type { CalendarActivity, CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
 
 const views = ["Día", "Semana", "Mes"] as const;
 type CalendarView = (typeof views)[number];
@@ -17,8 +18,6 @@ const shortDate = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "sho
 const monthLabel = new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric", timeZone: "UTC" });
 const weekday = new Intl.DateTimeFormat("es-CL", { weekday: "short", timeZone: "UTC" });
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-type CalendarActivity = CalendarReminder | CalendarZoomMeeting;
 
 function groupByDate<T extends CalendarActivity>(activities: T[]) {
   const grouped = new Map<string, T[]>();
@@ -55,14 +54,16 @@ function InvitationDelivery({ meeting }: { meeting: CalendarZoomMeeting }) {
   );
 }
 
-function ActivityRow({ activity, clients, onDelete }: {
+function ActivityRow({ activity, clients, onEdit, onDelete }: {
   activity: CalendarActivity;
   clients: CalendarClient[];
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const isMeeting = "joinUrl" in activity;
   const Icon = isMeeting ? Video : Bell;
   const deleteLabel = isMeeting ? "Eliminar reunión de Zoom" : "Eliminar recordatorio";
+  const editLabel = isMeeting ? "Editar reunión de Zoom" : "Editar recordatorio";
   const details = [
     isMeeting ? "Reunión por Zoom" : "Recordatorio",
     isMeeting && `${activity.duration} min`,
@@ -86,6 +87,10 @@ function ActivityRow({ activity, clients, onDelete }: {
               className="inline-flex min-h-8 shrink-0 items-center rounded-md px-1 font-semibold text-primary hover:underline">Abrir Zoom</a>
           </>
         )}
+        <button type="button" onClick={onEdit} aria-label={editLabel} title={editLabel}
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
+          <Pencil size={16} aria-hidden="true" />
+        </button>
         <button type="button" onClick={onDelete} aria-label={deleteLabel} title={deleteLabel}
           className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-red-700">
           <Trash2 size={16} aria-hidden="true" />
@@ -95,25 +100,30 @@ function ActivityRow({ activity, clients, onDelete }: {
   );
 }
 
-function DeleteActivityDialog({ activity, onClose, onDeleted }: {
+function DeleteActivityDialog({ activity, participants, clientEmail, onClose, onDeleted }: {
   activity: CalendarActivity;
+  participants: CalendarParticipant[];
+  clientEmail: string;
   onClose: () => void;
-  onDeleted: (activity: CalendarActivity) => void;
+  onDeleted: (activity: CalendarActivity, message: string) => void;
 }) {
   const isMeeting = "joinUrl" in activity;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
-  function confirmDeletion() {
+  function confirmDeletion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const form = new FormData(event.currentTarget);
     setError("");
     startTransition(async () => {
       try {
-        const result = await deleteCalendarActivity(activity.id, isMeeting ? "zoom" : "reminder");
+        const result = await deleteCalendarActivity(activity.id, isMeeting ? "zoom" : "reminder", form);
         if (result.error) {
           setError(result.error);
           return;
         }
-        onDeleted(activity);
+        onDeleted(activity, activityNoticeMessage(result.notices));
       } catch {
         setError("No se pudo eliminar la actividad. Vuelve a intentarlo.");
       }
@@ -123,20 +133,24 @@ function DeleteActivityDialog({ activity, onClose, onDeleted }: {
   return (
     <DashboardFormModal eyebrow="Calendario" title={isMeeting ? "Eliminar reunión de Zoom" : "Eliminar recordatorio"}
       onClose={pending ? () => {} : onClose}>
-      <div className="space-y-2 overflow-y-auto px-4 py-3 text-sm">
+      <form onSubmit={confirmDeletion} className="flex min-h-0 flex-col">
+      <div className="space-y-4 overflow-y-auto px-4 py-3 text-sm">
         <p className="whitespace-pre-wrap break-words font-semibold">{isMeeting ? activity.title : activity.note}</p>
         <p className="text-muted">{isMeeting ? "La reunión se eliminará del calendario y de Zoom." : "El recordatorio se eliminará del calendario."}</p>
+        <CalendarNotificationFields participants={participants} initialIds={activity.notificationTargets?.participantIds}
+          clientEmail={clientEmail} recipientKey={activity.id} zoom={isMeeting} deleting pending={pending} />
       </div>
       <DashboardFormFooter error={error}>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} disabled={pending} autoFocus
             className="h-9 rounded-full border border-border px-4 text-sm font-medium disabled:opacity-60">Cancelar</button>
-          <button type="button" onClick={confirmDeletion} disabled={pending}
+          <button type="submit" disabled={pending}
             className="h-9 rounded-full bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60">
             {pending ? "Eliminando…" : "Eliminar"}
           </button>
         </div>
       </DashboardFormFooter>
+      </form>
     </DashboardFormModal>
   );
 }
@@ -219,11 +233,14 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
 }) {
   const [clients, setClients] = useState(initialClients);
   const router = useRouter();
-  const [newMeetings, setNewMeetings] = useState<CalendarZoomMeeting[]>([]);
+  const [meetingChanges, setMeetingChanges] = useState<{ source: CalendarZoomMeeting[]; meetings: CalendarZoomMeeting[] }>(
+    { source: initialMeetings, meetings: initialMeetings },
+  );
   const [deletedMeetingIds, setDeletedMeetingIds] = useState<Set<string>>(() => new Set());
   const [activityToDelete, setActivityToDelete] = useState<CalendarActivity | null>(null);
-  const serverMeetingIds = new Set(initialMeetings.map(({ id }) => id));
-  const meetings = [...initialMeetings, ...newMeetings.filter(({ id }) => !serverMeetingIds.has(id))]
+  const [activityToEdit, setActivityToEdit] = useState<CalendarActivity | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const meetings = (meetingChanges.source === initialMeetings ? meetingChanges.meetings : initialMeetings)
     .filter(({ id }) => !deletedMeetingIds.has(id));
   const hasPendingInvitations = meetings.some(({ clientInvitationStatus }) => clientInvitationStatus === "PENDING");
 
@@ -264,16 +281,42 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
   const period = (view === "Mes" ? monthLabel.format(selected) : view === "Día"
     ? fullDate.format(selected) : shortDate.formatRange(weekStart, addDays(weekStart, 6))).replace(/\s/g, " ");
 
-  function removeDeletedActivity(activity: CalendarActivity) {
+  function removeDeletedActivity(activity: CalendarActivity, message: string) {
     if ("joinUrl" in activity) {
       setDeletedMeetingIds((current) => new Set(current).add(activity.id));
-      setNewMeetings((current) => current.filter(({ id }) => id !== activity.id));
     } else {
       setReminders((current) => current.filter(({ id }) => id !== activity.id));
     }
     setActivityToDelete(null);
+    setFeedback(["Actividad eliminada.", message].filter(Boolean).join(" "));
     router.refresh();
   }
+
+  function savedMeeting(meeting: CalendarZoomMeeting, message?: string) {
+    setMeetingChanges((current) => {
+      const previous = current.source === initialMeetings ? current.meetings : initialMeetings;
+      return { source: initialMeetings, meetings: [...previous.filter(({ id }) => id !== meeting.id), meeting] };
+    });
+    setSelected(new Date(`${meeting.date}T00:00:00Z`));
+    if (activityToEdit) setFeedback(["Reunión actualizada.", message].filter(Boolean).join(" "));
+    router.refresh();
+  }
+
+  function savedReminder(reminder: CalendarReminder, message?: string) {
+    setReminders((current) => [...current.filter(({ id }) => id !== reminder.id), reminder]);
+    setSelected(new Date(`${reminder.date}T00:00:00Z`));
+    setFeedback([activityToEdit ? "Recordatorio actualizado." : "Recordatorio guardado.", message].filter(Boolean).join(" "));
+    closeEditor();
+    router.refresh();
+  }
+
+  function closeEditor() {
+    setActivityToEdit(null);
+    setSlot(null);
+  }
+
+  const deleteContact = activityToDelete && clients.find(({ id }) => id === activityToDelete.clientKey)
+    ?.contacts.find(({ id }) => id === (activityToDelete.contactId ?? activityToDelete.clientKey?.split(":")[1]));
 
   function navigate(direction: number) {
     setSelected((current) => view === "Mes" ? moveMonth(current, direction)
@@ -293,6 +336,7 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
         </span>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Calendario</h1>
       </header>
+      {feedback && <p role="status" className="rounded-xl bg-slate-50 px-4 py-2 text-sm">{feedback}</p>}
 
       {initialClientKey && (
         <p className="rounded-xl bg-primary/10 px-4 py-3 text-sm text-foreground">
@@ -371,7 +415,7 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
                     <ul aria-label={fullDate.format(date)} className="space-y-2">
                       {activities.map((activity) => (
                         <ActivityRow key={`${"joinUrl" in activity ? "meeting" : "reminder"}:${activity.id}`}
-                          activity={activity} clients={clients} onDelete={() => setActivityToDelete(activity)} />
+                          activity={activity} clients={clients} onEdit={() => setActivityToEdit(activity)} onDelete={() => setActivityToDelete(activity)} />
                       ))}
                     </ul>
                   </div>
@@ -381,21 +425,16 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
           </section>
         )}
       </section>
-      {activityToDelete && <DeleteActivityDialog activity={activityToDelete}
+      {activityToDelete && <DeleteActivityDialog activity={activityToDelete} participants={participants}
+        clientEmail={activityToDelete.notificationTargets?.clientEmail || deleteContact?.email || ""}
         onClose={() => setActivityToDelete(null)} onDeleted={removeDeletedActivity} />}
-      {slot && <CalendarSlotDialog date={selectedDate} startTime={slot} zoomConfigured={zoomConfigured} clients={clients} participants={participants} initialClientKey={initialClientKey}
-        onClose={() => setSlot(null)}
+      {(slot || activityToEdit) && <CalendarSlotDialog key={activityToEdit?.id ?? slot} date={activityToEdit?.date ?? selectedDate}
+        startTime={slot ?? undefined} today={initialToday} editing={activityToEdit ?? undefined}
+        zoomConfigured={zoomConfigured} clients={clients} participants={participants} initialClientKey={initialClientKey}
+        onClose={closeEditor}
         onContactAdded={(clientKey, contact) => setClients((current) => current.map((client) =>
           client.id === clientKey ? { ...client, contacts: [...client.contacts, contact] } : client))}
-        onMeetingSaved={(meeting) => {
-          setNewMeetings((current) => [...current.filter(({ id }) => id !== meeting.id), meeting]);
-          router.refresh();
-        }}
-        onSaved={(reminder) => {
-          setReminders((current) => [...current, reminder]);
-          setSelected(new Date(`${reminder.date}T00:00:00Z`));
-          setSlot(null);
-        }} />}
+        onMeetingSaved={savedMeeting} onSaved={savedReminder} />}
     </div>
   );
 }

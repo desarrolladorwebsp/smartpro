@@ -3,9 +3,16 @@
 import { useEffect, useState } from "react";
 import { calendarTimeSlots, formatCalendarTime, parseCalendarDate } from "@/lib/calendar-slots";
 
-export function CalendarScheduleFields({ initialDate, minDate }: { initialDate: string; minDate?: string }) {
+export function CalendarScheduleFields({ initialDate, minDate, initialTime = "", allowUntimed = false, activityId, kind }: {
+  initialDate: string;
+  minDate?: string;
+  initialTime?: string;
+  allowUntimed?: boolean;
+  activityId?: string;
+  kind?: "zoom" | "reminder";
+}) {
   const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(initialTime);
   const [availability, setAvailability] = useState<{ date: string; occupied: string[] | null } | null>(null);
   const validDate = Boolean(parseCalendarDate(date));
   const status = availability?.date === date ? availability : null;
@@ -17,7 +24,9 @@ export function CalendarScheduleFields({ initialDate, minDate }: { initialDate: 
 
     async function loadAvailability() {
       try {
-        const response = await fetch(`/api/calendar/occupied-slots?date=${encodeURIComponent(date)}`, { signal: controller.signal });
+        const params = new URLSearchParams({ date });
+        if (activityId && kind) { params.set("activityId", activityId); params.set("kind", kind); }
+        const response = await fetch(`/api/calendar/occupied-slots?${params}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Agenda no disponible.");
         const result: { occupied: string[] } = await response.json();
         if (!controller.signal.aborted) setAvailability({ date, occupied: result.occupied });
@@ -28,21 +37,21 @@ export function CalendarScheduleFields({ initialDate, minDate }: { initialDate: 
 
     void loadAvailability();
     return () => controller.abort();
-  }, [date, validDate]);
+  }, [date, validDate, activityId, kind]);
 
   return (
     <div className="grid items-start gap-3 sm:grid-cols-2">
       <label className="block text-sm font-medium">
         Fecha
-        <input name="date" type="date" required value={date} min={minDate}
-          onChange={(event) => { setDate(event.target.value); setAvailability(null); }} className="dashboard-field mt-1.5" />
+        <input name="date" type="date" required defaultValue={initialDate} min={minDate}
+          onInput={(event) => { setDate(event.currentTarget.value); setAvailability(null); }} className="dashboard-field mt-1.5" />
       </label>
       <div>
         <label className="block text-sm font-medium">
           Hora de Chile
-          <select name="time" required value={time} onChange={(event) => setTime(event.target.value)}
+          <select name="time" required={!allowUntimed} value={time} onChange={(event) => setTime(event.target.value)}
             data-occupied={occupied.has(time) ? "" : undefined} className="dashboard-field calendar-time-select mt-1.5">
-            <option value="" disabled>Elige una hora</option>
+            <option value="" disabled={!allowUntimed}>{allowUntimed ? "Sin hora" : "Elige una hora"}</option>
             {calendarTimeSlots.map((slot) => (
               <option key={slot} value={slot} data-occupied={occupied.has(slot) ? "" : undefined}>
                 {formatCalendarTime(slot)}{occupied.has(slot) ? " · Ocupado" : ""}

@@ -43,8 +43,8 @@ function foldCalendarLine(line: string) {
   return folded;
 }
 
-export function buildZoomInvitationEmail(meeting: ZoomInvitationMeeting, appUrl = getAppUrl()) {
-  const subject = "Invitación a Zoom · " + meeting.title.replace(/\s+/g, " ").trim();
+export function buildZoomInvitationEmail(meeting: ZoomInvitationMeeting, appUrl = getAppUrl(), updated = false) {
+  const subject = (updated ? "Reunión de Zoom actualizada · " : "Invitación a Zoom · ") + meeting.title.replace(/\s+/g, " ").trim();
   const date = dateFormatter.format(new Date(meeting.date + "T00:00:00Z"));
   const localTime = `${meeting.date}T${meeting.time}:00`;
   // SmartPro schedules daytime slots, after any overnight Chilean clock change.
@@ -94,9 +94,9 @@ export function buildZoomInvitationEmail(meeting: ZoomInvitationMeeting, appUrl 
       appUrl,
       title: subject,
       preheader: "Consulta el horario y el enlace de tu reunión con SmartPro.",
-      heading: "Tu reunión con SmartPro",
+      heading: updated ? "Actualizamos tu reunión de Zoom" : "Tu reunión con SmartPro",
       greeting: "Hola,",
-      intro: "Te invitamos a participar en una reunión por Zoom.",
+      intro: updated ? "La reunión cambió. Revisa los datos actualizados debajo." : "Te invitamos a participar en una reunión por Zoom.",
       highlight: { label: "Reunión", value: meeting.title },
       details: [
         { label: "Fecha", value: date },

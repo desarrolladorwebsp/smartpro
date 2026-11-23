@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/auth";
 import { calendarToday } from "@/lib/calendar-slots";
 import { listAssignableExecutives } from "@/lib/executives/repository";
+import { readCalendarNotificationTargets } from "@/lib/calendar-notification-targets";
 
 type CalendarPageProps = { searchParams: Promise<{ cliente?: string | string[] }> };
 
@@ -17,13 +18,13 @@ async function CalendarContent({ searchParams }: CalendarPageProps) {
   const [records, businesses, reminders, zoomMeetings, executives] = await Promise.all([listClients(), listBusinesses(), prisma.calendarReminder.findMany({
     where: { ownerEmail: session.email.toLowerCase() },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-    select: { id: true, date: true, time: true, note: true, clientKey: true, contactId: true },
+    select: { id: true, date: true, time: true, note: true, clientKey: true, contactId: true, notificationTargets: true },
   }), prisma.calendarZoomMeeting.findMany({
     where: { ownerEmail: session.email.toLowerCase(), joinUrl: { not: null } },
     orderBy: [{ date: "asc" }, { time: "asc" }],
     select: {
       id: true, date: true, time: true, title: true, duration: true, joinUrl: true, clientKey: true, contactId: true,
-      clientInvitationStatus: true, clientInvitationFailure: true,
+      clientInvitationStatus: true, clientInvitationFailure: true, clientInvitationEmail: true, notificationTargets: true,
     },
   }), listAssignableExecutives()]);
   const participants = executives.map(({ id, firstName, lastName }) => ({
@@ -35,9 +36,11 @@ async function CalendarContent({ searchParams }: CalendarPageProps) {
   const { cliente } = await searchParams;
   const initialClientKey = clients.find((client) => client.id === cliente)?.id ?? "";
   return <DashboardCalendar key={initialClientKey} initialClientKey={initialClientKey} initialToday={calendarToday()} zoomConfigured={Boolean(zoomCalendarConfig())} clients={clients} participants={participants}
-    initialMeetings={zoomMeetings.flatMap((meeting) => meeting.joinUrl
-      ? [{ ...meeting, joinUrl: meeting.joinUrl, date: meeting.date.toISOString().slice(0, 10) }] : [])}
-    initialReminders={reminders.map((reminder) => ({ ...reminder, date: reminder.date.toISOString().slice(0, 10) }))} />;
+    initialMeetings={zoomMeetings.flatMap(({ clientInvitationEmail, notificationTargets, ...meeting }) => meeting.joinUrl
+      ? [{ ...meeting, joinUrl: meeting.joinUrl, date: meeting.date.toISOString().slice(0, 10),
+        notificationTargets: readCalendarNotificationTargets(notificationTargets, clientInvitationEmail) }] : [])}
+    initialReminders={reminders.map((reminder) => ({ ...reminder, date: reminder.date.toISOString().slice(0, 10),
+      notificationTargets: readCalendarNotificationTargets(reminder.notificationTargets) }))} />;
 }
 
 export default function CalendarPage({ searchParams }: CalendarPageProps) {

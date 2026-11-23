@@ -68,6 +68,35 @@ export async function createZoomMeeting(
   }
 }
 
+export async function updateZoomMeeting(
+  config: ZoomCalendarConfig,
+  zoomId: string,
+  input: { title: string; duration: number; date?: string; time?: string },
+): Promise<{ error?: string }> {
+  if (!/^\d+$/.test(zoomId)) return { error: "La reunión no tiene un identificador válido en Zoom." };
+  try {
+    const token = await getZoomAccessToken(config);
+    const response = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(zoomId)}`, {
+      method: "PATCH",
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: input.title,
+        duration: input.duration,
+        ...(input.date && input.time ? { start_time: `${input.date}T${input.time}:00`, timezone: "America/Santiago" } : {}),
+      }),
+    });
+    if (response.status === 204) return {};
+    if (response.status === 401 || response.status === 403) {
+      return { error: "Zoom no autorizó la edición. Revisa el permiso para modificar reuniones." };
+    }
+  } catch {
+    return { error: "Zoom no confirmó el cambio. Guarda nuevamente para sincronizar la reunión." };
+  }
+  return { error: "Zoom no confirmó el cambio. Revisa la reunión y vuelve a intentarlo." };
+}
+
 export async function deleteZoomMeeting(config: ZoomCalendarConfig, zoomId: string): Promise<{ error?: string }> {
   if (!/^\d+$/.test(zoomId)) return { error: "La reunión no tiene un identificador válido en Zoom." };
 
