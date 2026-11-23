@@ -45,7 +45,7 @@ function toResendAttachments(attachments: EmailAttachment[] | undefined) {
     content: Buffer.isBuffer(attachment.content)
       ? attachment.content.toString("base64")
       : attachment.content,
-    contentType: attachment.contentType,
+    content_type: attachment.contentType,
   }));
 }
 

@@ -26,6 +26,7 @@ export type CorporateEmailContent = {
   details?: CorporateEmailDetail[];
   actionText?: string;
   cta?: CorporateEmailCta;
+  linkSection?: { heading: string; links: CorporateEmailCta[]; note?: string };
   notices?: string[];
   closing?: string;
   signature?: string;
@@ -103,6 +104,23 @@ function renderNotice(text: string): string {
                     </table>`;
 }
 
+function renderLinkSection({ heading, links, note }: NonNullable<CorporateEmailContent["linkSection"]>): string {
+  const linksHtml = links.map(({ href, label }) =>
+    `<a href="${escapeHtml(assertHttpUrl(href, "El enlace del correo"))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 12px 6px 0;padding:6px 0;font-family:${EMAIL_BRAND.fonts};font-size:14px;line-height:20px;font-weight:700;color:${EMAIL_BRAND.colors.violet};text-decoration:underline;">${escapeHtml(label)}</a>`,
+  ).join(" ");
+
+  return `
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;border-collapse:collapse;">
+                      <tr>
+                        <td style="border-top:1px solid ${EMAIL_BRAND.colors.border};padding-top:16px;">
+                          <h2 style="margin:0 0 4px;font-family:${EMAIL_BRAND.fonts};font-size:16px;line-height:24px;color:${EMAIL_BRAND.colors.navy};">${escapeHtml(heading)}</h2>
+                          ${linksHtml}
+                          ${note ? `<p style="margin:0;font-family:${EMAIL_BRAND.fonts};font-size:14px;line-height:20px;color:${EMAIL_BRAND.colors.muted};">${escapeHtml(note)}</p>` : ""}
+                        </td>
+                      </tr>
+                    </table>`;
+}
+
 function renderSignature(signature: string): string {
   return `
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;border-collapse:collapse;">
@@ -138,6 +156,10 @@ export function renderCorporateEmailText(content: CorporateEmailContent): string
     content.actionText,
     content.cta?.href,
     "",
+    content.linkSection?.heading,
+    ...(content.linkSection?.links.map(({ label, href }) => `${label}: ${href}`) ?? []),
+    content.linkSection?.note,
+    content.linkSection ? "" : undefined,
     ...(content.notices ?? []),
     content.closing ? "" : undefined,
     content.closing,
@@ -237,6 +259,7 @@ export function renderCorporateEmail(content: CorporateEmailContent): { html: st
                 ${content.details?.length ? renderDetails(content.details) : ""}
                 ${content.actionText ? paragraphHtml(content.actionText) : ""}
                 ${content.cta ? renderCta(content.cta) : ""}
+                ${content.linkSection ? renderLinkSection(content.linkSection) : ""}
                 ${(content.notices ?? []).map(renderNotice).join("")}
                 ${content.closing ? paragraphHtml(content.closing, "margin-bottom:0;") : ""}
                 ${renderSignature(signature)}
