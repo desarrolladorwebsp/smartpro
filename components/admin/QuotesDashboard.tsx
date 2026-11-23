@@ -36,17 +36,18 @@ type QuotesDashboardProps = {
   initialQuotes: QuoteRecord[];
   accounts: CommercialClient[];
   initialClientId?: string;
+  initialCreateOpen: boolean;
   authorNames: Record<string, string>;
 };
 
-export function QuotesDashboard({ initialQuotes, accounts, initialClientId, authorNames }: QuotesDashboardProps) {
+export function QuotesDashboard({ initialQuotes, accounts, initialClientId, initialCreateOpen, authorNames }: QuotesDashboardProps) {
   const [quotes, setQuotes] = useState(initialQuotes);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "ALL">("ALL");
   const [clientFilter, setClientFilter] = useState(initialClientId || "ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(initialCreateOpen);
   const [successMessage, setSuccessMessage] = useState("");
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
 
@@ -181,7 +182,14 @@ export function QuotesDashboard({ initialQuotes, accounts, initialClientId, auth
 
       <QuoteCreateModal
         open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={() => {
+          setIsCreateOpen(false);
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("nueva")) {
+            url.searchParams.delete("nueva");
+            window.history.replaceState(null, "", url);
+          }
+        }}
         accounts={accounts}
         initialAccountId={accounts.some((entry) => entry.id === clientFilter) ? clientFilter : undefined}
         onCreated={(quote) => {

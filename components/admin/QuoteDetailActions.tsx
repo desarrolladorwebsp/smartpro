@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,21 +17,23 @@ import {
 
 type QuoteDetailActionsProps = {
   quote: QuoteRecord;
+  initialEditOpen: boolean;
 };
 
-export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
+export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailActionsProps) {
   const router = useRouter();
-  const [current, setCurrent] = useState(quote);
+  const [localUpdate, setLocalUpdate] = useState<{ source: QuoteRecord; value: QuoteRecord } | null>(null);
+  const current = localUpdate?.source === quote ? localUpdate.value : quote;
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(initialEditOpen && canEditQuote(quote.status));
   const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    setCurrent(quote);
-  }, [quote]);
+  function setCurrent(value: QuoteRecord) {
+    setLocalUpdate({ source: quote, value });
+  }
 
   async function sendQuote() {
     if (isSending) return;
@@ -177,9 +179,16 @@ export function QuoteDetailActions({ quote }: QuoteDetailActionsProps) {
       </Link>
 
       <QuoteCreateModal
-        open={isEditOpen}
+        open={isEditOpen && canEditQuote(current.status)}
         quote={current}
-        onClose={() => setIsEditOpen(false)}
+        onClose={() => {
+          setIsEditOpen(false);
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("editar")) {
+            url.searchParams.delete("editar");
+            window.history.replaceState(null, "", url);
+          }
+        }}
         onCreated={(nextQuote) => {
           setCurrent(nextQuote);
           setMessage(`Cotización ${nextQuote.number} actualizada. Aún no se envió al cliente.`);

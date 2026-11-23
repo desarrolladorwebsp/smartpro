@@ -34,17 +34,23 @@ function formatDate(value: string | null): string {
   }).format(date);
 }
 
-export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+type QuoteDetailPageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ editar?: string | string[] }>;
+};
+
+export default function QuoteDetailPage({ params, searchParams }: QuoteDetailPageProps) {
   return (
     <Suspense fallback={<QuoteDetailPageSkeleton />}>
-      <QuoteDetailContent params={params} />
+      <QuoteDetailContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function QuoteDetailContent({ params }: { params: Promise<{ id: string }> }) {
+async function QuoteDetailContent({ params, searchParams }: QuoteDetailPageProps) {
   await requireAdminSession();
 
+  const { editar } = await searchParams;
   let quote: QuoteRecord | null = null;
   let loadError = false;
 
@@ -160,7 +166,7 @@ async function QuoteDetailContent({ params }: { params: Promise<{ id: string }> 
           </div>
         </section>
 
-        <QuoteDetailActions quote={quote} />
+        <QuoteDetailActions key={quote.id} quote={quote} initialEditOpen={editar === "1"} />
       </div>
     </div>
   );

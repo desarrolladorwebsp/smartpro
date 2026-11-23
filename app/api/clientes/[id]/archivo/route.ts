@@ -1,13 +1,20 @@
 import { getCurrentAdminSession } from "@/lib/auth";
 import { isCrmArchiveState, parseReactivationDate } from "@/lib/clients/crm-archive";
+import { crmChangeNote } from "@/lib/clients/crm-history";
 import { archiveCrmClient } from "@/lib/clients/crm-archive-repository";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getCurrentAdminSession())) return Response.json({ error: "Inicia sesión." }, { status: 401 });
+  const session = await getCurrentAdminSession();
+  if (!session) return Response.json({ error: "Inicia sesión." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   if (body?.confirmed !== true || !isCrmArchiveState(body.state) || (body.kind !== "business" && body.kind !== "person")) {
     return Response.json({ error: "Confirma el cambio de estado." }, { status: 400 });
+  }
+
+  const note = crmChangeNote(body.note);
+  if (!note || note.length > 10000) {
+    return Response.json({ error: "Escribe una nota de hasta 10.000 caracteres." }, { status: 400 });
   }
 
   const date = body.state === "PAUSED" ? parseReactivationDate(body.reactivateOn) : null;
@@ -17,7 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params;
-    if (!(await archiveCrmClient(body.kind, id, body.state, date))) {
+    if (!(await archiveCrmClient(body.kind, id, body.state, date, note, session.email))) {
       return Response.json({ error: "El cliente ya no está activo en el tablero. Actualiza la página." }, { status: 409 });
     }
     return Response.json({ ok: true });

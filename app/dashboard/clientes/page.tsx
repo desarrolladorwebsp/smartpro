@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { listAssignableExecutives } from "@/lib/executives/repository";
 import { redirect } from "next/navigation";
 
+import { calendarToday } from "@/lib/calendar-slots";
+import { zoomCalendarConfig } from "@/lib/zoom-calendar";
 import { requireAdminSession } from "@/lib/auth";
 import { ClientsDashboard } from "@/components/admin/ClientsDashboard";
 import { DashboardDataError } from "@/components/admin/DashboardDataError";
@@ -56,8 +58,10 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   return <ClientsDashboard
     preferenceKey={`smartpro:crm:collapsed:${session.email.trim().toLowerCase()}`}
     hasPaused={hasPaused}
-    initialClients={clients.filter((entry) => entry.businessId || !entry.crmArchiveState)}
-    initialBusinesses={businesses.filter((entry) => !entry.crmArchiveState)}
+    calendarDate={calendarToday()}
+    zoomConfigured={Boolean(zoomCalendarConfig())}
+    initialClients={clients}
+    initialBusinesses={businesses}
     assignable={executives.map(({ id, firstName, lastName, email }) => ({ id, firstName, lastName: lastName ?? "", email }))}
   />;
 }

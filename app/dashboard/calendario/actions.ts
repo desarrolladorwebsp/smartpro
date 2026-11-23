@@ -4,7 +4,7 @@ import { getCurrentAdminSession } from "@/lib/auth";
 import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
 import type { CalendarLink, CalendarZoomMeeting } from "@/components/admin/calendar-types";
 import { Prisma } from "@prisma/client";
-import { createZoomMeeting, zoomCalendarConfig } from "@/lib/zoom-calendar";
+import { createZoomMeeting, deleteZoomMeeting, zoomCalendarConfig } from "@/lib/zoom-calendar";
 import { prisma } from "@/lib/db";
 import { listAssignableExecutives } from "@/lib/executives/repository";
 import { sendEmail, type SendEmailInput } from "@/lib/email/resend";
@@ -12,6 +12,41 @@ import { buildZoomInvitationEmail } from "@/lib/email/zoom-invitation";
 import { ZOOM_INVITATION_TAG, sendTrackedZoomInvitation } from "@/lib/email/zoom-delivery";
 
 const ZOOM_INVITATION_COPY = "contacto@smartpro.cl";
+
+export async function deleteCalendarActivity(id: string, kind: "reminder" | "zoom"): Promise<{ error?: string }> {
+  const session = await getCurrentAdminSession();
+  if (!session) return { error: "Inicia sesión para eliminar actividades." };
+  if (!prisma) return { error: "Base de datos no disponible." };
+  if (typeof id !== "string" || !id.trim() || id.length > 191 || (kind !== "reminder" && kind !== "zoom")) {
+    return { error: "La actividad seleccionada no es válida." };
+  }
+
+  const where = { id, ownerEmail: session.email.toLowerCase() };
+  try {
+    if (kind === "reminder") {
+      await prisma.calendarReminder.deleteMany({ where });
+      return {};
+    }
+
+    const meeting = await prisma.calendarZoomMeeting.findFirst({
+      where: { ...where, joinUrl: { not: null } },
+      select: { zoomId: true },
+    });
+    if (!meeting) return {};
+    if (!meeting.zoomId) return { error: "La reunión no tiene un identificador registrado en Zoom." };
+    const config = zoomCalendarConfig();
+    if (!config) return { error: "Conecta la cuenta de Zoom para eliminar esta reunión." };
+
+    // If the local deletion fails, retrying accepts Zoom's meeting-not-found response.
+    const result = await deleteZoomMeeting(config, meeting.zoomId);
+    if (result.error) return result;
+    await prisma.calendarZoomMeeting.deleteMany({ where: { ...where, zoomId: meeting.zoomId } });
+    return {};
+  } catch (error) {
+    console.error("[smartpro:calendario] No se pudo eliminar la actividad.", error);
+    return { error: "No se pudo eliminar la actividad del calendario. Vuelve a intentarlo." };
+  }
+}
 
 type InvitationStatus = "sent" | "failed";
 type ZoomBookingResult =
@@ -67,12 +102,12 @@ async function resolveCalendarLink(form: FormData): Promise<CalendarLink | null>
   if (!client) return null;
 
   if (client.kind === "business") {
-    const account = await prisma.business.findUnique({ where: { id: client.id }, select: { id: true } });
+    const account = await prisma.business.findUnique({ where: { id: client.id, deletedAt: null }, select: { id: true } });
     if (!account) return null;
-    if (contactId && !await prisma.client.findFirst({ where: { id: contactId, businessId: account.id }, select: { id: true } })) return null;
+    if (contactId && !await prisma.client.findFirst({ where: { id: contactId, businessId: account.id, deletedAt: null }, select: { id: true } })) return null;
   } else {
     if (contactId && contactId !== client.id) return null;
-    if (!await prisma.client.findFirst({ where: { id: client.id, businessId: null }, select: { id: true } })) return null;
+    if (!await prisma.client.findFirst({ where: { id: client.id, businessId: null, deletedAt: null }, select: { id: true } })) return null;
   }
   return { clientKey, contactId };
 }

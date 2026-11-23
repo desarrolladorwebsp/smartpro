@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { X, type LucideIcon } from "lucide-react";
 
 export const dashboardFieldClassName =
@@ -68,12 +69,13 @@ export function DashboardFormModal({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  const titleId = useId();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dashboard-form-modal-title"
+        aria-labelledby={titleId}
         className={`flex max-h-[min(92vh,840px)] w-full flex-col overflow-hidden rounded-[22px] border border-border bg-white shadow-[0_18px_56px_rgba(16,16,36,0.16)] ${
           wide ? "max-w-3xl" : "max-w-lg"
         }`}
@@ -81,7 +83,7 @@ export function DashboardFormModal({
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">{eyebrow}</p>
-            <h2 id="dashboard-form-modal-title" className="truncate text-lg font-bold tracking-[-0.03em] text-foreground sm:text-xl">
+            <h2 id={titleId} className="truncate text-lg font-bold tracking-[-0.03em] text-foreground sm:text-xl">
               {title}
             </h2>
           </div>

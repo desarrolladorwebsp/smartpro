@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import Image from "next/image";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
@@ -37,7 +36,24 @@ const NAV_ITEMS = [
   { label: "Agencias", href: "/dashboard/agencias", icon: Building2, adminOnly: true },
 ] as const;
 
-const LOGO_SRC = "/images/logo/logo-smartpro-full.png";
+const sidebarSurfaceStyle = "bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white";
+const desktopSidebarStyle = `hidden w-52 shrink-0 flex-col lg:sticky lg:top-0 lg:flex lg:h-screen xl:w-56 2xl:w-64 ${sidebarSurfaceStyle}`;
+const mobileHeaderStyle = "sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-navy px-4 lg:hidden";
+const sidebarPanelStyle = "flex h-full min-h-0 flex-1 flex-col px-3 pb-4 pt-4 2xl:px-4";
+const sidebarBrandStyle = "mb-4 px-1";
+const sidebarNavStyle = "min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 [scrollbar-width:thin]";
+const sidebarNavItemStyle = "flex min-h-10 items-center gap-2.5 rounded-xl px-3 2xl:min-h-11";
+const sidebarFooterStyle = "mt-auto space-y-2 border-t border-white/10 pt-3";
+const sidebarAccountStyle = "flex items-center gap-2.5 rounded-xl px-1 py-1.5";
+
+function SidebarBrand() {
+  return (
+    <span className="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+      <span aria-hidden="true" className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#9846ee] to-primary text-base">SP</span>
+      SmartPro
+    </span>
+  );
+}
 
 function isNavItemActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -107,16 +123,9 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-navy px-4 lg:hidden">
+      <header className={mobileHeaderStyle}>
         <Link href="/dashboard" prefetch onClick={() => setIsMobileOpen(false)} aria-label="Ir al resumen del dashboard" className="flex min-w-0 items-center">
-          <Image
-            src={LOGO_SRC}
-            alt="SmartPro"
-            width={168}
-            height={48}
-            priority
-            className="h-9 w-auto max-w-[168px] object-contain object-left"
-          />
+          <SidebarBrand />
         </Link>
 
         <button
@@ -132,7 +141,7 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
         </button>
       </header>
 
-      <aside className="hidden w-64 shrink-0 flex-col bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white lg:sticky lg:top-0 lg:flex lg:h-screen xl:w-72">
+      <aside className={desktopSidebarStyle}>
         <SidebarPanel
           adminEmail={adminEmail}
           role={role}
@@ -164,7 +173,7 @@ export function DashboardSidebar({ adminEmail, role = "ADMIN" }: DashboardSideba
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -320, opacity: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 28 }}
-              className="fixed inset-y-0 left-0 z-[60] flex w-[min(18.5rem,86vw)] flex-col bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white shadow-[20px_0_50px_rgba(11,11,20,0.28)] lg:hidden"
+              className={`fixed inset-y-0 left-0 z-[60] flex w-[min(18.5rem,86vw)] flex-col shadow-[20px_0_50px_rgba(11,11,20,0.28)] lg:hidden ${sidebarSurfaceStyle}`}
             >
               <div className="flex justify-end px-4 pt-4">
                 <button
@@ -211,24 +220,17 @@ function SidebarPanel({
   const roleLabel = role === "ADMIN" ? "Administrador" : "Ejecutivo";
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col px-4 pb-5 pt-4 xl:px-5">
-      <div className="mb-7 px-1">
+    <div className={sidebarPanelStyle}>
+      <div className={sidebarBrandStyle}>
         <Link href="/dashboard" prefetch onClick={onNavigate} aria-label="Ir al resumen del dashboard" className="block">
-          <Image
-            src={LOGO_SRC}
-            alt="SmartPro"
-            width={196}
-            height={56}
-            priority
-            className="h-11 w-auto max-w-[196px] object-contain object-left"
-          />
+          <SidebarBrand />
         </Link>
         <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
           Panel administrativo
         </p>
       </div>
 
-      <nav aria-label="Navegación principal" className="min-h-0 flex-1 space-y-1.5">
+      <nav aria-label="Navegación principal" className={sidebarNavStyle}>
         {visibleNavItems.map((item) => (
           <NavLink
             key={item.href}
@@ -239,9 +241,9 @@ function SidebarPanel({
         ))}
       </nav>
 
-      <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
-        <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-magenta text-xs font-bold text-white">
+      <div className={sidebarFooterStyle}>
+        <div className={sidebarAccountStyle}>
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-magenta text-xs font-bold text-white">
             {initials}
           </div>
           <div className="min-w-0">
@@ -278,10 +280,8 @@ function NavLink({
       prefetch
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
-        active
-          ? "bg-gradient-to-r from-primary to-magenta text-white shadow-[0_10px_24px_rgba(109,40,217,0.28)]"
-          : "text-white/70 hover:bg-white/10 hover:text-white"
+      className={`${sidebarNavItemStyle} group text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-inset 2xl:text-[15px] ${
+        active ? "bg-gradient-to-r from-primary to-[#8543cb] text-white" : "text-white/70 transition-colors hover:bg-white/10 hover:text-white motion-reduce:transition-none"
       }`}
     >
       <NavLinkInner item={item} active={active} />
@@ -307,7 +307,7 @@ function NavLinkInner({
         className={active ? "text-white" : "text-white/45 transition group-hover:text-white"}
       />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      <span aria-hidden="true" className="h-1 w-4 shrink-0 overflow-hidden rounded-full bg-white/15">
+      <span aria-hidden="true" className="h-1 w-4 shrink-0 overflow-hidden rounded-full">
         <span className={`block h-full w-1/2 rounded-full bg-current transition-opacity duration-150 ${pending && !active ? "dashboard-nav-pending opacity-100" : "opacity-0"}`} />
       </span>
     </>
@@ -317,30 +317,30 @@ function NavLinkInner({
 export function DashboardSidebarFallback() {
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-navy px-4 lg:hidden">
-        <div className="h-9 w-40 animate-pulse rounded-lg bg-white/10" />
+      <header className={mobileHeaderStyle}>
+        <div className="h-9 w-32 animate-pulse rounded-xl bg-white/10" />
         <div className="h-11 w-11 animate-pulse rounded-2xl bg-white/10" />
       </header>
 
-      <aside className="hidden w-64 shrink-0 flex-col bg-[linear-gradient(180deg,_#14142c_0%,_#101024_58%,_#0c0c1c_100%)] text-white lg:sticky lg:top-0 lg:flex lg:h-screen xl:w-72">
-        <div className="flex h-full min-h-0 flex-1 flex-col px-4 pb-5 pt-4 xl:px-5">
-          <div className="mb-7 px-1">
-            <div className="h-11 w-44 animate-pulse rounded-xl bg-white/10" />
+      <aside className={desktopSidebarStyle}>
+        <div className={sidebarPanelStyle}>
+          <div className={sidebarBrandStyle}>
+            <div className="h-9 w-32 animate-pulse rounded-xl bg-white/10" />
             <div className="mt-3 h-2.5 w-32 animate-pulse rounded-full bg-white/10" />
           </div>
 
-          <nav aria-hidden="true" className="min-h-0 flex-1 space-y-1.5">
+          <nav aria-hidden="true" className={sidebarNavStyle}>
             {Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="flex min-h-11 items-center gap-3 rounded-2xl px-3">
+              <div key={index} className={sidebarNavItemStyle}>
                 <div className="h-4 w-4 animate-pulse rounded bg-white/10" />
                 <div className="h-3 w-24 animate-pulse rounded-full bg-white/10" />
               </div>
             ))}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
-            <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
-              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/10" />
+          <div className={sidebarFooterStyle}>
+            <div className={sidebarAccountStyle}>
+              <div className="size-8 shrink-0 animate-pulse rounded-full bg-white/10" />
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
                 <div className="h-2.5 w-20 animate-pulse rounded-full bg-white/10" />

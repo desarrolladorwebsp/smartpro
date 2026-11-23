@@ -1,27 +1,31 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Bell, ChevronDown, Video } from "lucide-react";
+import { Bell, ChevronDown, Plus, Video } from "lucide-react";
 
 import type { CalendarClient, CalendarParticipant, CalendarReminder, CalendarZoomMeeting } from "./calendar-types";
 import { createCalendarReminder, bookCalendarZoomMeeting } from "@/app/dashboard/calendario/actions";
+import { formatCalendarTime } from "@/lib/calendar-slots";
+import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
+import { AccountContactForm } from "./ClientAccountForms";
+import { CalendarScheduleFields } from "./CalendarScheduleFields";
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "./dashboard-form";
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es-CL");
 }
 
-export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clients, participants, initialClientKey, onClose, onSaved, onMeetingSaved }: {
+export function CalendarSlotDialog({ date, startTime, zoomConfigured, clients, participants, initialClientKey, onClose, onSaved, onMeetingSaved, onContactAdded }: {
   date: string;
-  time: string;
-  startTime: string;
+  startTime?: string;
   zoomConfigured: boolean;
   clients: CalendarClient[];
   participants: CalendarParticipant[];
   initialClientKey: string;
   onClose: () => void;
   onSaved: (reminder: CalendarReminder) => void;
-  onMeetingSaved: (meeting: CalendarZoomMeeting) => void;
+  onMeetingSaved?: (meeting: CalendarZoomMeeting) => void;
+  onContactAdded: (clientKey: string, contact: CalendarClient["contacts"][number]) => void;
 }) {
   const [mode, setMode] = useState<"choose" | "zoom" | "reminder">("choose");
   const [error, setError] = useState("");
@@ -33,13 +37,26 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
   const searchResults = useRef<HTMLDivElement>(null);
   const searchResultsId = useId();
   const [contactId, setContactId] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
+  const [addedContacts, setAddedContacts] = useState<Record<string, CalendarClient["contacts"]>>({});
+  const [addingContact, setAddingContact] = useState(false);
+  const addContactButton = useRef<HTMLButtonElement>(null);
   const [sendInvitation, setSendInvitation] = useState(false);
   const [participantIds, setParticipantIds] = useState<string[]>([]);
-  const [bookingResult, setBookingResult] = useState<{ internalInvitation?: "sent" | "failed"; existing?: boolean }>({});
+  const [deliveries, setDeliveries] = useState<{
+    internalInvitation?: "sent" | "failed";
+    existing?: boolean;
+  }>({});
+  const [copyStatus, setCopyStatus] = useState("");
   const [meeting, setMeeting] = useState<CalendarZoomMeeting | null>(null);
   const selectedClient = clients.find((client) => client.id === clientKey);
-  const contacts = selectedClient?.contacts ?? [];
+  const clientInField = !startTime ? selectedClient : undefined;
+  const contacts = [
+    ...(selectedClient?.contacts ?? []),
+    ...(addedContacts[clientKey] ?? []).filter((contact) => !selectedClient?.contacts.some(({ id }) => id === contact.id)),
+  ];
+  const timeLabel = startTime ? formatCalendarTime(startTime) : "";
+  const selectedAccount = selectedClient ? parseCommercialClientId(selectedClient.id) : null;
+  const accountId = selectedAccount?.kind === "business" ? selectedAccount.id : null;
   const query = clientQuery.trim();
   const matchingClients = query ? clients.filter((client) =>
     normalizeSearch(client.name).includes(normalizeSearch(query))).slice(0, 10) : [];
@@ -91,8 +108,10 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         <input type="hidden" name="clientKey" value={clientKey} />
         <label className="block text-sm font-medium">
           Cliente (opcional)
-          <input ref={searchInput} type="search" aria-label="Buscar cliente" aria-controls={searchResultsId} placeholder="Buscar por nombre"
-            value={clientQuery} onChange={(event) => setClientQuery(event.target.value)}
+          <input ref={searchInput} type="search" aria-label={clientInField ? "Cliente seleccionado" : "Buscar cliente"}
+            aria-controls={clientInField ? undefined : searchResultsId} placeholder="Buscar por nombre"
+            value={clientInField?.name ?? clientQuery} readOnly={Boolean(clientInField)}
+            onChange={(event) => setClientQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
@@ -101,9 +120,12 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
             className="dashboard-field mt-1.5 w-full" />
         </label>
         {selectedClient && (
-          <div className="flex items-center justify-between gap-2 rounded-lg bg-primary/10 px-2 py-1.5 text-xs text-primary">
-            <span className="min-w-0 break-words font-medium">{selectedClient.name}</span>
-            <button type="button" className="shrink-0 font-semibold underline" onClick={() => chooseClient("")}>Quitar</button>
+          <div className={clientInField ? "flex justify-end text-xs text-primary" : "flex items-center justify-between gap-2 rounded-lg bg-primary/10 px-2 py-1.5 text-xs text-primary"}>
+            {!clientInField && <span className="min-w-0 break-words font-medium">{selectedClient.name}</span>}
+            <button type="button" className="shrink-0 font-semibold underline" onClick={() => {
+              chooseClient("");
+              searchInput.current?.focus();
+            }}>Quitar</button>
           </div>
         )}
         <div id={searchResultsId} ref={searchResults} popover="manual"
@@ -122,14 +144,26 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
           ) : <p role="status" className="px-3 py-2 text-xs text-muted">Sin clientes encontrados.</p>}
         </div>
       </div>
-      <label className="block text-sm font-medium">
-        Contacto (opcional)
-        <select aria-label="Contacto (opcional)" name="contactId" value={contactId} onChange={(event) => setContactId(event.target.value)}
-          disabled={!contacts.length} className="dashboard-field mt-1.5 disabled:opacity-60">
-          <option value="">{clientKey ? (contacts.length ? "Sin contacto" : "Sin contactos disponibles") : "Selecciona un cliente primero"}</option>
-          {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.email ? `${contact.name} - ${contact.email}` : contact.name}</option>)}
-        </select>
-      </label>
+      <div className="min-w-0 space-y-1.5">
+        <label className="block text-sm font-medium">
+          Contacto (opcional)
+          <select aria-label="Contacto (opcional)" name="contactId" value={contactId} onChange={(event) => setContactId(event.target.value)}
+            disabled={!contacts.length} className="dashboard-field mt-1.5 disabled:opacity-60">
+            <option value="">{clientKey ? (contacts.length ? "Sin contacto" : "Sin contactos disponibles") : "Selecciona un cliente primero"}</option>
+            {contacts.map((contact) => (
+              <option key={contact.id} value={contact.id}>
+                {contact.email ? `${contact.name} - ${contact.email}` : contact.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {accountId && (
+          <button ref={addContactButton} type="button" onClick={() => setAddingContact(true)} disabled={pending}
+            className="inline-flex min-h-8 items-center gap-1 rounded-lg px-1 text-xs font-semibold text-primary hover:bg-primary/10 focus-visible:outline-primary disabled:opacity-60">
+            <Plus size={14} aria-hidden="true" /> Agregar contacto
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -145,8 +179,11 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         const result = await bookCalendarZoomMeeting(form);
         if (result.meeting) {
           setMeeting(result.meeting);
-          setBookingResult({ internalInvitation: result.internalInvitation, existing: result.existing });
-          onMeetingSaved(result.meeting);
+          setDeliveries({
+            internalInvitation: result.internalInvitation,
+            existing: result.existing,
+          });
+          onMeetingSaved?.(result.meeting);
         } else setError(result.error);
       } else {
         const result = await createCalendarReminder(form);
@@ -154,7 +191,9 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         else setError(result.error);
       }
     } catch {
-      setError("No se pudo guardar el recordatorio. Inténtalo de nuevo.");
+      setError(mode === "zoom"
+        ? "No se pudo confirmar la reserva. Revisa el calendario antes de volver a agendar."
+        : "No se pudo guardar el recordatorio. Inténtalo de nuevo.");
     } finally {
       setPending(false);
       saving.current = false;
@@ -163,14 +202,27 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
 
   const title = mode === "zoom" ? "Reunión por Zoom" : mode === "reminder" ? "Nuevo recordatorio" : "Agregar al calendario";
 
+  function closeContactForm() {
+    setAddingContact(false);
+    requestAnimationFrame(() => addContactButton.current?.focus());
+  }
+
   return (
+    <>
+    <div inert={addingContact} onKeyDown={(event) => {
+      if (event.key === "Escape" && !saving.current) {
+        event.preventDefault();
+        onClose();
+      }
+    }}>
     <DashboardFormModal eyebrow="Calendario" title={title}
       onClose={() => { if (!saving.current) onClose(); }}>
       {mode === "choose" && (
         <div className="space-y-3 p-4">
-          <p className="text-sm text-muted">{date.split("-").reverse().join("/")} · {time}</p>
+          {startTime ? <p className="text-sm text-muted">{date.split("-").reverse().join("/")} · {timeLabel}</p>
+            : <p className="text-sm text-muted">{selectedClient?.name}</p>}
           <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => setMode("zoom")} className="flex items-center gap-3 rounded-xl border border-border p-3 text-left font-medium hover:bg-primary/10">
+            <button type="button" autoFocus onClick={() => setMode("zoom")} className="flex items-center gap-3 rounded-xl border border-border p-3 text-left font-medium hover:bg-primary/10">
               <Video size={18} className="text-primary" aria-hidden="true" /> Reunión por Zoom
             </button>
             <button type="button" onClick={() => setMode("reminder")} className="flex items-center gap-3 rounded-xl border border-border p-3 text-left font-medium hover:bg-primary/10">
@@ -182,7 +234,7 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
       {mode === "zoom" && (meeting ? (
         <div className="space-y-3 p-4">
           <p role="status" className="font-medium text-emerald-700">Reunión agendada en Zoom.</p>
-          <p className="text-sm">{meeting.title} · {time} · {meeting.duration} min</p>
+          <p className="text-sm">{meeting.title} · {meeting.date.split("-").reverse().join("/")} · {formatCalendarTime(meeting.time)} · {meeting.duration} min</p>
           {meeting.clientInvitationStatus === "PENDING" && (
             <p role="status" className="text-sm text-amber-800">Invitación al cliente pendiente de entrega.</p>
           )}
@@ -192,13 +244,13 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
           {meeting.clientInvitationStatus === "FAILED" && (
             <p role="alert" className="text-sm text-amber-800">No se pudo enviar la invitación al cliente. Puedes compartir el enlace.</p>
           )}
-          {bookingResult.internalInvitation === "sent" && (
+          {deliveries.internalInvitation === "sent" && (
             <p role="status" className="text-sm text-emerald-700">Invitación interna enviada.</p>
           )}
-          {bookingResult.internalInvitation === "failed" && (
+          {deliveries.internalInvitation === "failed" && (
             <p role="alert" className="text-sm text-amber-800">Revisa el envío interno. Una o más copias no se pudieron enviar.</p>
           )}
-          {bookingResult.existing && (
+          {deliveries.existing && (
             <p role="status" className="text-sm text-muted">La reunión ya estaba agendada. Se evitó un envío duplicado.</p>
           )}
           <div className="flex flex-wrap items-center gap-3">
@@ -216,10 +268,12 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         </div>
       ) : (
         <form onSubmit={save} className="flex min-h-0 flex-col">
-          <input type="hidden" name="date" value={date} />
-          <input type="hidden" name="time" value={startTime} />
           <div className="space-y-4 overflow-y-auto p-4">
-            <p className="text-sm text-muted">{date.split("-").reverse().join("/")} · {time} · Hora de Chile</p>
+            {startTime ? <>
+              <input type="hidden" name="date" value={date} />
+              <input type="hidden" name="time" value={startTime} />
+              <p className="text-sm text-muted">{date.split("-").reverse().join("/")} · {timeLabel} · Hora de Chile</p>
+            </> : <CalendarScheduleFields initialDate={date} minDate={date} />}
             <label className="block text-sm font-medium">
               Título
               <input name="title" required maxLength={191} defaultValue="Reunión SmartPro" className="dashboard-field mt-1.5" />
@@ -290,13 +344,15 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
       ))}
       {mode === "reminder" && (
         <form onSubmit={save} className="flex min-h-0 flex-col">
-          <input type="hidden" name="time" value={startTime} />
           <div className="space-y-4 overflow-y-auto p-4">
-            <label className="block text-sm font-medium">
-              Fecha
-              <input name="date" type="date" required defaultValue={date} className="dashboard-field mt-1.5" />
-            </label>
-            <p className="text-sm text-muted">{time} · Hora de Chile</p>
+            {startTime ? <>
+              <input type="hidden" name="time" value={startTime} />
+              <label className="block text-sm font-medium">
+                Fecha
+                <input name="date" type="date" required defaultValue={date} className="dashboard-field mt-1.5" />
+              </label>
+              <p className="text-sm text-muted">{timeLabel} · Hora de Chile</p>
+            </> : <CalendarScheduleFields initialDate={date} />}
             <label className="block text-sm font-medium">
               Nota
               <textarea name="note" required maxLength={4000} rows={4} autoFocus className="dashboard-field mt-1.5 resize-y" />
@@ -309,5 +365,21 @@ export function CalendarSlotDialog({ date, time, startTime, zoomConfigured, clie
         </form>
       )}
     </DashboardFormModal>
+    </div>
+    {addingContact && accountId && selectedClient && (
+      <AccountContactForm accountId={accountId} accountName={selectedClient.name} onClose={closeContactForm}
+        onSaved={(saved) => {
+          const contact = {
+            id: saved.legacyClientId,
+            name: [saved.firstName, saved.lastName].filter(Boolean).join(" "),
+            email: saved.email,
+          };
+          setAddedContacts((current) => ({ ...current, [selectedClient.id]: [...(current[selectedClient.id] ?? []), contact] }));
+          onContactAdded(selectedClient.id, contact);
+          setContactId(saved.legacyClientId);
+          closeContactForm();
+        }} />
+    )}
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { recordCrmChange } from "./crm-history";
 import { Prisma } from "@prisma/client";
 import type { ClientCrmStage, ClientStatus } from "./types";
 import { prisma } from "../db";
@@ -13,7 +14,11 @@ export async function getBusiness(id: string | null | undefined) {
 }
 
 export async function listBusinesses() {
-  const businesses = await database().business.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, include: { responsible: { select: { id: true, firstName: true, lastName: true, email: true } } } });
+  const businesses = await database().business.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+    include: { responsible: { select: { id: true, firstName: true, lastName: true, email: true } } },
+  });
   return businesses.map((business) => ({ ...business, rut: business.rut ?? "", responsible: business.responsible && { ...business.responsible, lastName: business.responsible.lastName ?? "" } }));
 }
 
@@ -46,8 +51,17 @@ export async function saveBusiness(input: { name?: unknown; rut?: unknown; addre
   return business;
 }
 
-export async function updateBusinessCrm(id: string, data: { crmStage?: ClientCrmStage; status?: ClientStatus }) {
-  return (await database().business.updateMany({ where: { id }, data })).count > 0;
+export async function updateBusinessCrm(id: string, status: ClientStatus, actorEmail: string) {
+  return database().$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Business WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.business.findUnique({ where: { id, deletedAt: null }, select: { status: true } });
+    if (!current) return false;
+    if (current.status !== status) {
+      await tx.business.update({ where: { id }, data: { status } });
+      await recordCrmChange(tx, { accountId: id, event: "CLASSIFICATION", fromState: current.status, toState: status, actorEmail });
+    }
+    return true;
+  });
 }
 
 export async function associateLegacyHistory(tx: Prisma.TransactionClient, businessId: string, clientIds: string[]) {
@@ -86,14 +100,14 @@ export async function associateConfirmedBusinessClients(businessId: string, clie
   });
 }
 
-export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, anchor?: { id: string; after: boolean }) {
+export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, actorEmail: string, anchor?: { id: string; after: boolean }) {
   return database().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM Business ORDER BY id FOR UPDATE`;
-    const current = await tx.business.findUnique({ where: { id }, select: { crmStage: true, crmArchiveState: true } });
+    const current = await tx.business.findUnique({ where: { id, deletedAt: null }, select: { crmStage: true, crmArchiveState: true } });
     if (!current || current.crmArchiveState) return false;
     if (!anchor && current.crmStage === crmStage) return true;
     const cards = await tx.business.findMany({
-      where: { crmStage, id: { not: id } },
+      where: { crmStage, id: { not: id }, deletedAt: null, crmArchiveState: null },
       select: { id: true, crmPosition: true, name: true },
     });
     cards.sort((a, b) => (a.crmPosition ?? Infinity) - (b.crmPosition ?? Infinity) ||
@@ -105,6 +119,9 @@ export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, anc
     for (const [crmPosition, cardId] of ids.entries()) {
       await tx.business.update({ where: { id: cardId }, data: { crmStage, crmPosition } });
     }
+    await recordCrmChange(tx, {
+      accountId: id, event: "STAGE", fromState: current.crmStage, toState: crmStage, actorEmail,
+    });
     return true;
   });
 }

@@ -1,3 +1,4 @@
+import { recordCrmChange } from "./crm-history";
 import { Prisma, type Client } from "@prisma/client";
 import { prisma } from "../db";
 import { normalizeBusinessRut } from "./business";
@@ -49,7 +50,7 @@ async function addAccountContact(tx: Prisma.TransactionClient, accountId: string
   const bridge = await tx.client.create({ data: { businessId: accountId, companyName: "", ...legacyContactData(contact) } });
   const record = await tx.contact.create({ data: contact });
   await tx.clientContact.create({ data: { accountId, contactId: record.id, legacyClientId: bridge.id } });
-  return record;
+  return { ...record, legacyClientId: bridge.id };
 }
 
 export async function createAccount(input: unknown) {
@@ -78,22 +79,25 @@ export async function hideCommercialClient(id: string, kind: "business" | "perso
       return Boolean(existing?.deletedAt);
     }
 
-    await tx.clientCrmHistory.create({ data: {
+    await recordCrmChange(tx, {
       ...(kind === "business" ? { accountId: id } : { clientId: id }),
       event: "DELETION",
       fromState: "VISIBLE",
       toState: "DELETED",
       actorEmail,
-      note: "",
-    } });
+    });
     return true;
   });
 }
 
-export async function updateAccount(id: string, input: unknown) {
-  const db = database();
-  const current = await db.business.findUniqueOrThrow({ where: { id }, select: { rut: true } });
-  return db.business.update({ where: { id }, data: accountData(input, current.rut) });
+export async function updateAccount(id: string, input: unknown, actorEmail: string) {
+  return database().$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Business WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.business.findUniqueOrThrow({ where: { id, deletedAt: null }, select: { rut: true, status: true } });
+    const result = await tx.business.update({ where: { id }, data: accountData(input, current.rut) });
+    await recordCrmChange(tx, { accountId: id, event: "CLASSIFICATION", fromState: current.status, toState: result.status, actorEmail });
+    return result;
+  });
 }
 
 export async function saveAccountContact(accountId: string, input: unknown) {
@@ -113,7 +117,7 @@ export async function saveAccountContact(accountId: string, input: unknown) {
       where: { commercialContact: { contactId } },
       data: legacyContactData(contact),
     });
-    return updated;
+    return { ...updated, legacyClientId: relation.legacyClientId };
   });
 }
 

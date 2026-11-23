@@ -1,3 +1,4 @@
+import { recordCrmChange } from "./crm-history";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
@@ -386,10 +387,11 @@ export async function getClientById(id: string, { visibleOnly = false } = {}): P
   return client ? toClientRecord(client) : null;
 }
 
-export async function listClientNotes(clientId: string, businessId?: string): Promise<ClientNoteRecord[]> {
+export async function listClientNotes(clientId: string, businessId?: string, take?: number): Promise<ClientNoteRecord[]> {
   const notes = await getPrisma().clientNote.findMany({
     where: businessId ? { OR: [{ accountId: businessId }, { client: { businessId } }] } : { clientId },
     orderBy: { createdAt: "desc" },
+    take,
   });
 
   return notes.map(toNoteRecord);
@@ -532,7 +534,7 @@ export async function createClientRecord(input: ClientPayload): Promise<ClientRe
   }
 }
 
-export async function updateClientRecord(id: string, input: ClientPayload): Promise<ClientRecord> {
+export async function updateClientRecord(id: string, input: ClientPayload, actorEmail?: string): Promise<ClientRecord> {
   const existing = await getClientById(id);
 
   if (!existing) {
@@ -562,6 +564,8 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
 
   try {
     const updated = await getPrisma().$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM Client WHERE id = ${id} FOR UPDATE`;
+      const previous = await tx.client.findUniqueOrThrow({ where: { ...visibleClientWhere, id }, select: { status: true } });
       const client = await tx.client.update({
         where: { id },
         data: {
@@ -582,6 +586,10 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
           ...(interest ? interestWriteData(interest) : {}),
         },
         include: CLIENT_RELATIONS,
+      });
+      if (actorEmail) await recordCrmChange(tx, {
+        clientId: id, accountId: client.businessId, event: "CLASSIFICATION",
+        fromState: previous.status, toState: client.status, actorEmail,
       });
       if (client.commercialContact) {
         if (businessId !== undefined && businessId !== client.commercialContact.accountId) {
@@ -611,25 +619,34 @@ export async function updateClientRecord(id: string, input: ClientPayload): Prom
   }
 }
 
-export async function updateClientStatus(id: string, status: ClientStatus): Promise<ClientRecord> {
-  const current = await getClientById(id);
-
-  if (!current) {
-    throw new Error("El cliente no existe.");
-  }
-
-  const updated = await getPrisma().client.update({
-    where: { id },
-    data: { status },
-    include: CLIENT_RELATIONS,
+export async function updateClientStatus(id: string, status: ClientStatus, actorEmail?: string): Promise<ClientRecord> {
+  return getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Client WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.client.findUnique({ where: { ...visibleClientWhere, id }, include: CLIENT_RELATIONS });
+    if (!current) throw new Error("El cliente no existe.");
+    if (current.status === status) return toClientRecord(current);
+    const updated = await tx.client.update({ where: { id }, data: { status }, include: CLIENT_RELATIONS });
+    if (actorEmail) await recordCrmChange(tx, {
+      clientId: id, accountId: current.businessId, event: "CLASSIFICATION",
+      fromState: current.status, toState: status, actorEmail,
+    });
+    return toClientRecord(updated);
   });
-
-  return toClientRecord(updated);
 }
 
-export async function updateClientCrmStage(id: string, crmStage: NonNullable<ClientRecord["crmStage"]>): Promise<boolean> {
-  const result = await getPrisma().client.updateMany({ where: { id, crmArchiveState: null }, data: { crmStage } });
-  return result.count === 1;
+export async function updateClientCrmStage(id: string, crmStage: NonNullable<ClientRecord["crmStage"]>, actorEmail: string): Promise<boolean> {
+  return getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Client WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.client.findUnique({ where: { ...visibleClientWhere, id } });
+    if (!current || current.crmArchiveState) return false;
+    if (current.crmStage === crmStage) return true;
+    await tx.client.update({ where: { id }, data: { crmStage } });
+    await recordCrmChange(tx, {
+      clientId: id, accountId: current.businessId, event: "STAGE",
+      fromState: current.crmStage, toState: crmStage, actorEmail,
+    });
+    return true;
+  });
 }
 
 export async function updateClientCommercialStatus(

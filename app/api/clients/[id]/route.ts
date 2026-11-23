@@ -22,7 +22,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminSession();
+    const session = await requireAdminSession();
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as Record<string, string>;
 
@@ -47,7 +47,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       interestServiceId: body.interestServiceId,
       interestSubcategoryId: body.interestSubcategoryId,
       interestPlanId: body.interestPlanId,
-    });
+    }, session.email);
 
     return NextResponse.json({ client }, { status: 200 });
   } catch (error) {

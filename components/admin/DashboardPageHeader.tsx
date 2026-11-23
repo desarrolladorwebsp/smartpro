@@ -39,6 +39,7 @@ type DashboardPageHeaderProps = {
   title: string;
   action?: HeaderAction;
   trailing?: ReactNode;
+  wrapDesktop?: boolean;
 };
 
 function formatDashboardDate(date: Date) {
@@ -78,8 +79,8 @@ function DashboardHeaderClock() {
         <CalendarDays size={16} strokeWidth={1.8} />
       </div>
       <div className="min-w-0 leading-tight">
-        <p className="truncate text-[13px] font-semibold capitalize text-foreground">{dateLabel}</p>
-        <p className="text-[11px] text-muted">{timeLabel}</p>
+        <p className="truncate text-[13px] font-semibold capitalize text-foreground" suppressHydrationWarning>{dateLabel}</p>
+        <p className="text-[11px] text-muted" suppressHydrationWarning>{timeLabel}</p>
       </div>
     </div>
   );
@@ -121,12 +122,13 @@ export function DashboardPageHeader({
   title,
   action,
   trailing,
+  wrapDesktop = false,
 }: DashboardPageHeaderProps) {
   const Icon = icon ? HEADER_ICONS[icon] : null;
 
   return (
     <header className="-mx-4 -mt-4 rounded-none border-x-0 border-t-0 border-border bg-white px-4 py-4 shadow-[0_12px_30px_rgba(16,16,36,0.04)] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className={`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between ${wrapDesktop ? "lg:flex-wrap" : ""}`}>
         <div className="flex min-w-0 items-start gap-3 sm:items-center">
           {leading ?? (
             Icon ? (

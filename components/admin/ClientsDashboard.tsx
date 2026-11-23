@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
 import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
-import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
+import { CalendarSlotDialog } from "@/components/admin/CalendarSlotDialog";
+import { ClientQuickView } from "@/components/admin/ClientQuickView";
+import { NotificationCenter } from "@/components/admin/NotificationCenter";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
 import { CLIENT_STATUSES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
@@ -50,12 +51,14 @@ function parseCollapsedCards(snapshot: string) {
   }
 }
 
-export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey, hasPaused }: {
+export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
   initialClients: ClientRecord[];
   initialBusinesses: BusinessProfile[];
   assignable: ClientAssignedExecutive[];
   preferenceKey: string;
   hasPaused: boolean;
+  calendarDate: string;
+  zoomConfigured: boolean;
 }) {
   const router = useRouter();
   useEffect(() => {
@@ -72,16 +75,34 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
   );
   const savedCollapsed = useMemo(() => parseCollapsedCards(collapseSnapshot), [collapseSnapshot]);
   const collapsed = temporaryCollapsed ?? savedCollapsed;
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"board" | "list" | "archived">("board");
   const [creating, setCreating] = useState(false);
+  const [openClientId, setOpenClientId] = useState<string | null>(null);
+  const [scheduleClientId, setScheduleClientId] = useState<string | null>(null);
+  const [scheduleMessage, setScheduleMessage] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [executive, setExecutive] = useState("");
   const [service, setService] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = useId();
+  const filtersMenu = useRef<HTMLDivElement>(null);
+  const filtersTrigger = useRef<HTMLButtonElement>(null);
+  const activeFilterCount = [status, executive, service].filter(Boolean).length;
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function closeOutside(event: PointerEvent) {
+      if (!filtersMenu.current?.contains(event.target as Node)) setFiltersOpen(false);
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [filtersOpen]);
   const [error, setError] = useState("");
   const [stages, setStages] = useState<Record<string, ClientCrmStage>>({});
   const [classifications, setClassifications] = useState<Record<string, ClientStatus>>({});
-  const accounts = useMemo(() => listCommercialClients(initialClients, initialBusinesses), [initialClients, initialBusinesses]);
+  const allAccounts = useMemo(() => listCommercialClients(initialClients, initialBusinesses), [initialClients, initialBusinesses]);
+  const accounts = allAccounts.filter((account) => Boolean(account.crmArchiveState) === (view === "archived"));
   const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
   const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
   const query = search.trim().toLowerCase();
@@ -93,6 +114,13 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
       [personName(contact), contact.email, contact.phone, contact.jobTitle])].join(" ").toLowerCase().includes(query)) &&
     (!executive || (account.kind === "business" ? account.responsible?.id === executive : account.contacts[0]?.assignedExecutiveId === executive)) &&
     (!service || account.contacts.some((contact) => contact.interestServiceName === service)));
+
+  const openClient = visible.find(({ id }) => id === openClientId);
+  function openScheduler(clientId: string) {
+    setOpenClientId(null);
+    setScheduleMessage("");
+    setScheduleClientId(clientId);
+  }
 
   const allCollapsed = accounts.length > 0 && accounts.every(({ id }) => collapsed.has(id));
   function setCardsCollapsed(ids: string[], compact: boolean) {
@@ -126,52 +154,110 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
   }
 
   return (
-    <div className={view === "board" ? "flex h-[max(34rem,calc(100dvh-6rem))] min-w-0 flex-col gap-4 sm:h-[max(34rem,calc(100dvh-7rem))] lg:h-[max(34rem,calc(100dvh-4rem))]" : "space-y-5"}>
-      <div className="sticky top-16 z-20 -mt-4 shrink-0 pt-4 sm:-mt-6 sm:pt-6 lg:top-0 lg:-mt-8 lg:pt-8">
-      <DashboardPageHeader icon="clientes" eyebrow="Gestión comercial" title="Clientes"
-        action={{ label: "Nuevo cliente", onClick: () => setCreating(true) }}
-        trailing={<p className="text-sm text-muted">{accounts.length} {accounts.length === 1 ? "cliente" : "clientes"}</p>} />
-      </div>
-      <div role="group" aria-label="Controles de clientes" className="flex shrink-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-3">
-        <input aria-label="Buscar cliente" placeholder="Buscar cliente, contacto o RUT" className="dashboard-field min-w-48 flex-1" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <select aria-label="Filtrar por estado" className="dashboard-field w-auto" value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">Todos los estados</option>
-          {CLIENT_STATUSES.map((entry) => <option key={entry} value={entry}>{getClientStatusLabel(entry)}</option>)}
-        </select>
-        <select aria-label="Filtrar por ejecutivo" className="dashboard-field w-auto" value={executive} onChange={(event) => setExecutive(event.target.value)}>
-          <option value="">Todos los ejecutivos</option>
-          {[...executives].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-        <select aria-label="Filtrar por servicio" className="dashboard-field w-auto" value={service} onChange={(event) => setService(event.target.value)}>
-          <option value="">Todos los servicios</option>
-          {services.map((entry) => <option key={entry}>{entry}</option>)}
-        </select>
-        <div className="flex shrink-0 rounded-xl border border-border p-1">
-          {(["board", "list"] as const).map((entry) => <button key={entry} type="button" aria-pressed={view === entry}
-            onClick={() => setView(entry)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${view === entry ? "bg-primary/10 text-primary" : "text-muted"}`}>
-            {entry === "board" ? "Tablero" : "Lista"}
-          </button>)}
+    <div className={`flex min-w-0 flex-col gap-4 ${view === "board" ? "lg:h-[max(36rem,calc(100dvh-4rem))]" : ""}`}>
+      <header className="sticky top-16 z-20 -mx-4 grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 bg-[#f7f7fb] px-4 py-1.5 sm:-mx-6 sm:px-6 lg:top-0 lg:mx-0 lg:px-0 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-3 2xl:min-h-15 2xl:gap-4">
+        <h1 className="min-w-0 text-3xl font-bold tracking-[-0.05em] text-navy sm:text-4xl 2xl:text-[2.65rem]">Clientes</h1>
+        <div role="group" aria-label="Controles de clientes" className="relative z-10 order-last col-span-2 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-2 shadow-sm xl:order-none xl:col-span-1 xl:flex-nowrap">
+          <div className="relative min-w-36 flex-1 xl:min-w-28">
+            <Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input aria-label="Buscar cliente" placeholder="Buscar cliente, contacto o RUT" className="dashboard-field h-10 rounded-xl pl-9 2xl:h-11 2xl:text-base"
+              value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+
+          <div ref={filtersMenu} className="relative shrink-0 max-sm:ml-auto" onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setFiltersOpen(false);
+          }} onKeyDown={(event) => {
+            if (event.key !== "Escape" || !filtersOpen) return;
+            event.stopPropagation();
+            setFiltersOpen(false);
+            filtersTrigger.current?.focus();
+          }}>
+            <button ref={filtersTrigger} type="button" aria-expanded={filtersOpen} aria-controls={filtersId}
+              onClick={() => setFiltersOpen((value) => !value)}
+              className={`inline-flex h-10 items-center gap-1.5 rounded-xl border border-border px-2.5 text-sm font-semibold hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary sm:px-3 2xl:h-11 ${filtersOpen || activeFilterCount ? "bg-primary/10 text-primary" : "bg-white text-foreground"}`}>
+              <SlidersHorizontal size={16} aria-hidden="true" /> Filtros
+              {activeFilterCount > 0 && <span className="tabular-nums">({activeFilterCount})</span>}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            <div id={filtersId} hidden={!filtersOpen} className="absolute right-0 top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] rounded-2xl border border-border bg-white p-3 shadow-lg sm:left-0 sm:right-auto">
+              <div className="space-y-2.5">
+                <label className="block text-xs font-semibold text-muted">Estado
+                  <select aria-label="Filtrar por estado" className="dashboard-field mt-1 rounded-xl" value={status} onChange={(event) => setStatus(event.target.value)}>
+                    <option value="">Todos los estados</option>
+                    {CLIENT_STATUSES.map((entry) => <option key={entry} value={entry}>{getClientStatusLabel(entry)}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-muted">Ejecutivo
+                  <select aria-label="Filtrar por ejecutivo" className="dashboard-field mt-1 rounded-xl" value={executive} onChange={(event) => setExecutive(event.target.value)}>
+                    <option value="">Todos los ejecutivos</option>
+                    {[...executives].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-muted">Servicio
+                  <select aria-label="Filtrar por servicio" className="dashboard-field mt-1 rounded-xl" value={service} onChange={(event) => setService(event.target.value)}>
+                    <option value="">Todos los servicios</option>
+                    {services.map((entry) => <option key={entry}>{entry}</option>)}
+                  </select>
+                </label>
+                {activeFilterCount > 0 && <button type="button" className="min-h-9 text-sm font-semibold text-primary hover:underline"
+                  onClick={() => { setStatus(""); setExecutive(""); setService(""); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex basis-full items-center gap-1.5 sm:basis-auto xl:shrink-0">
+            <div role="group" aria-label="Vista de clientes" className="flex min-w-0 flex-1 items-center rounded-xl border border-border p-0.5 sm:flex-none">
+              {(["board", "list", "archived"] as const).map((entry) => <button key={entry} type="button" aria-pressed={view === entry}
+                onClick={() => setView(entry)} className={`min-h-9 flex-1 rounded-lg px-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary sm:flex-none sm:px-3 2xl:min-h-10 ${view === entry ? "bg-primary/10 text-primary" : "text-muted hover:bg-slate-50 hover:text-foreground"}`}>
+                {entry === "board" ? "Tablero" : entry === "list" ? "Lista" : "Archivados"}
+              </button>)}
+            </div>
+            {view === "board" && <button type="button" disabled={!accounts.length}
+              onClick={() => setCardsCollapsed(accounts.map(({ id }) => id), !allCollapsed)}
+              aria-label={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
+              title={allCollapsed ? "Expandir todo" : "Minimizar todo"}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+              {allCollapsed ? <ChevronsUpDown size={17} aria-hidden="true" /> : <ChevronsDownUp size={17} aria-hidden="true" />}
+              <span className="hidden whitespace-nowrap sm:max-xl:inline min-[1400px]:inline">{allCollapsed ? "Expandir todo" : "Minimizar todo"}</span>
+            </button>}
+          </div>
         </div>
-        {view === "board" && <button type="button" disabled={!accounts.length}
-          onClick={() => setCardsCollapsed(accounts.map(({ id }) => id), !allCollapsed)}
-          aria-label={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
-          title={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
-          className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50">
-          {allCollapsed ? <ChevronsUpDown size={15} aria-hidden="true" /> : <ChevronsDownUp size={15} aria-hidden="true" />}
-          {allCollapsed ? "Expandir todo" : "Minimizar todo"}
-        </button>}
-      </div>
+        <div className="relative z-20 flex items-center gap-2 sm:gap-3">
+          <span className="sr-only">{accounts.length} {accounts.length === 1 ? "cliente" : "clientes"}</span>
+          <NotificationCenter />
+          <button type="button" onClick={() => setCreating(true)}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-[#7b25d1] px-3 text-sm font-semibold text-white hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4">
+            <Plus size={16} aria-hidden="true" /> Nuevo cliente
+          </button>
+        </div>
+      </header>
+      {scheduleMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{scheduleMessage}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {view === "board" ? <ClientCrmBoard clients={visible} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus}
+      {view === "board" ? <ClientCrmBoard clients={visible} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
         onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}
-          {visible.map((account) => <Link key={account.id} href={account.href} className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50">
+          {visible.map((account) => <button key={account.id} type="button" onClick={() => setOpenClientId(account.id)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
             <div><p className="font-semibold">{account.name}</p>
               <p className="text-sm text-muted">{account.contacts.length} {account.contacts.length === 1 ? "contacto" : "contactos"}{account.rut && ` · ${account.rut}`}</p></div>
-            <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{getClientStatusLabel(account.status)}</span>
-          </Link>)}
+            <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{account.crmArchiveState === "PAUSED" ? "En pausa" : account.crmArchiveState === "LOST" ? "Perdido" : getClientStatusLabel(account.status)}</span>
+          </button>)}
         </div>}
+      {openClient && <ClientQuickView key={openClient.id} client={openClient} onClose={() => setOpenClientId(null)}
+        onSchedule={() => openScheduler(openClient.id)} />}
+      {scheduleClientId && <CalendarSlotDialog key={scheduleClientId} date={calendarDate} initialClientKey={scheduleClientId}
+        zoomConfigured={zoomConfigured}
+        participants={assignable.map((person) => ({ id: person.id, name: getAssignedExecutiveName(person) }))}
+        clients={allAccounts.map(({ id, name, contacts }) => ({
+          id, name, contacts: contacts.map((contact) => ({ id: contact.id, name: personName(contact) || "Contacto sin nombre", email: contact.email })),
+        }))}
+        onContactAdded={() => router.refresh()}
+        onClose={() => setScheduleClientId(null)}
+        onSaved={() => {
+          setScheduleMessage("Recordatorio guardado en el calendario.");
+          setScheduleClientId(null);
+        }} />}
       {creating && <ClientAccountForm onClose={() => setCreating(false)} />}
     </div>
   );

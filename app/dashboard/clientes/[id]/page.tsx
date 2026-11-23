@@ -1,3 +1,4 @@
+import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -79,6 +80,7 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
   }
 
   return (
+    <div className="space-y-5">
     <ClientDetailView
       initialClient={client}
       executives={executives}
@@ -86,5 +88,7 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
       notes={clientNotes}
       sales={sales}
     />
+    <ClientCrmHistory accountId={client.businessId ?? null} clientId={client.id} />
+    </div>
   );
 }

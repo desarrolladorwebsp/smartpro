@@ -11,6 +11,7 @@ export type CommercialClient = {
   status: ClientStatus;
   contacts: ClientRecord[];
   crmPosition?: number | null;
+  crmArchiveState?: ClientRecord["crmArchiveState"];
   responsible?: ClientAssignedExecutive | null;
 };
 
@@ -47,6 +48,7 @@ export function listCommercialClients(contacts: ClientRecord[], businesses: Busi
       rut: contact.rut,
       href: `/dashboard/clientes/${contact.id}`,
       crmStage: contact.crmStage ?? "NEW",
+      crmArchiveState: contact.crmArchiveState,
       status: contact.status,
       contacts: [contact],
     });
@@ -59,6 +61,7 @@ export function listCommercialClients(contacts: ClientRecord[], businesses: Busi
     rut: business.rut,
     href: `/dashboard/clientes/ficha/${business.id}`,
     crmStage: business.crmStage,
+    crmArchiveState: business.crmArchiveState,
     status: business.status,
     crmPosition: business.crmPosition,
     responsible: business.responsible,

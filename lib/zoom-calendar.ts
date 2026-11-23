@@ -8,25 +8,31 @@ export function zoomCalendarConfig() {
   return accountId && clientId && clientSecret && host ? { accountId, clientId, clientSecret, host } : null;
 }
 
+type ZoomCalendarConfig = NonNullable<ReturnType<typeof zoomCalendarConfig>>;
+
+async function getZoomAccessToken(config: ZoomCalendarConfig): Promise<string> {
+  const response = await fetch("https://zoom.us/oauth/token", {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(10000),
+    headers: {
+      Authorization: "Basic " + Buffer.from(config.clientId + ":" + config.clientSecret).toString("base64"),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ grant_type: "account_credentials", account_id: config.accountId }),
+  });
+  const data = await response.json();
+  if (!response.ok || typeof data.access_token !== "string") throw new Error("Zoom OAuth");
+  return data.access_token;
+}
+
 export async function createZoomMeeting(
-  config: NonNullable<ReturnType<typeof zoomCalendarConfig>>,
+  config: ZoomCalendarConfig,
   input: { date: string; time: string; title: string; duration: number },
 ) {
   let token: string;
   try {
-    const response = await fetch("https://zoom.us/oauth/token", {
-      method: "POST",
-      cache: "no-store",
-      signal: AbortSignal.timeout(10000),
-      headers: {
-        Authorization: "Basic " + Buffer.from(config.clientId + ":" + config.clientSecret).toString("base64"),
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ grant_type: "account_credentials", account_id: config.accountId }),
-    });
-    const data = await response.json();
-    if (!response.ok || typeof data.access_token !== "string") throw new Error("Zoom OAuth");
-    token = data.access_token;
+    token = await getZoomAccessToken(config);
   } catch {
     return { status: "rejected", error: "Zoom no autorizó la conexión. Revisa las credenciales y la activación de la aplicación." } as const;
   }
@@ -60,4 +66,41 @@ export async function createZoomMeeting(
   } catch {
     return { status: "unknown" } as const;
   }
+}
+
+export async function deleteZoomMeeting(config: ZoomCalendarConfig, zoomId: string): Promise<{ error?: string }> {
+  if (!/^\d+$/.test(zoomId)) return { error: "La reunión no tiene un identificador válido en Zoom." };
+
+  let token: string;
+  try {
+    token = await getZoomAccessToken(config);
+  } catch {
+    return { error: "Zoom no autorizó la conexión. Revisa la configuración de la aplicación." };
+  }
+
+  const unconfirmed = { error: "Zoom no confirmó la eliminación. Vuelve a intentarlo." };
+  try {
+    const url = new URL(`https://api.zoom.us/v2/meetings/${encodeURIComponent(zoomId)}`);
+    url.searchParams.set("schedule_for_reminder", "false");
+    url.searchParams.set("cancel_meeting_reminder", "false");
+    const response = await fetch(url, {
+      method: "DELETE",
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+      headers: { Authorization: "Bearer " + token },
+    });
+
+    if (response.status === 204) return {};
+    if (response.status === 404) {
+      const data = await response.json().catch(() => null);
+      if (data?.code === 3001) return {};
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { error: "Zoom no autorizó la eliminación. Revisa el permiso para eliminar reuniones." };
+    }
+  } catch {
+    return unconfirmed;
+  }
+
+  return unconfirmed;
 }

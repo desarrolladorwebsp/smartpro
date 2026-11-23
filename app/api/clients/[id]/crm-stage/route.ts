@@ -4,7 +4,8 @@ import { updateClientCrmStage } from "@/lib/clients/repository";
 import { isClientCrmStage } from "@/lib/clients/types";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getCurrentAdminSession())) {
+  const session = await getCurrentAdminSession();
+  if (!session) {
     return NextResponse.json({ error: "Inicia sesión para mover clientes." }, { status: 401 });
   }
 
@@ -16,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params;
-    if (!(await updateClientCrmStage(id, stage))) {
+    if (!(await updateClientCrmStage(id, stage, session.email))) {
       return NextResponse.json({ error: "El cliente no existe." }, { status: 404 });
     }
     return NextResponse.json({ crmStage: stage });

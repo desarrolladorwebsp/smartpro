@@ -4,7 +4,8 @@ import { assignBusinessResponsible, moveBusinessCard, updateBusinessCrm } from "
 import { isClientCrmStage, isClientStatus } from "@/lib/clients/types";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getCurrentAdminSession())) return NextResponse.json({ error: "Inicia sesión." }, { status: 401 });
+  const session = await getCurrentAdminSession();
+  if (!session) return NextResponse.json({ error: "Inicia sesión." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const data = isClientCrmStage(body?.crmStage) ? { crmStage: body.crmStage }
@@ -16,8 +17,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params;
-    const changed = isClientCrmStage(body?.crmStage) ? await moveBusinessCard(id, body.crmStage, anchor)
-      : assigning ? await assignBusinessResponsible(id, body.responsibleId) : await updateBusinessCrm(id, data!);
+    const changed = isClientCrmStage(body?.crmStage) ? await moveBusinessCard(id, body.crmStage, session.email, anchor)
+      : assigning ? await assignBusinessResponsible(id, body.responsibleId) : await updateBusinessCrm(id, data!.status!, session.email);
     if (!changed) {
       return NextResponse.json({ error: "El cliente no existe." }, { status: 404 });
     }

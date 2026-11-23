@@ -16,7 +16,7 @@ import type { QuoteRecord } from "@/lib/quotes/types";
 export const dynamic = "force-dynamic";
 
 type QuotesPageProps = {
-  searchParams: Promise<{ clientId?: string }>;
+  searchParams: Promise<{ clientId?: string | string[]; nueva?: string | string[] }>;
 };
 
 export default function QuotesPage({ searchParams }: QuotesPageProps) {
@@ -65,5 +65,10 @@ async function QuotesPageContent({ searchParams }: QuotesPageProps) {
     [author.firstName, author.lastName].map((part) => part?.trim()).filter(Boolean).join(" "),
   ]));
 
-  return <QuotesDashboard initialQuotes={quotes} accounts={listCommercialClients(clients, businesses)} initialClientId={params.clientId} authorNames={authorNames} />;
+  const accounts = listCommercialClients(clients, businesses);
+  const initialClientId = typeof params.clientId === "string" ? params.clientId : undefined;
+  const initialCreateOpen = params.nueva === "1" && accounts.some(({ id }) => id === initialClientId);
+
+  return <QuotesDashboard key={initialClientId} initialQuotes={quotes} accounts={accounts}
+    initialClientId={initialClientId} initialCreateOpen={initialCreateOpen} authorNames={authorNames} />;
 }

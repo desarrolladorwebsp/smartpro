@@ -3,10 +3,11 @@ import { getCurrentAdminSession } from "@/lib/auth";
 import { accountApiError, hideCommercialClient, updateAccount } from "@/lib/clients/account-repository";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getCurrentAdminSession())) return NextResponse.json({ error: "Inicia sesión." }, { status: 401 });
+  const session = await getCurrentAdminSession();
+  if (!session) return NextResponse.json({ error: "Inicia sesión." }, { status: 401 });
   try {
     const { id } = await params;
-    return NextResponse.json({ account: await updateAccount(id, await request.json()) });
+    return NextResponse.json({ account: await updateAccount(id, await request.json(), session.email) });
   } catch (error) {
     const result = accountApiError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });

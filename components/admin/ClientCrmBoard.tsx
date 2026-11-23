@@ -1,26 +1,27 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
+import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
 import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus } from "@/lib/clients/types";
 
 import { DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
 
-const colors: Record<ClientCrmStage, { background: string; dot: string }> = {
-  NEW: { background: "bg-blue-50", dot: "bg-blue-500" },
-  CONTACTED: { background: "bg-amber-50", dot: "bg-amber-500" },
-  QUOTED: { background: "bg-violet-50", dot: "bg-violet-600" },
-  NEGOTIATION: { background: "bg-emerald-50", dot: "bg-emerald-600" },
+const colors: Record<ClientCrmStage, { accent: string; dot: string }> = {
+  NEW: { accent: "border-t-blue-500", dot: "bg-blue-500" },
+  CONTACTED: { accent: "border-t-amber-500", dot: "bg-amber-500" },
+  QUOTED: { accent: "border-t-violet-600", dot: "bg-violet-600" },
+  NEGOTIATION: { accent: "border-t-emerald-600", dot: "bg-emerald-600" },
 };
 
-export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse }: {
+export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
   clients: CommercialClient[];
   collapsed: ReadonlySet<string>;
   onCollapse: (ids: string[], compact: boolean) => void;
+  onOpenClient: (id: string) => void;
+  onSchedule: (id: string) => void;
   assignable: ClientAssignedExecutive[];
   statusStyles: Record<ClientStatus, string>;
   onStatusChange: (id: string, status: ClientStatus) => Promise<void>;
@@ -155,9 +156,9 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      <div ref={boardRef} className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]" aria-label="Tablero de clientes" role="region" tabIndex={0}>
-        <div className="grid h-full min-w-[780px] grid-cols-4 gap-3">
+    <div className="flex h-[max(25rem,calc(100dvh-10rem))] min-h-0 min-w-0 flex-col gap-2 lg:h-auto lg:flex-1">
+      <div ref={boardRef} className="min-h-0 flex-1 snap-x overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]" aria-label="Tablero de clientes" role="region" tabIndex={0}>
+        <div className="grid h-full min-w-[60rem] grid-cols-4 gap-2.5 lg:min-w-[46rem] xl:min-w-0">
           {CRM_STAGES.map((stage) => {
             const cards = clients.filter((client) => (client.crmStage ?? "NEW") === stage.id)
               .sort((a, b) => (a.crmPosition ?? Infinity) - (b.crmPosition ?? Infinity) || a.name.localeCompare(b.name, "es-CL") || a.id.localeCompare(b.id));
@@ -165,7 +166,7 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
             const columnCollapsed = cards.length > 0 && cards.every(({ id }) => collapsed.has(id));
             return (
               <section key={stage.id} aria-label={stage.label}
-                className={`flex min-h-0 min-w-0 flex-col rounded-2xl border p-2.5 motion-safe:transition-shadow motion-safe:duration-150 ${color.background} ${target === stage.id ? "border-primary ring-1 ring-inset ring-primary" : "border-transparent"}`}
+                className={`flex min-h-0 min-w-0 snap-start flex-col rounded-2xl border border-border border-t-[3px] bg-white/80 p-2.5 motion-safe:transition-shadow motion-safe:duration-150 ${color.accent} ${target === stage.id ? "ring-2 ring-inset ring-primary/55" : ""}`}
                 onDragOver={(event) => {
                   const client = draggedClient.current;
                   if (!client || saving.current) return;
@@ -191,18 +192,18 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                   setDragging(null);
                   setTarget(null);
                 }}>
-                <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
-                  <h2 className="flex items-baseline gap-2 text-sm font-bold text-foreground">
+                <div className="mb-2 flex min-h-9 shrink-0 items-center justify-between gap-1.5 border-b border-border/70 pb-2">
+                  <h2 className="flex items-baseline gap-1.5 text-sm font-bold leading-tight tracking-tight text-foreground 2xl:text-base">
                     <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${color.dot}`} />
                     {stage.label}
                   </h2>
                   <div className="flex shrink-0 items-center gap-1">
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-muted">{cards.length}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">{cards.length}</span>
                     {cards.length > 0 && <button type="button"
                       onClick={() => onCollapse(cards.map(({ id }) => id), !columnCollapsed)}
                       aria-label={`${columnCollapsed ? "Expandir" : "Minimizar"} tarjetas de ${stage.label}`}
                       title={`${columnCollapsed ? "Expandir" : "Minimizar"} esta columna`}
-                      className="inline-flex size-7 items-center justify-center rounded-lg text-primary hover:bg-white focus-visible:outline-primary">
+                      className="inline-flex size-6 items-center justify-center rounded-md text-primary hover:bg-primary/10 focus-visible:outline-primary">
                       {columnCollapsed ? <ChevronsUpDown size={15} aria-hidden="true" /> : <ChevronsDownUp size={15} aria-hidden="true" />}
                     </button>}
                   </div>
@@ -218,7 +219,7 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                     const contactName = contact ? personName(contact) : "";
                     const initials = client.name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toLocaleUpperCase("es-CL");
                     return <li key={client.id} data-client-id={client.id}
-                      className={`relative rounded-xl border border-border bg-white shadow-sm transition-colors hover:border-primary/25 focus-within:border-primary/35 ${dragging?.id === client.id ? "opacity-50" : ""}`}
+                      className={`relative rounded-xl border bg-white shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors hover:border-primary/35 focus-within:border-primary/45 ${compact ? "border-border" : "border-primary/35"} ${dragging?.id === client.id ? "opacity-50" : ""}`}
                       draggable={pending === null}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
@@ -228,23 +229,23 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                       }}
                       onDragEnd={() => { draggedClient.current = null; setDragging(null); setTarget(null); setInsertion(null); }}>
                       {insertion?.key === client.id && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full bg-primary ${insertion.after ? "-bottom-1" : "-top-1"}`} />}
-                      <div className={compact ? "px-2.5 py-1.5" : "space-y-2.5 p-2.5"}>
+                      <div className={compact ? "px-2.5 py-1 2xl:py-1.5" : "space-y-2.5 p-2.5"}>
                         <div className={`flex gap-1.5 ${compact ? "items-center" : "items-start"}`}>
                           {!compact && <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary" aria-hidden="true">{initials}</span>}
-                          <Link href={client.href} draggable={false}
-                            className="min-w-0 flex-1 self-center break-words text-sm font-bold leading-snug text-foreground hover:text-primary hover:underline">
+                          <button type="button" draggable={false} onClick={() => onOpenClient(client.id)}
+                            className="min-h-10 min-w-0 flex-1 self-center break-words text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
                             {client.name}
-                          </Link>
+                          </button>
                           <button type="button" draggable={false} onClick={() => onCollapse([client.id], !compact)}
                             aria-expanded={!compact} aria-label={`${compact ? "Expandir" : "Minimizar"} tarjeta de ${client.name}`}
                             title={compact ? "Expandir tarjeta" : "Minimizar tarjeta"}
-                            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-primary hover:bg-primary/10 focus-visible:outline-primary">
+                            className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-primary hover:bg-primary/10 focus-visible:outline-primary lg:size-7 ${compact ? "" : "bg-primary/10"}`}>
                             {compact ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronUp size={15} aria-hidden="true" />}
                           </button>
                           <GripVertical aria-hidden="true" size={15} className="shrink-0 self-center cursor-grab text-muted/70" />
                         </div>
                         {!compact && <>
-                        {contactName !== client.name && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted">
+                        {contactName !== client.name && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted 2xl:text-sm">
                           <ContactRound size={14} aria-hidden="true" className="shrink-0" />
                           <span className="min-w-0 break-words">{contactName || "Sin contactos"}</span>
                         </p>}
@@ -279,22 +280,24 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                         </div>
                         </>}
                       </div>
-                      {!compact && <div className="flex items-center gap-1.5 rounded-b-xl border-t border-border/70 bg-slate-50/70 p-2.5">
+                      {!compact && <div className="grid grid-cols-2 gap-2 rounded-b-xl border-t border-border/70 p-2.5">
                         <button type="button" onClick={(event) => {
                           noteTrigger.current = event.currentTarget;
                           setFeedback(null);
                           setNoteClient(client);
                         }} aria-label={`Nota rápida para ${client.name}`}
-                          className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg bg-primary/10 px-2 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary">
+                          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-1.5 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary lg:min-h-9">
                           <StickyNote size={14} aria-hidden="true" /> Nota
                         </button>
-                        <Link href={`/dashboard/calendario?cliente=${encodeURIComponent(client.id)}`}
-                          aria-label={`Agendar en calendario para ${client.name}`} title="Agendar en calendario"
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/15 focus-visible:outline-primary">
-                          <CalendarPlus size={15} aria-hidden="true" />
-                        </Link>
-                        <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
-                          className="min-h-8 min-w-0 flex-1 truncate rounded-lg border border-border bg-white px-1.5 text-xs font-semibold text-foreground focus-visible:outline-primary aria-disabled:opacity-60"
+                        <button type="button" draggable={false} onClick={() => onSchedule(client.id)}
+                          aria-label={`Agendar actividad para ${client.name}`} title="Agendar actividad"
+                          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-1.5 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary lg:min-h-9">
+                          <CalendarPlus size={15} aria-hidden="true" /> Agendar
+                        </button>
+                        <div className="relative col-span-full">
+                          <ArrowLeftRight size={15} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary" />
+                          <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
+                            className="min-h-11 w-full appearance-none rounded-lg border border-border bg-white px-8 text-center text-xs font-semibold text-foreground hover:bg-slate-50 focus-visible:outline-primary aria-disabled:opacity-60 lg:min-h-9"
                           onChange={(event) => {
                             if (saving.current) return;
                             const state = event.target.value;
@@ -307,12 +310,14 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                               }
                             }
                           }}>
-                          <option value="">{pending === client.id ? "Guardando…" : "Cambiar estado"}</option>
+                          <option value="">{pending === client.id ? "Guardando…" : "Cambiar etapa"}</option>
                           {CRM_STAGES.filter((entry) => entry.id !== stage.id).map((entry) => (
                             <option key={entry.id} value={entry.id}>{entry.label}</option>
                           ))}
                           {CRM_ARCHIVE_STATES.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
-                        </select>
+                          </select>
+                          <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
+                        </div>
                       </div>}
                     </li>;
                   })}
@@ -362,7 +367,13 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving.current) return;
-    const reactivateOn = new FormData(event.currentTarget).get("reactivateOn");
+    const form = new FormData(event.currentTarget);
+    const reactivateOn = form.get("reactivateOn");
+    const note = String(form.get("note") ?? "").trim();
+    if (!note || note.length > 10000) {
+      setError("Escribe una nota de hasta 10.000 caracteres.");
+      return;
+    }
     if (paused && !parseReactivationDate(reactivateOn)) {
       setError("Elige una fecha de reactivación posterior a hoy.");
       return;
@@ -375,7 +386,7 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
     try {
       const response = await fetch(`/api/clientes/${encodeURIComponent(account.id)}/archivo`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: account.kind, state, confirmed: true, reactivateOn }),
+        body: JSON.stringify({ kind: account.kind, state, confirmed: true, reactivateOn, note }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error ?? "No se pudo guardar el cambio.");
@@ -397,9 +408,14 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
           <p className="text-sm text-muted">{paused
             ? "La tarjeta volverá a su columna en la fecha elegida."
             : "La tarjeta se archivará sin reactivación automática."}</p>
+          <label className="block text-sm font-medium">
+            Motivo del cambio
+            <textarea name="note" required maxLength={10000} rows={4} autoFocus
+              className="dashboard-field mt-1.5 resize-y" placeholder="Explica el motivo y el próximo paso…" />
+          </label>
           {paused && <label className="block text-sm font-medium">
             Fecha de reactivación
-            <input name="reactivateOn" type="date" min={new Date(Date.parse(crmToday() + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10)} required autoFocus className="dashboard-field mt-1.5" />
+            <input name="reactivateOn" type="date" min={new Date(Date.parse(crmToday() + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10)} required className="dashboard-field mt-1.5" />
           </label>}
         </div>
         <DashboardFormFooter error={error}>

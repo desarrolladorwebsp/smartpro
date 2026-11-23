@@ -33,10 +33,11 @@ async function save(path: string, method: string, payload: unknown) {
   return data;
 }
 
-function ContactFields({ prefix, contact, compactAtMedium = false }: {
+function ContactFields({ prefix, contact, compactAtMedium = false, focusFirst = false }: {
   prefix: string;
   contact?: ClientRecord;
   compactAtMedium?: boolean;
+  focusFirst?: boolean;
 }) {
   const mainField = compactAtMedium ? `${fieldLabel} sm:max-lg:col-span-2` : fieldLabel;
   const emailField = compactAtMedium ? `${fieldLabel} sm:max-lg:col-span-3` : fieldLabel;
@@ -44,7 +45,7 @@ function ContactFields({ prefix, contact, compactAtMedium = false }: {
   return (
     <div className={`grid grid-cols-2 gap-x-3 gap-y-2.5 max-[359px]:grid-cols-1 ${compactAtMedium ? "sm:max-lg:grid-cols-6" : ""}`}>
       <label className={mainField}>Nombre del contacto
-        <input className={field} required maxLength={191} name={prefix + "firstName"} defaultValue={contact?.contactFirstName} />
+        <input className={field} required maxLength={191} name={prefix + "firstName"} autoFocus={focusFirst} defaultValue={contact?.contactFirstName} />
       </label>
       <label className={mainField}>Apellido
         <input className={field} required maxLength={191} name={prefix + "lastName"} defaultValue={contact?.contactLastName} />
@@ -167,53 +168,6 @@ export function EditClientButton({ account }: { account: BusinessProfile }) {
   </>;
 }
 
-export function ContactButton({ accountId, contact }: { accountId: string; contact?: ClientRecord }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pending) return;
-    setPending(true);
-    setError("");
-    try {
-      await save(`/api/clientes/${encodeURIComponent(accountId)}/contactos`, "POST", {
-        ...readContact(new FormData(event.currentTarget), ""), id: contact?.contactId,
-      });
-      router.refresh();
-      setOpen(false);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "No se pudo guardar el contacto.");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return <>
-    <button type="button" className={linkButton} onClick={() => { setError(""); setOpen(true); }}>
-      {contact ? "Editar contacto" : "Agregar contacto"}
-    </button>
-    {open && <DashboardFormModal title={contact ? "Editar contacto" : "Agregar contacto"} eyebrow="Contactos" onClose={() => setOpen(false)}>
-      <form onSubmit={submit} className="flex min-h-0 flex-col">
-        <div className="min-h-0 overflow-y-auto bg-slate-50/80 p-3 sm:p-4">
-          <section className={panel}>
-            <p className="text-xs leading-relaxed text-muted">Nombre, apellido y teléfono son obligatorios.</p>
-            <ContactFields prefix="" contact={contact} />
-          </section>
-        </div>
-        <DashboardFormFooter error={error}>
-          <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" className={linkButton} onClick={() => setOpen(false)} disabled={pending}>Cancelar</button>
-            <button className={button} disabled={pending}>{pending ? "Guardando…" : "Guardar contacto"}</button>
-          </div>
-        </DashboardFormFooter>
-      </form>
-    </DashboardFormModal>}
-  </>;
-}
-
 export function DeleteClientButton({ id, kind, name }: {
   id: string;
   kind: "business" | "person";
@@ -272,4 +226,80 @@ export function DeleteClientButton({ id, kind, name }: {
       </DashboardFormModal>}
     </>
   );
+}
+
+type SavedAccountContact = {
+  legacyClientId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+export function AccountContactForm({ accountId, accountName, contact, onClose, onSaved }: {
+  accountId: string;
+  accountName?: string;
+  contact?: ClientRecord;
+  onClose: () => void;
+  onSaved: (contact: SavedAccountContact) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const saving = useRef(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving.current) return;
+    const payload = readContact(new FormData(event.currentTarget), "");
+    saving.current = true;
+    setPending(true);
+    setError("");
+    try {
+      const { contact: saved } = await save(`/api/clientes/${encodeURIComponent(accountId)}/contactos`, "POST", {
+        ...payload, id: contact?.contactId,
+      });
+      onSaved(saved);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo guardar el contacto.");
+    } finally {
+      saving.current = false;
+      setPending(false);
+    }
+  }
+
+  function close() {
+    if (!saving.current) onClose();
+  }
+
+  return (
+    <DashboardFormModal title={contact ? "Editar contacto" : "Agregar contacto"} eyebrow="Contactos" onClose={close}>
+      <form onSubmit={submit} className="flex min-h-0 flex-col">
+        <div className="min-h-0 overflow-y-auto bg-slate-50/80 p-3 sm:p-4">
+          <section className={panel}>
+            {accountName && <p className="break-words text-sm font-semibold text-foreground">{accountName}</p>}
+            <p className="text-xs leading-relaxed text-muted">Nombre, apellido y teléfono son obligatorios.</p>
+            <ContactFields prefix="" contact={contact} focusFirst />
+          </section>
+        </div>
+        <DashboardFormFooter error={error}>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className={linkButton} onClick={close} disabled={pending}>Cancelar</button>
+            <button className={button} disabled={pending}>{pending ? "Guardando…" : "Guardar contacto"}</button>
+          </div>
+        </DashboardFormFooter>
+      </form>
+    </DashboardFormModal>
+  );
+}
+
+export function ContactButton({ accountId, contact }: { accountId: string; contact?: ClientRecord }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  return <>
+    <button type="button" className={linkButton} onClick={() => setOpen(true)}>
+      {contact ? "Editar contacto" : "Agregar contacto"}
+    </button>
+    {open && <AccountContactForm accountId={accountId} contact={contact} onClose={() => setOpen(false)}
+      onSaved={() => { setOpen(false); router.refresh(); }} />}
+  </>;
 }

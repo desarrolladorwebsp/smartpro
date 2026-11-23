@@ -144,7 +144,6 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
   const [agencyId, setAgencyId] = useState(quote?.agencyId ?? "smartpro");
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
-  const [clientId, setClientId] = useState(quote?.clientId ?? client?.id ?? "");
   const accountOptions = !accounts.length && client ? [{
     id: commercialClientId(client.id, client.businessId),
     kind: client.businessId ? "business" as const : "person" as const,
@@ -158,6 +157,7 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
   const [accountId, setAccountId] = useState(initialAccountId ?? (client ? commercialClientId(client.id, client.businessId) : ""));
   const selectedAccount = accountOptions.find((entry) => entry.id === accountId);
   const contacts = selectedAccount?.contacts ?? [];
+  const [clientId, setClientId] = useState(() => quote?.clientId ?? client?.id ?? (contacts.length === 1 ? contacts[0].id : ""));
   const selectedContact = contacts.find((entry) => entry.id === clientId);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedEntry[]>([]);
@@ -556,6 +556,12 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
                 <div className="rounded-2xl border border-border bg-slate-50 px-4 py-3 text-sm">
                   <span className="text-muted">Agencia emisora: </span><strong>{quote.agency.brandName}</strong>
                   <span className="ml-2 text-xs text-muted">(identidad guardada al crear)</span>
+                  <dl className="mt-3 grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                    <div><dt className="text-muted">Cliente</dt><dd className="font-semibold">{quote.clientCompany || quote.clientName || "—"}</dd></div>
+                    <div><dt className="text-muted">Contacto</dt><dd className="break-words font-semibold">{quote.clientName || "—"}</dd>
+                      {quote.clientEmail && <dd className="break-words text-muted">{quote.clientEmail}</dd>}
+                    </div>
+                  </dl>
                 </div>
               ) : (
                 <label className="block">
@@ -568,7 +574,12 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
               )}
               {!quote && <CommercialRecipientFields
                 accounts={accountOptions} accountId={accountId}
-                onAccountChange={(id) => { setAccountId(id); setClientId(""); setSubmitError(""); }}
+                onAccountChange={(id) => {
+                  const nextContacts = accountOptions.find((entry) => entry.id === id)?.contacts ?? [];
+                  setAccountId(id);
+                  setClientId(nextContacts.length === 1 ? nextContacts[0].id : "");
+                  setSubmitError("");
+                }}
                 contacts={contacts.map((entry) => ({ id: entry.id, name: personName(entry), email: entry.email }))}
                 contactId={clientId} onContactChange={(id) => { setClientId(id); setSubmitError(""); }}
                 disabled={Boolean(isSaving)}

@@ -1,3 +1,4 @@
+import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
 import Link from "next/link";
 import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
 import { notFound } from "next/navigation";
@@ -101,6 +102,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
           </ul>
         </section>
       </div>
+      <ClientCrmHistory accountId={id} />
       <section id="notas" className={panel}>
         <h2 className="font-semibold">Notas</h2>
         {notes.length === 0 && <p className="text-sm text-muted">Sin notas registradas.</p>}
@@ -109,7 +111,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
             <li key={note.id} className="space-y-1 py-3 text-sm">
               {note.clientId ? <Link href={`/dashboard/clientes/${note.clientId}`} className="font-semibold text-primary">
                 {note.title || contactById.get(note.clientId) || "Nota de contacto"}
-              </Link> : <p className="font-semibold text-foreground">Nota rápida</p>}
+              </Link> : <p className="font-semibold text-foreground">{note.title || "Nota rápida"}</p>}
               <p className="whitespace-pre-wrap break-words text-foreground">{note.content}</p>
               <p className="break-words text-xs text-muted"><time dateTime={note.createdAt}>{noteDate.format(new Date(note.createdAt))}</time> · {note.executiveEmail}</p>
             </li>
