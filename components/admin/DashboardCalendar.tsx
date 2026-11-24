@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Pencil, Trash2, Video } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, useTransition, type FormEvent } from "react";
 import { deleteCalendarActivity } from "@/app/dashboard/calendario/actions";
@@ -12,6 +13,8 @@ import type { CalendarActivity, CalendarClient, CalendarParticipant, CalendarRem
 
 const views = ["Día", "Semana", "Mes"] as const;
 type CalendarView = (typeof views)[number];
+const meetingScopes = [{ value: "mine", label: "Mis reuniones" }, { value: "all", label: "Todas las reuniones" }] as const;
+type MeetingScope = (typeof meetingScopes)[number]["value"];
 
 const fullDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "full", timeZone: "UTC" });
 const shortDate = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -61,6 +64,7 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
   onDelete: () => void;
 }) {
   const isMeeting = "joinUrl" in activity;
+  const canManage = !isMeeting || !activity.readOnly;
   const Icon = isMeeting ? Video : Bell;
   const deleteLabel = isMeeting ? "Eliminar reunión de Zoom" : "Eliminar recordatorio";
   const editLabel = isMeeting ? "Editar reunión de Zoom" : "Editar recordatorio";
@@ -87,14 +91,18 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
               className="inline-flex min-h-8 shrink-0 items-center rounded-md px-1 font-semibold text-primary hover:underline">Abrir Zoom</a>
           </>
         )}
-        <button type="button" onClick={onEdit} aria-label={editLabel} title={editLabel}
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
-          <Pencil size={16} aria-hidden="true" />
-        </button>
-        <button type="button" onClick={onDelete} aria-label={deleteLabel} title={deleteLabel}
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-red-700">
-          <Trash2 size={16} aria-hidden="true" />
-        </button>
+        {canManage && (
+          <>
+            <button type="button" onClick={onEdit} aria-label={editLabel} title={editLabel}
+              className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
+              <Pencil size={16} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={onDelete} aria-label={deleteLabel} title={deleteLabel}
+              className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-red-700">
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+          </>
+        )}
       </div>
     </li>
   );
@@ -222,7 +230,7 @@ function monday(date: Date) {
   return addDays(date, -((date.getUTCDay() + 6) % 7));
 }
 
-export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients: initialClients, participants }: {
+export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients: initialClients, participants, meetingScope }: {
   initialClientKey: string;
   initialToday: string;
   initialReminders: CalendarReminder[];
@@ -230,6 +238,7 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
   zoomConfigured: boolean;
   clients: CalendarClient[];
   participants: CalendarParticipant[];
+  meetingScope?: MeetingScope;
 }) {
   const [clients, setClients] = useState(initialClients);
   const router = useRouter();
@@ -344,16 +353,29 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
         </p>
       )}
       <section aria-label="Calendario" className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3 sm:gap-3 sm:p-4">
           <div className="flex items-center gap-2">
             <button type="button" className={control} onClick={() => navigate(-1)} aria-label="Periodo anterior"><ChevronLeft size={17} /></button>
             <button type="button" className={control} onClick={() => navigate(1)} aria-label="Periodo siguiente"><ChevronRight size={17} /></button>
             <button type="button" className={control} onClick={() => setSelected(new Date(`${initialToday}T00:00:00Z`))}>Hoy</button>
           </div>
+          {meetingScope && (
+            <nav aria-label="Filtro de reuniones" className="order-last flex flex-wrap rounded-xl border border-border bg-slate-50 p-1 sm:order-none sm:ml-auto">
+              {meetingScopes.map(({ value, label }) => (
+                <Link key={value} href={{ pathname: "/dashboard/calendario", query: {
+                  cliente: initialClientKey || undefined,
+                  reuniones: value === "all" ? "todas" : undefined,
+                } }} scroll={false} prefetch={false} aria-current={meetingScope === value ? "true" : undefined}
+                  className={`inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary ${meetingScope === value ? "bg-primary/10 text-primary" : "text-muted hover:text-foreground"}`}>
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          )}
           <div role="group" aria-label="Vista del calendario" className="flex rounded-xl border border-border bg-slate-50 p-1">
             {views.map((option) => (
               <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)}
-                className={`min-h-9 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary ${view === option ? "bg-primary/10 text-primary" : "text-muted hover:text-foreground"}`}>
+                className={`min-h-9 rounded-lg px-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary sm:px-3 ${view === option ? "bg-primary/10 text-primary" : "text-muted hover:text-foreground"}`}>
                 {option}
               </button>
             ))}

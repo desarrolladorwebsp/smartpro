@@ -19,6 +19,7 @@ export type CalendarZoomMeeting = CalendarLink & CalendarRecipients & {
   title: string;
   duration: number;
   joinUrl: string;
+  readOnly?: boolean;
   clientInvitationStatus?: CalendarInvitationDelivery | null;
   clientInvitationFailure?: string | null;
 };
