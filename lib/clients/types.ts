@@ -1,9 +1,15 @@
-export const CRM_STAGES = [
+import { CRM_ARCHIVE_STATES } from "./crm-archive";
+
+export const DEFAULT_CRM_STAGES = [
   { id: "NEW", label: "nuevo" },
   { id: "CONTACTED", label: "contactado o en reunion" },
   { id: "QUOTED", label: "cotizacion enviada" },
   { id: "NEGOTIATION", label: "negociacion o listo" },
 ] as const;
+
+export const CRM_STAGES = [...DEFAULT_CRM_STAGES, { id: "PROPOSAL_REJECTED", label: "Propuesta rechazada" }] as const;
+export const CRM_COLUMNS = [...CRM_STAGES, ...CRM_ARCHIVE_STATES] as const;
+export type CrmColumn = (typeof CRM_COLUMNS)[number]["id"];
 
 export type ClientCrmStage = (typeof CRM_STAGES)[number]["id"];
 

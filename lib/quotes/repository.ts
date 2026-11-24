@@ -5,6 +5,7 @@ import { getAgencySnapshot } from "../agencies/repository";
 import { ensureAgencySchema } from "../agencies/schema";
 import { getSmartProFallback, parseAgencyIdentity, SMARTPRO_AGENCY_ID } from "../agencies/types";
 import { resolveCommercialRecipient } from "../clients/commercial-recipient";
+import { advanceCrmForQuote } from "../clients/quote-crm";
 import { parseContactSnapshot, personName } from "../clients/commercial-clients";
 import { parseBusinessRecipient } from "../clients/business";
 import { notifyQuoteCreated, notifyQuoteSent, notifyQuoteStatusChanged } from "../notifications/events";
@@ -388,34 +389,38 @@ export async function createQuoteRecord(input: {
     const number = createQuoteNumber();
 
     try {
-      const created = await prisma.quote.create({
-        data: {
-          number,
-          status,
-          clientId: client.id,
-          contactId: client.contactId,
-          businessRecipient: businessRecipient ?? undefined,
-          businessId: businessRecipient?.id,
-          contactSnapshot,
-          agencyId: agency.id,
-          agencySnapshot: agency,
-          createdByEmail,
-          notes,
-          proposal,
-          validUntil,
-          deliveryBusinessDays,
-          initialPaymentPercent,
-          discountType: totals.discountType,
-          discountValue: totals.discountValue,
-          discountAmount: totals.discountAmount,
-          subtotal: totals.subtotal,
-          tax: totals.tax,
-          total: totals.total,
-          items: {
-            create: quoteItemCreateData(items),
+      const created = await prisma.$transaction(async (tx) => {
+        const quote = await tx.quote.create({
+          data: {
+            number,
+            status,
+            clientId: client.id,
+            contactId: client.contactId,
+            businessRecipient: businessRecipient ?? undefined,
+            businessId: businessRecipient?.id,
+            contactSnapshot,
+            agencyId: agency.id,
+            agencySnapshot: agency,
+            createdByEmail,
+            notes,
+            proposal,
+            validUntil,
+            deliveryBusinessDays,
+            initialPaymentPercent,
+            discountType: totals.discountType,
+            discountValue: totals.discountValue,
+            discountAmount: totals.discountAmount,
+            subtotal: totals.subtotal,
+            tax: totals.tax,
+            total: totals.total,
+            items: {
+              create: quoteItemCreateData(items),
+            },
           },
-        },
-        include: quoteInclude,
+          include: quoteInclude,
+        });
+        if (status === "CREATED") await advanceCrmForQuote(tx, quote, "FINALIZED", createdByEmail);
+        return quote;
       });
 
       const record = toQuoteRecord(created);
@@ -448,6 +453,7 @@ export async function updateQuoteRecord(
     initialPaymentPercent?: number | string;
     discount?: QuoteDiscountInput;
     status?: QuoteStatus;
+    actorEmail?: string;
   },
 ): Promise<QuoteRecord> {
   const existing = await getQuoteById(id);
@@ -521,7 +527,7 @@ export async function updateQuoteRecord(
     } : undefined;
     await tx.quoteItem.deleteMany({ where: { quoteId: existing.id } });
 
-    return tx.quote.update({
+    const quote = await tx.quote.update({
       where: { id: existing.id, status: existing.status, updatedAt: new Date(existing.updatedAt) },
       data: {
         status,
@@ -544,12 +550,16 @@ export async function updateQuoteRecord(
       },
       include: quoteInclude,
     });
+    if (existing.status === "DRAFT" && status === "CREATED") {
+      await advanceCrmForQuote(tx, quote, "FINALIZED", input.actorEmail ?? quote.createdByEmail);
+    }
+    return quote;
   });
 
   return toQuoteRecord(updated);
 }
 
-export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<QuoteRecord> {
+export async function updateQuoteStatus(id: string, status: QuoteStatus, actorEmail?: string): Promise<QuoteRecord> {
   const existing = await getQuoteById(id);
   if (!existing) {
     throw new Error("La cotización no existe.");
@@ -558,10 +568,16 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus): Promis
   const nextStatus = parseQuoteStatus(status);
   assertQuoteStatusTransition(existing.status, nextStatus);
 
-  const updated = await getPrisma().quote.update({
-    where: { id },
-    data: { status: nextStatus },
-    include: quoteInclude,
+  const updated = await getPrisma().$transaction(async (tx) => {
+    const quote = await tx.quote.update({
+      where: { id, status: existing.status },
+      data: { status: nextStatus },
+      include: quoteInclude,
+    });
+    if (existing.status !== nextStatus && (nextStatus === "CREATED" || nextStatus === "ACCEPTED")) {
+      await advanceCrmForQuote(tx, quote, nextStatus === "ACCEPTED" ? "ACCEPTED" : "FINALIZED", actorEmail ?? quote.createdByEmail);
+    }
+    return quote;
   });
 
   const record = toQuoteRecord(updated);
@@ -577,13 +593,14 @@ export async function markQuoteSent(id: string): Promise<QuoteRecord> {
 
   assertQuoteStatusTransition(existing.status, "SENT");
 
-  const updated = await getPrisma().quote.update({
-    where: { id },
-    data: {
-      status: "SENT",
-      sentAt: new Date(),
-    },
-    include: quoteInclude,
+  const updated = await getPrisma().$transaction(async (tx) => {
+    const quote = await tx.quote.update({
+      where: { id, status: existing.status },
+      data: { status: "SENT", sentAt: new Date() },
+      include: quoteInclude,
+    });
+    if (existing.status === "DRAFT") await advanceCrmForQuote(tx, quote, "FINALIZED", quote.createdByEmail);
+    return quote;
   });
 
   const record = toQuoteRecord(updated);

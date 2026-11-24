@@ -5,19 +5,31 @@ import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate,
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
-import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus } from "@/lib/clients/types";
+import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
+import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
-import { DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
+import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
 
-const colors: Record<ClientCrmStage, { accent: string; dot: string }> = {
+const colors: Record<CrmColumn, { accent: string; dot: string }> = {
   NEW: { accent: "border-t-blue-500", dot: "bg-blue-500" },
   CONTACTED: { accent: "border-t-amber-500", dot: "bg-amber-500" },
   QUOTED: { accent: "border-t-violet-600", dot: "bg-violet-600" },
   NEGOTIATION: { accent: "border-t-emerald-600", dot: "bg-emerald-600" },
+  PROPOSAL_REJECTED: { accent: "border-t-rose-600", dot: "bg-rose-600" },
+  LOST: { accent: "border-t-slate-500", dot: "bg-slate-500" },
+  PAUSED: { accent: "border-t-sky-600", dot: "bg-sky-600" },
 };
 
-export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
+const quoteStyles: Record<CrmQuoteIndicator, { label: string; border: string; dot: string; badge: string }> = {
+  CURRENT: { label: "Enviada y vigente", border: "border-emerald-400", dot: "bg-emerald-600", badge: "bg-emerald-50 text-emerald-800" },
+  EXPIRED: { label: "Enviada y vencida", border: "border-amber-400", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-900" },
+  REJECTED: { label: "Cotización rechazada", border: "border-rose-400", dot: "bg-rose-600", badge: "bg-rose-50 text-rose-800" },
+};
+
+export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
   clients: CommercialClient[];
+  columns: ReadonlyArray<{ id: CrmColumn; label: string }>;
+  quoteIndicators: Record<string, CrmQuoteIndicator>;
   collapsed: ReadonlySet<string>;
   onCollapse: (ids: string[], compact: boolean) => void;
   onOpenClient: (id: string) => void;
@@ -32,11 +44,12 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
   const [assigning, setAssigning] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<Record<string, string>>({});
   const [dragging, setDragging] = useState<CommercialClient | null>(null);
-  const [target, setTarget] = useState<ClientCrmStage | null>(null);
+  const [target, setTarget] = useState<CrmColumn | null>(null);
   const [classifying, setClassifying] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null);
   const [archive, setArchive] = useState<{ client: CommercialClient; state: CrmArchiveState } | null>(null);
+  const [rejecting, setRejecting] = useState<{ client: CommercialClient; position?: { key: string; after: boolean } } | null>(null);
   const [noteClient, setNoteClient] = useState<CommercialClient | null>(null);
   const noteTrigger = useRef<HTMLButtonElement | null>(null);
   const saving = useRef(false);
@@ -158,11 +171,14 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
   return (
     <div className="flex h-[max(25rem,calc(100dvh-10rem))] min-h-0 min-w-0 flex-col gap-2 lg:h-auto lg:flex-1">
       <div ref={boardRef} className="min-h-0 flex-1 snap-x overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]" aria-label="Tablero de clientes" role="region" tabIndex={0}>
-        <div className="grid h-full min-w-[60rem] grid-cols-4 gap-2.5 lg:min-w-[46rem] xl:min-w-0">
-          {CRM_STAGES.map((stage) => {
-            const cards = clients.filter((client) => (client.crmStage ?? "NEW") === stage.id)
+        {columns.length === 0 && <p className="rounded-xl border border-border bg-white p-5 text-sm text-muted">Selecciona las columnas que quieres ver en Filtros.</p>}
+        <div className={`grid h-full min-w-full gap-2.5 [--crm-column-width:15rem] ${columns.length <= 4 ? "lg:[--crm-column-width:11.5rem]" : "lg:[--crm-column-width:14rem]"}`}
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(var(--crm-column-width), 1fr))`, width: `max(100%, calc(${columns.length} * var(--crm-column-width) + ${Math.max(0, columns.length - 1) * 0.625}rem))` }}>
+          {columns.map((stage) => {
+            const cards = clients.filter((client) => (client.crmArchiveState ?? client.crmStage) === stage.id)
               .sort((a, b) => (a.crmPosition ?? Infinity) - (b.crmPosition ?? Infinity) || a.name.localeCompare(b.name, "es-CL") || a.id.localeCompare(b.id));
             const color = colors[stage.id];
+            const archivedColumn = isCrmArchiveState(stage.id);
             const columnCollapsed = cards.length > 0 && cards.every(({ id }) => collapsed.has(id));
             return (
               <section key={stage.id} aria-label={stage.label}
@@ -170,7 +186,7 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                 onDragOver={(event) => {
                   const client = draggedClient.current;
                   if (!client || saving.current) return;
-                  const position = insertionAt(event, client);
+                  const position = archivedColumn ? null : insertionAt(event, client);
                   setInsertion(position);
                   if (!position && client.crmStage === stage.id) return;
                   event.preventDefault();
@@ -186,7 +202,16 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                 onDrop={(event) => {
                   event.preventDefault();
                   const client = draggedClient.current;
-                  if (client) void move(client, stage.id, false, insertionAt(event, client) ?? undefined);
+                  if (client) {
+                    const position = insertionAt(event, client) ?? undefined;
+                    if (isCrmArchiveState(stage.id)) {
+                      setArchive({ client, state: stage.id });
+                    } else if (stage.id === "PROPOSAL_REJECTED" && client.crmStage !== stage.id) {
+                      setRejecting({ client, position });
+                    } else {
+                      void move(client, stage.id, false, position);
+                    }
+                  }
                   setInsertion(null);
                   draggedClient.current = null;
                   setDragging(null);
@@ -199,7 +224,7 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                   </h2>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">{cards.length}</span>
-                    {cards.length > 0 && <button type="button"
+                    {!archivedColumn && cards.length > 0 && <button type="button"
                       onClick={() => onCollapse(cards.map(({ id }) => id), !columnCollapsed)}
                       aria-label={`${columnCollapsed ? "Expandir" : "Minimizar"} tarjetas de ${stage.label}`}
                       title={`${columnCollapsed ? "Expandir" : "Minimizar"} esta columna`}
@@ -212,15 +237,17 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                   className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain rounded-xl p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden focus-visible:outline-2 focus-visible:outline-primary">
                 <ul className="space-y-2">
                   {cards.map((client) => {
-                    const compact = collapsed.has(client.id);
+                    const compact = archivedColumn || collapsed.has(client.id);
+                    const indicator = stage.id === "QUOTED" ? quoteIndicators[client.id] : undefined;
+                    const quoteStyle = indicator ? quoteStyles[indicator] : undefined;
                     const contact = client.contacts[0];
                     const responsible = client.kind === "business" ? client.responsible : contact?.assignedExecutive;
                     const responsibleId = assigned[client.id] ?? responsible?.id ?? "";
                     const contactName = contact ? personName(contact) : "";
                     const initials = client.name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toLocaleUpperCase("es-CL");
                     return <li key={client.id} data-client-id={client.id}
-                      className={`relative rounded-xl border bg-white shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors hover:border-primary/35 focus-within:border-primary/45 ${compact ? "border-border" : "border-primary/35"} ${dragging?.id === client.id ? "opacity-50" : ""}`}
-                      draggable={pending === null}
+                      className={`relative rounded-xl border bg-white shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors hover:border-primary/35 focus-within:border-primary/45 ${quoteStyle?.border ?? (compact ? "border-border" : "border-primary/35")} ${dragging?.id === client.id ? "opacity-50" : ""}`}
+                      draggable={!archivedColumn && pending === null}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", client.id);
@@ -236,15 +263,19 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                             className="min-h-10 min-w-0 flex-1 self-center break-words text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
                             {client.name}
                           </button>
-                          <button type="button" draggable={false} onClick={() => onCollapse([client.id], !compact)}
+                          {compact && quoteStyle && <span className={`size-2 shrink-0 rounded-full ${quoteStyle.dot}`} role="img" aria-label={quoteStyle.label} title={quoteStyle.label} />}
+                          {!archivedColumn && <button type="button" draggable={false} onClick={() => onCollapse([client.id], !compact)}
                             aria-expanded={!compact} aria-label={`${compact ? "Expandir" : "Minimizar"} tarjeta de ${client.name}`}
                             title={compact ? "Expandir tarjeta" : "Minimizar tarjeta"}
                             className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-primary hover:bg-primary/10 focus-visible:outline-primary lg:size-7 ${compact ? "" : "bg-primary/10"}`}>
                             {compact ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronUp size={15} aria-hidden="true" />}
-                          </button>
-                          <GripVertical aria-hidden="true" size={15} className="shrink-0 self-center cursor-grab text-muted/70" />
+                          </button>}
+                          {!archivedColumn && <GripVertical aria-hidden="true" size={15} className="shrink-0 self-center cursor-grab text-muted/70" />}
                         </div>
                         {!compact && <>
+                        {quoteStyle && <p className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${quoteStyle.badge}`}>
+                          <span className={`size-2 rounded-full ${quoteStyle.dot}`} aria-hidden="true" />{quoteStyle.label}
+                        </p>}
                         {contactName !== client.name && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted 2xl:text-sm">
                           <ContactRound size={14} aria-hidden="true" className="shrink-0" />
                           <span className="min-w-0 break-words">{contactName || "Sin contactos"}</span>
@@ -303,6 +334,8 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
                             const state = event.target.value;
                             if (isCrmArchiveState(state)) {
                               setArchive({ client, state });
+                            } else if (state === "PROPOSAL_REJECTED") {
+                              setRejecting({ client });
                             } else if (isClientCrmStage(state)) {
                               const label = CRM_STAGES.find((entry) => entry.id === state)?.label;
                               if (window.confirm(`¿Cambiar el estado de ${client.name} a «${label}»?`)) {
@@ -333,6 +366,18 @@ export function ClientCrmBoard({ clients, assignable, onMoved, statusStyles, onS
           })}
         </div>
       </div>
+      {rejecting && <DashboardFormModal eyebrow="Clientes" title="Mover a Propuesta rechazada" onClose={() => setRejecting(null)}>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          setRejecting(null);
+          void move(rejecting.client, "PROPOSAL_REJECTED", true, rejecting.position);
+        }}>
+          <p className="break-words p-4 text-sm">¿Confirmas mover a <strong>{rejecting.client.name}</strong> a «Propuesta rechazada»?</p>
+          <DashboardFormFooter>
+            <DashboardFormActions onCancel={() => setRejecting(null)} submitLabel="Confirmar cambio" />
+          </DashboardFormFooter>
+        </form>
+      </DashboardFormModal>}
       {archive && <ArchiveClientForm {...archive} onClose={() => setArchive(null)} onSaved={() => {
         const label = CRM_ARCHIVE_STATES.find((entry) => entry.id === archive.state)?.label;
         setFeedback({ error: false, message: `${archive.client.name} pasó a «${label}».` });

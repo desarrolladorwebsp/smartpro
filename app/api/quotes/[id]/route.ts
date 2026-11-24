@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminSession();
+    const session = await requireAdminSession();
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as {
       items?: unknown;
@@ -54,6 +54,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       initialPaymentPercent: body.initialPaymentPercent as number | string | undefined,
       discount: parseQuoteDiscount({ type: body.discountType, value: body.discountValue }),
       status: body.status === "DRAFT" ? "DRAFT" : body.status === "CREATED" ? "CREATED" : undefined,
+      actorEmail: session.email,
     });
 
     return NextResponse.json({ quote }, { status: 200, headers: { "Cache-Control": "no-store" } });
@@ -65,7 +66,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminSession();
+    const session = await requireAdminSession();
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as { status?: unknown };
 
@@ -80,7 +81,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       );
     }
 
-    const quote = await updateQuoteStatus(id, body.status);
+    const quote = await updateQuoteStatus(id, body.status, session.email);
     return NextResponse.json({ quote }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo actualizar la cotización.";

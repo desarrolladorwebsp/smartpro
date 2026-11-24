@@ -10,7 +10,8 @@ import { ClientQuickView } from "@/components/admin/ClientQuickView";
 import { NotificationCenter } from "@/components/admin/NotificationCenter";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
-import { CLIENT_STATUSES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus } from "@/lib/clients/types";
+import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
+import { CLIENT_STATUSES, CRM_COLUMNS, DEFAULT_CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 const statusStyles: Record<ClientStatus, string> = {
   POTENCIAL: "bg-amber-50 text-amber-800",
@@ -20,6 +21,7 @@ const statusStyles: Record<ClientStatus, string> = {
 };
 
 const collapsePreferenceEvent = "smartpro:crm-collapse-preference";
+const defaultColumns = DEFAULT_CRM_STAGES.map(({ id }) => id);
 
 function subscribeToCollapsePreference(notify: () => void) {
   window.addEventListener("storage", notify);
@@ -51,9 +53,10 @@ function parseCollapsedCards(snapshot: string) {
   }
 }
 
-export function ClientsDashboard({ initialClients, initialBusinesses, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
+export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
   initialClients: ClientRecord[];
   initialBusinesses: BusinessProfile[];
+  quoteIndicators: Record<string, CrmQuoteIndicator>;
   assignable: ClientAssignedExecutive[];
   preferenceKey: string;
   hasPaused: boolean;
@@ -84,11 +87,14 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
   const [status, setStatus] = useState("");
   const [executive, setExecutive] = useState("");
   const [service, setService] = useState("");
+  const [selectedColumns, setSelectedColumns] = useState(() => new Set<CrmColumn>(defaultColumns));
+  const columns = CRM_COLUMNS.filter(({ id }) => selectedColumns.has(id));
+  const customColumns = view === "board" && (selectedColumns.size !== defaultColumns.length || defaultColumns.some((id) => !selectedColumns.has(id)));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersId = useId();
   const filtersMenu = useRef<HTMLDivElement>(null);
   const filtersTrigger = useRef<HTMLButtonElement>(null);
-  const activeFilterCount = [status, executive, service].filter(Boolean).length;
+  const activeFilterCount = [status, executive, service, customColumns].filter(Boolean).length;
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -102,13 +108,13 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
   const [stages, setStages] = useState<Record<string, ClientCrmStage>>({});
   const [classifications, setClassifications] = useState<Record<string, ClientStatus>>({});
   const allAccounts = useMemo(() => listCommercialClients(initialClients, initialBusinesses), [initialClients, initialBusinesses]);
-  const accounts = allAccounts.filter((account) => Boolean(account.crmArchiveState) === (view === "archived"));
+  const accounts = allAccounts.map((account) => ({
+    ...account, crmStage: stages[account.id] ?? account.crmStage, status: classifications[account.id] ?? account.status,
+  })).filter((account) => view === "board" ? selectedColumns.has(account.crmArchiveState ?? account.crmStage) : Boolean(account.crmArchiveState) === (view === "archived"));
   const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
   const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
   const query = search.trim().toLowerCase();
-  const visible = accounts.map((account) => ({
-    ...account, crmStage: stages[account.id] ?? account.crmStage, status: classifications[account.id] ?? account.status,
-  })).filter((account) =>
+  const visible = accounts.filter((account) =>
     (!status || account.status === status) &&
     (!query || [account.name, account.rut, ...account.contacts.flatMap((contact) =>
       [personName(contact), contact.email, contact.phone, contact.jobTitle])].join(" ").toLowerCase().includes(query)) &&
@@ -122,7 +128,8 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
     setScheduleClientId(clientId);
   }
 
-  const allCollapsed = accounts.length > 0 && accounts.every(({ id }) => collapsed.has(id));
+  const collapsible = accounts.filter((account) => !account.crmArchiveState);
+  const allCollapsed = collapsible.length > 0 && collapsible.every(({ id }) => collapsed.has(id));
   function setCardsCollapsed(ids: string[], compact: boolean) {
     const next = new Set(temporaryCollapsed ?? parseCollapsedCards(readCollapsePreference(preferenceKey)));
     for (const id of ids) {
@@ -179,7 +186,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
               {activeFilterCount > 0 && <span className="tabular-nums">({activeFilterCount})</span>}
               <ChevronDown size={14} aria-hidden="true" />
             </button>
-            <div id={filtersId} hidden={!filtersOpen} className="absolute right-0 top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] rounded-2xl border border-border bg-white p-3 shadow-lg sm:left-0 sm:right-auto">
+            <div id={filtersId} hidden={!filtersOpen} className="absolute right-0 top-full z-30 mt-2 max-h-[min(36rem,55dvh)] w-[min(17rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-white p-3 shadow-lg sm:left-0 sm:right-auto">
               <div className="space-y-2.5">
                 <label className="block text-xs font-semibold text-muted">Estado
                   <select aria-label="Filtrar por estado" className="dashboard-field mt-1 rounded-xl" value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -199,8 +206,28 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
                     {services.map((entry) => <option key={entry}>{entry}</option>)}
                   </select>
                 </label>
+                {view === "board" && <fieldset className="border-t border-border pt-1.5">
+                  <legend className="pr-2 text-xs font-semibold text-muted">Columnas visibles</legend>
+                  <button type="button" className="min-h-8 text-xs font-semibold text-primary hover:underline"
+                    onClick={() => setSelectedColumns(new Set(selectedColumns.size === CRM_COLUMNS.length ? defaultColumns : CRM_COLUMNS.map(({ id }) => id)))}>
+                    {selectedColumns.size === CRM_COLUMNS.length ? "Restaurar columnas predeterminadas" : "Mostrar todas las columnas"}
+                  </button>
+                  {CRM_COLUMNS.map(({ id, label }) => <label key={id} className="flex min-h-8 items-center gap-2 text-sm">
+                    <input type="checkbox" className="size-4 accent-primary" checked={selectedColumns.has(id)}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setSelectedColumns((current) => {
+                          const next = new Set(current);
+                          if (checked) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }} />
+                    {label}
+                  </label>)}
+                </fieldset>}
                 {activeFilterCount > 0 && <button type="button" className="min-h-9 text-sm font-semibold text-primary hover:underline"
-                  onClick={() => { setStatus(""); setExecutive(""); setService(""); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
+                  onClick={() => { setStatus(""); setExecutive(""); setService(""); if (view === "board") setSelectedColumns(new Set(defaultColumns)); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
               </div>
             </div>
           </div>
@@ -212,8 +239,8 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
                 {entry === "board" ? "Tablero" : entry === "list" ? "Lista" : "Archivados"}
               </button>)}
             </div>
-            {view === "board" && <button type="button" disabled={!accounts.length}
-              onClick={() => setCardsCollapsed(accounts.map(({ id }) => id), !allCollapsed)}
+            {view === "board" && <button type="button" disabled={!collapsible.length}
+              onClick={() => setCardsCollapsed(collapsible.map(({ id }) => id), !allCollapsed)}
               aria-label={allCollapsed ? "Expandir todo el tablero" : "Minimizar todo el tablero"}
               title={allCollapsed ? "Expandir todo" : "Minimizar todo"}
               className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
@@ -233,7 +260,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, assignable
       </header>
       {scheduleMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{scheduleMessage}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {view === "board" ? <ClientCrmBoard clients={visible} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
+      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} quoteIndicators={quoteIndicators} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
         onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}

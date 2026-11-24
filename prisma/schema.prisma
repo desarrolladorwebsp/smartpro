@@ -106,6 +106,7 @@ enum ClientCrmStage {
   CONTACTED
   QUOTED
   NEGOTIATION
+  PROPOSAL_REJECTED
 }
 
 enum ClientCommercialStatus {
