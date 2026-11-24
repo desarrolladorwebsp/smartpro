@@ -20,10 +20,17 @@ const colors: Record<CrmColumn, { accent: string; dot: string }> = {
   PAUSED: { accent: "border-t-sky-600", dot: "bg-sky-600" },
 };
 
-const quoteStyles: Record<CrmQuoteIndicator, { label: string; border: string; dot: string; badge: string }> = {
-  CURRENT: { label: "Enviada y vigente", border: "border-emerald-400", dot: "bg-emerald-600", badge: "bg-emerald-50 text-emerald-800" },
-  EXPIRED: { label: "Enviada y vencida", border: "border-amber-400", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-900" },
-  REJECTED: { label: "Cotización rechazada", border: "border-rose-400", dot: "bg-rose-600", badge: "bg-rose-50 text-rose-800" },
+const quoteTones = {
+  green: { card: "border-emerald-300 border-l-emerald-600 bg-emerald-50/70", badge: "bg-emerald-100 text-emerald-900" },
+  yellow: { card: "border-amber-300 border-l-amber-500 bg-amber-50/70", badge: "bg-amber-100 text-amber-900" },
+  red: { card: "border-rose-300 border-l-rose-600 bg-rose-50/70", badge: "bg-rose-100 text-rose-900" },
+};
+
+const quoteStyles: Record<CrmQuoteIndicator, { label: string; tone: keyof typeof quoteTones }> = {
+  ACCEPTED: { label: "Cotización aceptada", tone: "green" },
+  CURRENT: { label: "Cotización vigente", tone: "green" },
+  EXPIRED: { label: "Cotización vencida", tone: "yellow" },
+  REJECTED: { label: "Cotización rechazada", tone: "red" },
 };
 
 export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
@@ -240,13 +247,14 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                     const compact = archivedColumn || collapsed.has(client.id);
                     const indicator = stage.id === "QUOTED" ? quoteIndicators[client.id] : undefined;
                     const quoteStyle = indicator ? quoteStyles[indicator] : undefined;
+                    const quoteTone = quoteStyle ? quoteTones[quoteStyle.tone] : undefined;
                     const contact = client.contacts[0];
                     const responsible = client.kind === "business" ? client.responsible : contact?.assignedExecutive;
                     const responsibleId = assigned[client.id] ?? responsible?.id ?? "";
                     const contactName = contact ? personName(contact) : "";
                     const initials = client.name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toLocaleUpperCase("es-CL");
                     return <li key={client.id} data-client-id={client.id}
-                      className={`relative rounded-xl border bg-white shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors hover:border-primary/35 focus-within:border-primary/45 ${quoteStyle?.border ?? (compact ? "border-border" : "border-primary/35")} ${dragging?.id === client.id ? "opacity-50" : ""}`}
+                      className={`relative rounded-xl border shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors ${quoteTone ? `border-l-4 ${quoteTone.card}` : `bg-white hover:border-primary/35 focus-within:border-primary/45 ${compact ? "border-border" : "border-primary/35"}`} ${dragging?.id === client.id ? "opacity-50" : ""}`}
                       draggable={!archivedColumn && pending === null}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
@@ -263,7 +271,6 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                             className="min-h-10 min-w-0 flex-1 self-center break-words text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
                             {client.name}
                           </button>
-                          {compact && quoteStyle && <span className={`size-2 shrink-0 rounded-full ${quoteStyle.dot}`} role="img" aria-label={quoteStyle.label} title={quoteStyle.label} />}
                           {!archivedColumn && <button type="button" draggable={false} onClick={() => onCollapse([client.id], !compact)}
                             aria-expanded={!compact} aria-label={`${compact ? "Expandir" : "Minimizar"} tarjeta de ${client.name}`}
                             title={compact ? "Expandir tarjeta" : "Minimizar tarjeta"}
@@ -272,10 +279,10 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                           </button>}
                           {!archivedColumn && <GripVertical aria-hidden="true" size={15} className="shrink-0 self-center cursor-grab text-muted/70" />}
                         </div>
-                        {!compact && <>
-                        {quoteStyle && <p className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${quoteStyle.badge}`}>
-                          <span className={`size-2 rounded-full ${quoteStyle.dot}`} aria-hidden="true" />{quoteStyle.label}
+                        {quoteStyle && quoteTone && <p className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${quoteTone.badge} ${compact ? "mb-1" : ""}`}>
+                          {quoteStyle.label}
                         </p>}
+                        {!compact && <>
                         {contactName !== client.name && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted 2xl:text-sm">
                           <ContactRound size={14} aria-hidden="true" className="shrink-0" />
                           <span className="min-w-0 break-words">{contactName || "Sin contactos"}</span>

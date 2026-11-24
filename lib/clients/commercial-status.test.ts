@@ -40,9 +40,10 @@ test("getAssignedExecutiveName muestra el responsable o Sin asignar", () => {
   );
 });
 
-test("el tablero prioriza cotizaciones enviadas vigentes, vencidas y rechazadas por cliente comercial", () => {
+test("el tablero prioriza cotizaciones vigentes, vencidas y rechazadas por cliente comercial", () => {
   const now = new Date("2026-11-24T15:00:00Z");
   const expired = new Date("2026-11-23T23:59:59Z");
+  const current = new Date("2026-12-01T23:59:59Z");
   const summaries = summarizeCrmQuotes([
     { clientId: "contacto1", businessId: "empresa1", status: "REJECTED", validUntil: null },
     { clientId: "contacto2", businessId: "empresa1", status: "SENT", validUntil: expired },
@@ -51,12 +52,24 @@ test("el tablero prioriza cotizaciones enviadas vigentes, vencidas y rechazadas 
     { clientId: "persona1", businessId: null, status: "REJECTED", validUntil: null },
     { clientId: "persona2", businessId: null, status: "REJECTED", validUntil: null },
     { clientId: "persona3", businessId: null, status: "CREATED", validUntil: expired },
+    { clientId: "persona3", businessId: null, status: "REJECTED", validUntil: current },
+    { clientId: "contacto4", businessId: "empresa2", status: "CREATED", validUntil: current },
+    { clientId: "contacto5", businessId: "empresa2", status: "REJECTED", validUntil: current },
+    { clientId: "persona4", businessId: null, status: "CREATED", validUntil: null },
+    { clientId: "persona5", businessId: null, status: "DRAFT", validUntil: current },
+    { clientId: "persona5", businessId: null, status: "REJECTED", validUntil: current },
+    { clientId: "persona6", businessId: null, status: "ACCEPTED", validUntil: expired },
+    { clientId: "persona6", businessId: null, status: "CREATED", validUntil: current },
   ], now);
 
   assert.equal(summaries.get("business:empresa1")?.indicator, "CURRENT");
   assert.equal(summaries.get("person:persona1")?.indicator, "EXPIRED");
   assert.equal(summaries.get("person:persona2")?.indicator, "REJECTED");
-  assert.equal(summaries.get("person:persona3")?.indicator, undefined);
+  assert.equal(summaries.get("person:persona3")?.indicator, "EXPIRED");
+  assert.equal(summaries.get("business:empresa2")?.indicator, "CURRENT");
+  assert.equal(summaries.get("person:persona4")?.indicator, "CURRENT");
+  assert.equal(summaries.get("person:persona5")?.indicator, "REJECTED");
+  assert.equal(summaries.get("person:persona6")?.indicator, "ACCEPTED");
   assert.equal(summaries.has("person:contacto1"), false);
 });
 

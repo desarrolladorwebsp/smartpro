@@ -6,7 +6,7 @@ import { commercialClientId } from "./commercial-clients";
 import { recordCrmChange } from "./crm-history";
 import type { ClientCrmStage } from "./types";
 
-export type CrmQuoteIndicator = "CURRENT" | "EXPIRED" | "REJECTED";
+export type CrmQuoteIndicator = "ACCEPTED" | "CURRENT" | "EXPIRED" | "REJECTED";
 
 type QuoteOwner = { clientId: string; businessId: string | null };
 type CrmQuote = QuoteOwner & { status: QuoteStatus; validUntil: Date | null };
@@ -14,7 +14,7 @@ type QuoteSummary = { indicator?: CrmQuoteIndicator; hasRejected: boolean; hasOt
 
 export const crmQuoteFields = { clientId: true, businessId: true, status: true, validUntil: true } as const;
 
-const indicatorPriority = { REJECTED: 1, EXPIRED: 2, CURRENT: 3 };
+const indicatorPriority: Record<CrmQuoteIndicator, number> = { REJECTED: 1, EXPIRED: 2, CURRENT: 3, ACCEPTED: 4 };
 const earlyStages: ClientCrmStage[] = ["NEW", "CONTACTED"];
 const stageBeforeNegotiation: ClientCrmStage[] = ["NEW", "CONTACTED", "QUOTED", "PROPOSAL_REJECTED"];
 
@@ -25,17 +25,16 @@ export function summarizeCrmQuotes(quotes: CrmQuote[], now = new Date()) {
     if (quote.status === "DRAFT") continue;
     const key = commercialClientId(quote.clientId, quote.businessId);
     const summary = summaries.get(key) ?? { hasRejected: false, hasOtherFinalized: false };
-    let indicator: CrmQuoteIndicator | undefined;
+    let indicator: CrmQuoteIndicator;
     if (quote.status === "REJECTED") {
       summary.hasRejected = true;
       indicator = "REJECTED";
     } else {
       summary.hasOtherFinalized = true;
-      if (quote.status === "SENT") {
-        indicator = isQuoteExpired(quote.validUntil?.toISOString() ?? null, now) ? "EXPIRED" : "CURRENT";
-      }
+      if (quote.status === "ACCEPTED") indicator = "ACCEPTED";
+      else indicator = isQuoteExpired(quote.validUntil?.toISOString() ?? null, now) ? "EXPIRED" : "CURRENT";
     }
-    if (indicator && (!summary.indicator || indicatorPriority[indicator] > indicatorPriority[summary.indicator])) {
+    if (!summary.indicator || indicatorPriority[indicator] > indicatorPriority[summary.indicator]) {
       summary.indicator = indicator;
     }
     summaries.set(key, summary);
@@ -45,7 +44,7 @@ export function summarizeCrmQuotes(quotes: CrmQuote[], now = new Date()) {
 
 export async function listCrmQuoteIndicators() {
   if (!prisma) throw new Error("No hay conexión a la base de datos.");
-  const quotes = await prisma.quote.findMany({ where: { status: { in: ["SENT", "REJECTED"] } }, select: crmQuoteFields });
+  const quotes = await prisma.quote.findMany({ where: { status: { not: "DRAFT" } }, select: crmQuoteFields });
   const indicators: Record<string, CrmQuoteIndicator> = {};
   for (const [key, { indicator }] of summarizeCrmQuotes(quotes)) {
     if (indicator) indicators[key] = indicator;
