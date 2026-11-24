@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
-import { useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
 import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
@@ -21,9 +21,9 @@ const colors: Record<CrmColumn, { accent: string; dot: string }> = {
 };
 
 const quoteTones = {
-  green: { card: "border-emerald-300 border-l-emerald-600 bg-emerald-50/70", badge: "bg-emerald-100 text-emerald-900" },
-  yellow: { card: "border-amber-300 border-l-amber-500 bg-amber-50/70", badge: "bg-amber-100 text-amber-900" },
-  red: { card: "border-rose-300 border-l-rose-600 bg-rose-50/70", badge: "bg-rose-100 text-rose-900" },
+  green: "border-emerald-300 border-l-emerald-600 bg-emerald-50/70",
+  yellow: "border-amber-300 border-l-amber-500 bg-amber-50/70",
+  red: "border-rose-300 border-l-rose-600 bg-rose-50/70",
 };
 
 const quoteStyles: Record<CrmQuoteIndicator, { label: string; tone: keyof typeof quoteTones }> = {
@@ -47,6 +47,7 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
   onMoved: (id: string, stage: ClientCrmStage) => void;
 }) {
   const router = useRouter();
+  const boardId = useId();
   const [insertion, setInsertion] = useState<{ key: string; after: boolean } | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<Record<string, string>>({});
@@ -248,13 +249,14 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                     const indicator = stage.id === "QUOTED" ? quoteIndicators[client.id] : undefined;
                     const quoteStyle = indicator ? quoteStyles[indicator] : undefined;
                     const quoteTone = quoteStyle ? quoteTones[quoteStyle.tone] : undefined;
+                    const quoteDescriptionId = quoteStyle ? `${boardId}-${client.id}-quote` : undefined;
                     const contact = client.contacts[0];
                     const responsible = client.kind === "business" ? client.responsible : contact?.assignedExecutive;
                     const responsibleId = assigned[client.id] ?? responsible?.id ?? "";
                     const contactName = contact ? personName(contact) : "";
                     const initials = client.name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toLocaleUpperCase("es-CL");
                     return <li key={client.id} data-client-id={client.id}
-                      className={`relative rounded-xl border shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors ${quoteTone ? `border-l-4 ${quoteTone.card}` : `bg-white hover:border-primary/35 focus-within:border-primary/45 ${compact ? "border-border" : "border-primary/35"}`} ${dragging?.id === client.id ? "opacity-50" : ""}`}
+                      className={`relative rounded-xl border shadow-[0_1px_2px_rgba(20,20,45,0.08)] transition-colors ${quoteTone ? `border-l-4 ${quoteTone}` : `bg-white hover:border-primary/35 focus-within:border-primary/45 ${compact ? "border-border" : "border-primary/35"}`} ${dragging?.id === client.id ? "opacity-50" : ""}`}
                       draggable={!archivedColumn && pending === null}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
@@ -263,11 +265,13 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                         setDragging(client);
                       }}
                       onDragEnd={() => { draggedClient.current = null; setDragging(null); setTarget(null); setInsertion(null); }}>
+                      {quoteStyle && <span hidden id={quoteDescriptionId}>{quoteStyle.label}</span>}
                       {insertion?.key === client.id && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full bg-primary ${insertion.after ? "-bottom-1" : "-top-1"}`} />}
                       <div className={compact ? "px-2.5 py-1 2xl:py-1.5" : "space-y-2.5 p-2.5"}>
                         <div className={`flex gap-1.5 ${compact ? "items-center" : "items-start"}`}>
                           {!compact && <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary" aria-hidden="true">{initials}</span>}
                           <button type="button" draggable={false} onClick={() => onOpenClient(client.id)}
+                            aria-describedby={quoteDescriptionId}
                             className="min-h-10 min-w-0 flex-1 self-center break-words text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
                             {client.name}
                           </button>
@@ -279,9 +283,6 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                           </button>}
                           {!archivedColumn && <GripVertical aria-hidden="true" size={15} className="shrink-0 self-center cursor-grab text-muted/70" />}
                         </div>
-                        {quoteStyle && quoteTone && <p className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${quoteTone.badge} ${compact ? "mb-1" : ""}`}>
-                          {quoteStyle.label}
-                        </p>}
                         {!compact && <>
                         {contactName !== client.name && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted 2xl:text-sm">
                           <ContactRound size={14} aria-hidden="true" className="shrink-0" />
