@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Pencil, Trash2, Video } from "lucide-react";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Copy, Pencil, Trash2, Video } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, useTransition, type FormEvent } from "react";
@@ -57,6 +57,11 @@ function InvitationDelivery({ meeting }: { meeting: CalendarZoomMeeting }) {
   );
 }
 
+function zoomInvitationText({ title, date, time, duration, joinUrl }: CalendarZoomMeeting) {
+  const day = date.split("-").reverse().join("/");
+  return [title, `${day} · ${formatCalendarTime(time)} (hora de Chile) · ${duration} min`, "", "Enlace para unirse por Zoom", joinUrl].join("\n");
+}
+
 function ActivityRow({ activity, clients, onEdit, onDelete }: {
   activity: CalendarActivity;
   clients: CalendarClient[];
@@ -65,6 +70,10 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
 }) {
   const isMeeting = "joinUrl" in activity;
   const canManage = !isMeeting || !activity.readOnly;
+  const invitation = isMeeting ? zoomInvitationText(activity) : "";
+  const [copyResult, setCopyResult] = useState<{ invitation: string; copied: boolean } | null>(null);
+  const copied = copyResult?.invitation === invitation && copyResult.copied;
+  const manualCopy = copyResult?.invitation === invitation && !copyResult.copied;
   const Icon = isMeeting ? Video : Bell;
   const deleteLabel = isMeeting ? "Eliminar reunión de Zoom" : "Eliminar recordatorio";
   const editLabel = isMeeting ? "Editar reunión de Zoom" : "Editar recordatorio";
@@ -73,6 +82,16 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
     isMeeting && `${activity.duration} min`,
     ...activityPeople(clients, activity),
   ].filter(Boolean).join(" · ");
+
+  async function copyInvitation() {
+    try {
+      await navigator.clipboard.writeText(invitation);
+      setCopyResult({ invitation, copied: true });
+    } catch {
+      setCopyResult({ invitation, copied: false });
+    }
+  }
+
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-white px-3 py-2.5 text-sm">
       <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${isMeeting ? "bg-primary/10 text-primary" : "bg-amber-50 text-amber-700"}`}>
@@ -89,6 +108,11 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
             <InvitationDelivery meeting={activity} />
             <a href={activity.joinUrl} target="_blank" rel="noopener noreferrer"
               className="inline-flex min-h-8 shrink-0 items-center rounded-md px-1 font-semibold text-primary hover:underline">Abrir Zoom</a>
+            <button type="button" onClick={copyInvitation} aria-label="Copiar invitación" title={copied ? "Invitación copiada" : "Copiar invitación"}
+              className={`grid size-9 shrink-0 place-items-center rounded-lg hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary ${copied ? "text-emerald-700" : "text-muted"}`}>
+              {copied ? <CircleCheck size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+            </button>
+            <span role="status" className="sr-only">{copied ? "Invitación copiada." : ""}</span>
           </>
         )}
         {canManage && (
@@ -104,6 +128,13 @@ function ActivityRow({ activity, clients, onEdit, onDelete }: {
           </>
         )}
       </div>
+      {manualCopy && (
+        <label className="block w-full space-y-1 text-xs text-muted">
+          <span>Copia manualmente la invitación seleccionada.</span>
+          <textarea readOnly autoFocus rows={5} value={invitation} onFocus={(event) => event.currentTarget.select()}
+            className="dashboard-field w-full resize-y text-sm" />
+        </label>
+      )}
     </li>
   );
 }
