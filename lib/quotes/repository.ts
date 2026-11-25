@@ -675,7 +675,9 @@ export async function markQuoteSent(id: string, senderEmail: string): Promise<Qu
       data: { status: "SENT", sentAt: new Date() },
       include: quoteInclude,
     });
-    await advanceCrmForQuote(tx, quote, "SENT", senderEmail);
+    if (existing.status !== "SENT") {
+      await advanceCrmForQuote(tx, quote, "SENT", senderEmail);
+    }
     return quote;
   });
 

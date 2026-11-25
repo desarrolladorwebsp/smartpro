@@ -15,8 +15,12 @@ type QuoteSummary = { indicator?: CrmQuoteIndicator; hasRejected: boolean; hasOt
 export const crmQuoteFields = { clientId: true, businessId: true, status: true, validUntil: true } as const;
 
 const indicatorPriority: Record<CrmQuoteIndicator, number> = { REJECTED: 1, EXPIRED: 2, CURRENT: 3, ACCEPTED: 4 };
-const earlyStages: ClientCrmStage[] = ["NEW", "CONTACTED"];
 const stageBeforeNegotiation: ClientCrmStage[] = ["NEW", "CONTACTED", "QUOTED", "PROPOSAL_REJECTED"];
+const quoteStageTransitions = {
+  FINALIZED: { stage: "CONTACTED", action: "creada" },
+  SENT: { stage: "QUOTED", action: "enviada" },
+  ACCEPTED: { stage: "NEGOTIATION", action: "aceptada" },
+} as const;
 
 export function summarizeCrmQuotes(quotes: CrmQuote[], now = new Date()) {
   const summaries = new Map<string, QuoteSummary>();
@@ -63,29 +67,45 @@ export function historicalQuoteDestination(stage: ClientCrmStage, summary?: Quot
 export async function moveCrmStageForQuote(
   tx: Prisma.TransactionClient,
   { clientId, businessId }: QuoteOwner,
-  fromStages: ClientCrmStage[],
+  fromStages: ClientCrmStage[] | null,
   nextStage: ClientCrmStage,
   reason: { actorEmail: string; note: string },
 ) {
-  const active = { deletedAt: null, crmArchiveState: null };
-  const stages = { in: fromStages };
+  const eligible = {
+    deletedAt: null,
+    ...(fromStages ? { crmArchiveState: null, crmStage: { in: fromStages } } : {}),
+  };
+  const select = { crmStage: true, crmArchiveState: true, crmReactivateOn: true } as const;
   const account = businessId
-    ? await tx.business.findFirst({ where: { id: businessId, ...active, crmStage: stages }, select: { crmStage: true } })
-    : await tx.client.findFirst({ where: { id: clientId, businessId: null, ...active, crmStage: stages }, select: { crmStage: true } });
-  if (!account || account.crmStage === nextStage) return false;
+    ? await tx.business.findFirst({ where: { id: businessId, ...eligible }, select })
+    : await tx.client.findFirst({ where: { id: clientId, businessId: null, ...eligible }, select });
+  if (!account) return false;
 
-  const conditions = { ...active, crmStage: account.crmStage };
+  const fromState = account.crmArchiveState ?? account.crmStage;
+  if (fromState === nextStage) return false;
+
+  const conditions = {
+    deletedAt: null,
+    crmStage: account.crmStage,
+    crmArchiveState: account.crmArchiveState,
+    crmReactivateOn: account.crmReactivateOn,
+  };
+  const data = {
+    crmStage: nextStage,
+    ...(account.crmArchiveState ? { crmArchiveState: null, crmReactivateOn: null } : {}),
+  };
   const { count } = businessId
-    ? await tx.business.updateMany({ where: { id: businessId, ...conditions }, data: { crmStage: nextStage, crmPosition: null } })
-    : await tx.client.updateMany({ where: { id: clientId, businessId: null, ...conditions }, data: { crmStage: nextStage } });
+    ? await tx.business.updateMany({ where: { id: businessId, ...conditions }, data: { ...data, crmPosition: null } })
+    : await tx.client.updateMany({ where: { id: clientId, businessId: null, ...conditions }, data });
   if (!count) return false;
 
   await recordCrmChange(tx, {
     ...(businessId ? { accountId: businessId } : { clientId }),
-    ...reason,
-    event: "STAGE",
-    fromState: account.crmStage,
+    event: account.crmArchiveState ? "REACTIVATION" : "STAGE",
+    fromState,
     toState: nextStage,
+    ...reason,
+    ...(account.crmArchiveState && account.crmReactivateOn ? { reactivateOn: account.crmReactivateOn } : {}),
   });
   return true;
 }
@@ -93,12 +113,12 @@ export async function moveCrmStageForQuote(
 export function advanceCrmForQuote(
   tx: Prisma.TransactionClient,
   quote: QuoteOwner & { number: string },
-  event: "FINALIZED" | "SENT" | "ACCEPTED",
+  event: keyof typeof quoteStageTransitions,
   actorEmail: string,
 ) {
-  const accepted = event === "ACCEPTED";
-  const action = { FINALIZED: "creada", SENT: "enviada", ACCEPTED: "aceptada" }[event];
-  return moveCrmStageForQuote(tx, quote, accepted ? stageBeforeNegotiation : earlyStages, accepted ? "NEGOTIATION" : "QUOTED", {
+  const { stage, action } = quoteStageTransitions[event];
+  const fromStages = event === "ACCEPTED" ? stageBeforeNegotiation : null;
+  return moveCrmStageForQuote(tx, quote, fromStages, stage, {
     actorEmail,
     note: `Cotización ${quote.number} ${action}.`,
   });
