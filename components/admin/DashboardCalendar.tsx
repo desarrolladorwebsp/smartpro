@@ -1,11 +1,13 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Copy, Pencil, Trash2, Video } from "lucide-react";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock, Copy, Pencil, Trash2, Video, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, useTransition, type FormEvent } from "react";
 import { deleteCalendarActivity } from "@/app/dashboard/calendario/actions";
 import { calendarTimeSlots, formatCalendarTime } from "@/lib/calendar-slots";
+import type { CalendarCollectionDue } from "@/lib/sales/collections";
+import { CalendarCollectionRow } from "./CalendarCollectionRow";
 import { CalendarSlotDialog } from "./CalendarSlotDialog";
 import { activityNoticeMessage, CalendarNotificationFields } from "./CalendarNotificationFields";
 import { DashboardFormFooter, DashboardFormModal } from "./dashboard-form";
@@ -22,12 +24,13 @@ const monthLabel = new Intl.DateTimeFormat("es-CL", { month: "long", year: "nume
 const weekday = new Intl.DateTimeFormat("es-CL", { weekday: "short", timeZone: "UTC" });
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-function groupByDate<T extends CalendarActivity>(activities: T[]) {
+function groupByDate<T>(activities: ReadonlyArray<T>, dateOf: (activity: T) => string) {
   const grouped = new Map<string, T[]>();
   for (const activity of activities) {
-    const day = grouped.get(activity.date);
+    const date = dateOf(activity);
+    const day = grouped.get(date);
     if (day) day.push(activity);
-    else grouped.set(activity.date, [activity]);
+    else grouped.set(date, [activity]);
   }
   return grouped;
 }
@@ -261,7 +264,7 @@ function monday(date: Date) {
   return addDays(date, -((date.getUTCDay() + 6) % 7));
 }
 
-export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients: initialClients, participants, meetingScope }: {
+export function DashboardCalendar({ initialClientKey, initialToday, initialReminders, initialMeetings, zoomConfigured, clients: initialClients, participants, meetingScope, collectionDues }: {
   initialClientKey: string;
   initialToday: string;
   initialReminders: CalendarReminder[];
@@ -270,6 +273,7 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
   clients: CalendarClient[];
   participants: CalendarParticipant[];
   meetingScope?: MeetingScope;
+  collectionDues: CalendarCollectionDue[];
 }) {
   const [clients, setClients] = useState(initialClients);
   const router = useRouter();
@@ -280,29 +284,31 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
   const [activityToDelete, setActivityToDelete] = useState<CalendarActivity | null>(null);
   const [activityToEdit, setActivityToEdit] = useState<CalendarActivity | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [showCollections, setShowCollections] = useState(true);
   const meetings = (meetingChanges.source === initialMeetings ? meetingChanges.meetings : initialMeetings)
     .filter(({ id }) => !deletedMeetingIds.has(id));
   const hasPendingInvitations = meetings.some(({ clientInvitationStatus }) => clientInvitationStatus === "PENDING");
 
   useEffect(() => {
-    if (!hasPendingInvitations) return;
     function refreshVisibleCalendar() {
       if (document.visibilityState === "visible") router.refresh();
     }
-    const interval = window.setInterval(refreshVisibleCalendar, 30_000);
-    window.addEventListener("focus", refreshVisibleCalendar);
+    const interval = hasPendingInvitations ? window.setInterval(refreshVisibleCalendar, 30_000) : undefined;
+    if (hasPendingInvitations || showCollections) window.addEventListener("focus", refreshVisibleCalendar);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshVisibleCalendar);
     };
-  }, [hasPendingInvitations, router]);
+  }, [hasPendingInvitations, router, showCollections]);
   const [reminders, setReminders] = useState(initialReminders);
   const [slot, setSlot] = useState<string | null>(null);
   const [view, setView] = useState<CalendarView>(initialClientKey ? "Día" : "Semana");
   const [selected, setSelected] = useState(() => new Date(`${initialToday}T00:00:00Z`));
   const selectedDate = selected.toISOString().slice(0, 10);
-  const remindersByDate = groupByDate(reminders);
-  const meetingsByDate = groupByDate(meetings);
+  const remindersByDate = groupByDate(reminders, ({ date }) => date);
+  const meetingsByDate = groupByDate(meetings, ({ date }) => date);
+  const collectionsByDate = useMemo(() => groupByDate(collectionDues, ({ dueOn }) => dueOn), [collectionDues]);
+  const overdue = showCollections ? collectionDues.filter(({ status }) => status === "OVERDUE") : [];
   function activitiesFor(date: string): CalendarActivity[] {
     return [...(meetingsByDate.get(date) ?? []), ...(remindersByDate.get(date) ?? [])]
       .sort((a, b) => (a.time ?? "24:00").localeCompare(b.time ?? "24:00"));
@@ -312,8 +318,9 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
   const agendaDays = (view === "Semana" ? Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)) : [selected])
     .map((date) => {
       const key = date.toISOString().slice(0, 10);
-      return { date, key, activities: view === "Día" ? dayActivities : activitiesFor(key) };
-    }).filter(({ activities }) => activities.length > 0);
+      const collections = showCollections ? (collectionsByDate.get(key) ?? []).filter(({ status }) => status !== "OVERDUE") : [];
+      return { date, key, collections, activities: view === "Día" ? dayActivities : activitiesFor(key) };
+    }).filter(({ activities, collections }) => activities.length > 0 || collections.length > 0);
   const agendaTitle = view === "Día" ? "Actividades del día" : "Actividades de la semana";
   const monthStart = monday(firstOfMonth(selected));
   const monthEnd = addDays(firstOfMonth(moveMonth(selected, 1)), -1);
@@ -390,6 +397,10 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
             <button type="button" className={control} onClick={() => navigate(1)} aria-label="Periodo siguiente"><ChevronRight size={17} /></button>
             <button type="button" className={control} onClick={() => setSelected(new Date(`${initialToday}T00:00:00Z`))}>Hoy</button>
           </div>
+          <button type="button" aria-pressed={showCollections} onClick={() => setShowCollections((current) => !current)}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-teal-700 ${showCollections ? "border-teal-200 bg-teal-50 text-teal-900 hover:bg-teal-100" : "border-border text-muted hover:bg-slate-50"}`}>
+            <Wallet size={16} aria-hidden="true" /> Cobros
+          </button>
           {meetingScope && (
             <nav aria-label="Filtro de reuniones" className="order-last flex flex-wrap rounded-xl border border-border bg-slate-50 p-1 sm:order-none sm:ml-auto">
               {meetingScopes.map(({ value, label }) => (
@@ -415,6 +426,17 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
 
         <h2 aria-live="polite" className="px-4 py-3 text-base font-semibold capitalize sm:px-5 sm:text-lg">{period}</h2>
 
+        {overdue.length > 0 && (
+          <section aria-label="Cobros vencidos" className="border-t border-rose-100 bg-rose-50/60 px-3 py-3 sm:px-5">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-rose-900">
+              Cobros vencidos <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs tabular-nums">{overdue.length}</span>
+            </h3>
+            <ul className="max-h-48 space-y-2 overflow-y-auto overscroll-contain">
+              {overdue.map((due) => <CalendarCollectionRow key={due.id} due={due} showExecutive={Boolean(meetingScope)} />)}
+            </ul>
+          </section>
+        )}
+
         {view === "Día" ? (
           <ul aria-label="Horarios del día" className="grid grid-cols-2 gap-2 border-t border-border p-3 sm:grid-cols-4 sm:p-5">
             {calendarTimeSlots.map((time) => (
@@ -436,18 +458,24 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
                 const isToday = key === initialToday;
                 const meetingCount = meetingsByDate.get(key)?.length ?? 0;
                 const reminderCount = remindersByDate.get(key)?.length ?? 0;
+                const collectionCount = showCollections ? collectionsByDate.get(key)?.length ?? 0 : 0;
                 const reminderLabel = reminderCount === 1 ? "1 recordatorio" : `${reminderCount} recordatorios`;
                 const outsideMonth = view === "Mes" && date.getUTCMonth() !== selected.getUTCMonth();
                 return (
-                  <button key={key} type="button" aria-label={[fullDate.format(date), reminderCount > 0 ? reminderLabel : "", meetingCount ? (meetingCount === 1 ? "1 reunión" : `${meetingCount} reuniones`) : ""].filter(Boolean).join(", ")} aria-current={isToday ? "date" : undefined}
+                  <button key={key} type="button" aria-label={[fullDate.format(date), reminderCount > 0 ? reminderLabel : "", meetingCount ? (meetingCount === 1 ? "1 reunión" : `${meetingCount} reuniones`) : "", collectionCount ? (collectionCount === 1 ? "1 cobro" : `${collectionCount} cobros`) : ""].filter(Boolean).join(", ")} aria-current={isToday ? "date" : undefined}
                     onClick={() => openDay(date)}
                     className={`min-w-0 p-1 text-center transition-colors hover:bg-primary/10 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${view === "Semana" ? "min-h-20 sm:min-h-24" : "min-h-14 sm:min-h-20"} ${outsideMonth ? "bg-slate-50 text-muted" : "bg-white text-foreground"}`}>
                     <span className="flex h-full flex-col items-center justify-start gap-1 pt-1">
                       {view === "Semana" && <span className="text-xs capitalize text-muted">{weekday.format(date)}</span>}
                       <span className={`grid size-7 place-items-center rounded-full text-sm tabular-nums ${isToday ? "bg-primary font-semibold text-white" : ""}`}>{date.getUTCDate()}</span>
-                      {reminderCount + meetingCount > 0 && <span className="flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary" aria-hidden="true">
-                        <span className="size-1.5 rounded-full bg-primary" />{reminderCount + meetingCount}
-                      </span>}
+                      <span className="flex max-w-full flex-wrap justify-center gap-1" aria-hidden="true">
+                        {reminderCount + meetingCount > 0 && <span className="flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                          <span className="size-1.5 rounded-full bg-primary" />{reminderCount + meetingCount}
+                        </span>}
+                        {collectionCount > 0 && <span className="flex items-center gap-1 rounded-full bg-teal-100 px-1.5 py-0.5 text-xs font-semibold text-teal-900">
+                          <Wallet size={11} />{collectionCount}
+                        </span>}
+                      </span>
                     </span>
                   </button>
                 );
@@ -459,13 +487,14 @@ export function DashboardCalendar({ initialClientKey, initialToday, initialRemin
           <section aria-label={agendaTitle} className="border-t border-border bg-slate-50/70 px-3 py-4 sm:px-5">
             <h3 className="text-base font-semibold">{agendaTitle}</h3>
             {agendaDays.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">No hay reuniones ni recordatorios {view === "Día" ? "este día" : "esta semana"}.</p>
+              <p className="mt-2 text-sm text-muted">No hay actividades programadas {view === "Día" ? "este día" : "esta semana"}.</p>
             ) : (
               <div className="mt-3 space-y-4">
-                {agendaDays.map(({ date, key, activities }) => (
+                {agendaDays.map(({ date, key, activities, collections }) => (
                   <div key={key}>
                     {view === "Semana" && <h4 className="mb-2 text-sm font-semibold capitalize">{fullDate.format(date)}</h4>}
                     <ul aria-label={fullDate.format(date)} className="space-y-2">
+                      {collections.map((due) => <CalendarCollectionRow key={`collection:${due.id}`} due={due} showExecutive={Boolean(meetingScope)} />)}
                       {activities.map((activity) => (
                         <ActivityRow key={`${"joinUrl" in activity ? "meeting" : "reminder"}:${activity.id}`}
                           activity={activity} clients={clients} onEdit={() => setActivityToEdit(activity)} onDelete={() => setActivityToDelete(activity)} />

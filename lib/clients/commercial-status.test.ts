@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { historicalQuoteDestination, summarizeCrmQuotes } from "./quote-crm";
+import type { Prisma } from "@prisma/client";
+import { advanceCrmForQuote, historicalQuoteDestination, summarizeCrmQuotes } from "./quote-crm";
 
 import {
   getAssignedExecutiveName,
@@ -89,4 +90,40 @@ test("la regularización mueve nuevos con cotización finalizada y rechazos sin 
   assert.equal(historicalQuoteDestination("NEGOTIATION", summaries.get("person:rechazada")), undefined);
   assert.equal(historicalQuoteDestination("NEW", summaries.get("person:ambas")), "QUOTED");
   assert.equal(historicalQuoteDestination("QUOTED", summaries.get("person:ambas")), undefined);
+});
+
+test("el envío mueve la empresa contactada y registra el cambio a nombre del ejecutivo que envió", async () => {
+  const findFirst = test.mock.fn<(query: unknown) => Promise<{ crmStage: string }>>(async () => ({ crmStage: "CONTACTED" }));
+  const updateMany = test.mock.fn<(query: unknown) => Promise<{ count: number }>>(async () => ({ count: 1 }));
+  const create = test.mock.fn();
+  const db = { business: { findFirst, updateMany }, clientCrmHistory: { create } } as unknown as Prisma.TransactionClient;
+
+  assert.equal(await advanceCrmForQuote(db, { clientId: "contacto", businessId: "empresa", number: "COT-42" }, "SENT", "envia@example.test"), true);
+  const active = { id: "empresa", deletedAt: null, crmArchiveState: null };
+  assert.deepEqual(findFirst.mock.calls[0].arguments[0], {
+    where: { ...active, crmStage: { in: ["NEW", "CONTACTED"] } },
+    select: { crmStage: true },
+  });
+  assert.deepEqual(updateMany.mock.calls[0].arguments[0], {
+    where: { ...active, crmStage: "CONTACTED" },
+    data: { crmStage: "QUOTED", crmPosition: null },
+  });
+  assert.deepEqual(create.mock.calls[0].arguments[0], { data: {
+    accountId: "empresa", event: "STAGE", fromState: "CONTACTED", toState: "QUOTED",
+    actorEmail: "envia@example.test", note: "Cotización COT-42 enviada.",
+  } });
+});
+
+test("el envío no pisa un cambio de etapa concurrente ni duplica el historial", async () => {
+  const findFirst = async () => ({ crmStage: "NEW" });
+  const updateMany = test.mock.fn<(query: unknown) => Promise<{ count: number }>>(async () => ({ count: 0 }));
+  const create = test.mock.fn();
+  const db = { client: { findFirst, updateMany }, clientCrmHistory: { create } } as unknown as Prisma.TransactionClient;
+
+  assert.equal(await advanceCrmForQuote(db, { clientId: "persona", businessId: null, number: "COT-42" }, "SENT", "envia@example.test"), false);
+  assert.deepEqual(updateMany.mock.calls[0].arguments[0], {
+    where: { id: "persona", businessId: null, deletedAt: null, crmArchiveState: null, crmStage: "NEW" },
+    data: { crmStage: "QUOTED" },
+  });
+  assert.equal(create.mock.callCount(), 0);
 });

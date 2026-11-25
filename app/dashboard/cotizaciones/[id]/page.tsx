@@ -36,7 +36,7 @@ function formatDate(value: string | null): string {
 
 type QuoteDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ editar?: string | string[] }>;
+  searchParams: Promise<{ editar?: string | string[]; enviar?: string | string[]; origen?: string | string[] }>;
 };
 
 export default function QuoteDetailPage({ params, searchParams }: QuoteDetailPageProps) {
@@ -50,7 +50,8 @@ export default function QuoteDetailPage({ params, searchParams }: QuoteDetailPag
 async function QuoteDetailContent({ params, searchParams }: QuoteDetailPageProps) {
   await requireAdminSession();
 
-  const { editar } = await searchParams;
+  const { editar, enviar, origen } = await searchParams;
+  const fromClientBoard = origen === "clientes";
   let quote: QuoteRecord | null = null;
   let loadError = false;
 
@@ -94,7 +95,7 @@ async function QuoteDetailContent({ params, searchParams }: QuoteDetailPageProps
         icon="cotizaciones"
         eyebrow="Cotización"
         title={quote.number}
-        action={{ label: "Volver", href: "/dashboard/cotizaciones", icon: "back", variant: "secondary" }}
+        action={{ label: fromClientBoard ? "Volver a clientes" : "Volver", href: fromClientBoard ? "/dashboard/clientes" : "/dashboard/cotizaciones", icon: "back", variant: "secondary" }}
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -166,7 +167,8 @@ async function QuoteDetailContent({ params, searchParams }: QuoteDetailPageProps
           </div>
         </section>
 
-        <QuoteDetailActions key={quote.id} quote={quote} initialEditOpen={editar === "1"} />
+        <QuoteDetailActions key={quote.id} quote={quote} initialEditOpen={editar === "1"}
+          fromClientBoard={fromClientBoard} initialSendOpen={fromClientBoard && enviar === "1" && editar !== "1"} />
       </div>
     </div>
   );

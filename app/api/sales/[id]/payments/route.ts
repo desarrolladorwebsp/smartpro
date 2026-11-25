@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 import { requireAdminSession } from "@/lib/auth";
 import { addSalePayment, updateSalePayment } from "@/lib/sales/repository";
@@ -6,6 +7,11 @@ import { addSalePayment, updateSalePayment } from "@/lib/sales/repository";
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+function refreshCollectionViews() {
+  revalidatePath("/dashboard/calendario");
+  revalidatePath("/dashboard/ventas");
+}
 
 export async function POST(request: Request, context: RouteContext) {
   let session: Awaited<ReturnType<typeof requireAdminSession>>;
@@ -35,6 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
       createdByEmail: session.email,
     });
 
+    refreshCollectionViews();
     return NextResponse.json({ sale }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo registrar el abono.";
@@ -69,6 +76,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       removeReceipt: String(formData.get("removeReceipt") ?? "") === "true",
     });
 
+    refreshCollectionViews();
     return NextResponse.json({ sale }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo actualizar el pago.";

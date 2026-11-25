@@ -1,8 +1,8 @@
 import { formatCurrency } from "../orders/service";
-import type { AdminNotificationDraft, AdminNotificationType } from "./types";
+import type { AdminNotificationDraft } from "./types";
 
 function draft(
-  type: AdminNotificationType,
+  type: AdminNotificationDraft["type"],
   input: {
     title: string;
     body: string;

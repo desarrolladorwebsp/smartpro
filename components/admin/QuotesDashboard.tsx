@@ -3,6 +3,7 @@
 import { commercialClientFilters, recordBelongsToClient, type CommercialClient } from "@/lib/clients/commercial-clients";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
@@ -37,10 +38,12 @@ type QuotesDashboardProps = {
   accounts: CommercialClient[];
   initialClientId?: string;
   initialCreateOpen: boolean;
+  initialFromClientBoard: boolean;
   authorNames: Record<string, string>;
 };
 
-export function QuotesDashboard({ initialQuotes, accounts, initialClientId, initialCreateOpen, authorNames }: QuotesDashboardProps) {
+export function QuotesDashboard({ initialQuotes, accounts, initialClientId, initialCreateOpen, initialFromClientBoard, authorNames }: QuotesDashboardProps) {
+  const router = useRouter();
   const [quotes, setQuotes] = useState(initialQuotes);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "ALL">("ALL");
@@ -48,6 +51,7 @@ export function QuotesDashboard({ initialQuotes, accounts, initialClientId, init
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(initialCreateOpen);
+  const [fromClientBoard, setFromClientBoard] = useState(initialFromClientBoard);
   const [successMessage, setSuccessMessage] = useState("");
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
 
@@ -184,15 +188,24 @@ export function QuotesDashboard({ initialQuotes, accounts, initialClientId, init
         open={isCreateOpen}
         onClose={() => {
           setIsCreateOpen(false);
+          setFromClientBoard(false);
           const url = new URL(window.location.href);
           if (url.searchParams.has("nueva")) {
             url.searchParams.delete("nueva");
+            url.searchParams.delete("origen");
             window.history.replaceState(null, "", url);
           }
         }}
         accounts={accounts}
         initialAccountId={accounts.some((entry) => entry.id === clientFilter) ? clientFilter : undefined}
-        onCreated={(quote) => {
+        fromClientBoard={fromClientBoard}
+        onCreated={(quote, intent) => {
+          if (fromClientBoard) {
+            router.replace(intent === "send"
+              ? `/dashboard/cotizaciones/${encodeURIComponent(quote.id)}?origen=clientes&enviar=1`
+              : `/dashboard/clientes?cotizacion=guardada`);
+            return;
+          }
           setQuotes((current) => [quote, ...current.filter((entry) => entry.id !== quote.id)]);
           setSearch("");
           setStatusFilter("ALL");

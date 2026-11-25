@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
@@ -9,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminSession();
+    const session = await requireAdminSession();
     const { id } = await params;
     const quote = await getQuoteById(id);
 
@@ -33,7 +34,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       );
     }
 
-    const sent = await markQuoteSent(quote.id);
+    const sent = await markQuoteSent(quote.id, session.email);
+    revalidatePath("/dashboard/clientes");
     return NextResponse.json({ quote: sent, delivered: true }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo enviar la cotización.";

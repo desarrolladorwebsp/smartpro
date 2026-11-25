@@ -8,6 +8,7 @@ type ConfirmActionModalProps = {
   cancelLabel?: string;
   busyLabel?: string;
   isBusy?: boolean;
+  error?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -20,6 +21,7 @@ export function ConfirmActionModal({
   cancelLabel = "Cancelar",
   busyLabel,
   isBusy = false,
+  error,
   onConfirm,
   onCancel,
 }: ConfirmActionModalProps) {
@@ -40,6 +42,7 @@ export function ConfirmActionModal({
         <p id="confirm-action-description" className="mt-2 text-sm leading-6 text-muted">
           {description}
         </p>
+        {error && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"

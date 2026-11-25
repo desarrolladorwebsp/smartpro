@@ -10,6 +10,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { calendarToday } from "@/lib/calendar-slots";
 import { listAssignableExecutives } from "@/lib/executives/repository";
 import { readCalendarNotificationTargets } from "@/lib/calendar-notification-targets";
+import { listCollectionDues } from "@/lib/sales/collection-repository";
 
 type CalendarPageProps = { searchParams: Promise<{ cliente?: string | string[]; reuniones?: string | string[] }> };
 
@@ -40,7 +41,7 @@ async function CalendarContent({ searchParams }: CalendarPageProps) {
       },
     });
   };
-  const [records, businesses, reminders, zoomMeetings, executives] = await Promise.all([
+  const [records, businesses, reminders, zoomMeetings, executives, collectionDues] = await Promise.all([
     listClients(),
     listBusinesses(),
     db.calendarReminder.findMany({
@@ -50,6 +51,7 @@ async function CalendarContent({ searchParams }: CalendarPageProps) {
     }),
     zoomMeetingsRequest(),
     executivesRequest,
+    listCollectionDues(session),
   ]);
   const participants = executives.map(({ id, firstName, lastName }) => ({
     id, name: [firstName, lastName].filter(Boolean).join(" "),
@@ -60,6 +62,7 @@ async function CalendarContent({ searchParams }: CalendarPageProps) {
   const initialClientKey = clients.find((client) => client.id === cliente)?.id ?? "";
   return <DashboardCalendar key={initialClientKey} initialClientKey={initialClientKey} initialToday={calendarToday()} zoomConfigured={Boolean(zoomCalendarConfig())} clients={clients} participants={participants}
     meetingScope={meetingScope}
+    collectionDues={initialClientKey ? collectionDues.filter(({ clientKey }) => clientKey === initialClientKey) : collectionDues}
     initialMeetings={zoomMeetings.flatMap(({ ownerEmail: organizer, clientInvitationEmail, notificationTargets, clientInvitationFailure, ...meeting }) => {
       if (!meeting.joinUrl) return [];
       const isOwner = organizer.toLowerCase() === ownerEmail;

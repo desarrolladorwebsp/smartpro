@@ -12,6 +12,32 @@ import {
   saleRegisteredNotification,
 } from "./copy";
 import { isMissingAdminNotificationTableError } from "./schema";
+import { collectionAlertDates, collectionAlertsForUser } from "../sales/collection-alerts";
+
+test("los avisos de cobro corresponden a hoy y mañana en Chile, con saldo vigente y por responsable", () => {
+  const now = new Date("2026-11-25T01:00:00.000Z");
+  assert.deepEqual(collectionAlertDates(now), { today: "2026-11-24", tomorrow: "2026-11-25" });
+  const due = { saleId: "s-1", saleNumber: "VEN-1", clientName: "Prueba", remaining: 60000 };
+  const dues = [
+    { ...due, id: "hoy", dueOn: "2026-11-24", executiveId: "owner" },
+    { ...due, id: "mañana", dueOn: "2026-11-25", executiveId: "owner" },
+    { ...due, id: "otro", dueOn: "2026-11-24", executiveId: "other" },
+    { ...due, id: "pagado", dueOn: "2026-11-24", remaining: 0, executiveId: "owner" },
+    { ...due, id: "vencido", dueOn: "2026-11-23", executiveId: "owner" },
+    { ...due, id: "sin-asignar", dueOn: "2026-11-25", executiveId: null },
+  ];
+  const executive = { email: "responsable@example.test", role: "EXECUTIVE" as const };
+  const reminders = collectionAlertsForUser(dues, executive, "owner", now);
+  assert.deepEqual(reminders.map(({ title }) => title), ["Cobro que vence hoy", "Cobro que vence mañana"]);
+  assert.match(reminders[0].body, /60\.000/);
+  assert.equal(reminders[0].href, "/dashboard/ventas/s-1");
+  assert.deepEqual(collectionAlertsForUser(dues, executive, "unknown", now), []);
+  assert.equal(collectionAlertsForUser(dues, { email: "admin@example.test", role: "ADMIN" }, "admin", now).length, 1);
+  assert.deepEqual(collectionAlertsForUser(dues, executive, "owner", new Date("2026-11-25T02:00:00.000Z")).map(({ id }) => id), reminders.map(({ id }) => id));
+  const nextDay = collectionAlertsForUser(dues, executive, "owner", new Date("2026-11-25T15:00:00.000Z"));
+  assert.equal(nextDay[0].title, "Cobro que vence hoy");
+  assert.notEqual(nextDay[0].id, reminders[1].id);
+});
 
 test("arma avisos de cliente, cotización, pago y venta con enlace al dashboard", () => {
   const client = clientCreatedNotification({

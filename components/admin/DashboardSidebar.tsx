@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
@@ -48,10 +49,14 @@ const sidebarAccountStyle = "flex items-center gap-2.5 rounded-xl px-1 py-1.5";
 
 function SidebarBrand() {
   return (
-    <span className="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-      <span aria-hidden="true" className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#9846ee] to-primary text-base">SP</span>
-      SmartPro
-    </span>
+    <Image
+      src="/images/logo/logo-smartpro-full.png"
+      alt="SmartPro"
+      width={168}
+      height={56}
+      loading="eager"
+      className="h-auto max-w-full"
+    />
   );
 }
 

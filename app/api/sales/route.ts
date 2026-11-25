@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
+import { listSaleCollectionSummaries } from "@/lib/sales/collection-repository";
 import { convertQuoteToSale, createDirectSale, DirectSaleRequestConflict, listSales } from "@/lib/sales/repository";
 
 export async function GET() {
+  let session: Awaited<ReturnType<typeof requireAdminSession>>;
   try {
-    await requireAdminSession();
+    session = await requireAdminSession();
   } catch {
     return NextResponse.json({ error: "No se pudieron cargar las ventas." }, { status: 401 });
   }
 
   try {
-    const sales = await listSales();
-    return NextResponse.json({ sales }, { status: 200, headers: { "Cache-Control": "no-store" } });
+    const [sales, collections] = await Promise.all([listSales(), listSaleCollectionSummaries(session)]);
+    return NextResponse.json({ sales, collections }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[smartpro:sales:list]", error);
     return NextResponse.json({ error: "No se pudieron cargar las ventas." }, { status: 500 });

@@ -29,6 +29,10 @@ const QUOTE_COLUMN_ADDITIONS = [
     "discountAmount",
     "ALTER TABLE `Quote` ADD COLUMN `discountAmount` DECIMAL(12, 2) NOT NULL DEFAULT 0",
   ],
+  [
+    "crmAdvanceOnSendOnly",
+    "ALTER TABLE `Quote` ADD COLUMN `crmAdvanceOnSendOnly` BOOLEAN NOT NULL DEFAULT FALSE",
+  ],
 ] as const;
 
 async function quoteColumns(client: PrismaClient): Promise<Set<string>> {

@@ -4,7 +4,7 @@ import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { NotificationsPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { NotificationsDashboard } from "@/components/admin/NotificationsDashboard";
 import { requireAdminSession } from "@/lib/auth";
-import { listAdminNotifications } from "@/lib/notifications/repository";
+import { listDashboardNotifications } from "@/lib/notifications/dashboard";
 import type { AdminNotificationRecord } from "@/lib/notifications/types";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +18,13 @@ export default function NotificationsPage() {
 }
 
 async function NotificationsPageContent() {
-  await requireAdminSession();
+  const session = await requireAdminSession();
 
   let notifications: AdminNotificationRecord[] = [];
   let loadError = false;
 
   try {
-    notifications = await listAdminNotifications({ limit: 500 });
+    ({ notifications } = await listDashboardNotifications(session, { limit: 500 }));
   } catch (error) {
     console.error("[smartpro:dashboard:notificaciones] Error de conexión a la base de datos", error);
     loadError = true;

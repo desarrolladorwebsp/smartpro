@@ -14,6 +14,7 @@ import { listClients } from "@/lib/clients/repository";
 import { reactivatePausedCrmClients } from "@/lib/clients/crm-archive-repository";
 import { listCrmQuoteIndicators } from "@/lib/clients/quote-crm";
 import type { ClientRecord } from "@/lib/clients/types";
+import { listContactedClientsWithUnsentQuotes } from "@/lib/quotes/repository";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +33,14 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   let businesses: BusinessProfile[] = [];
   let executives: Awaited<ReturnType<typeof listAssignableExecutives>> = [];
   let quoteIndicators: Awaited<ReturnType<typeof listCrmQuoteIndicators>> = {};
+  let contactedWithUnsentQuotes: string[] = [];
   let loadError = false;
 
   try {
     await reactivatePausedCrmClients();
-    [clients, businesses, executives, quoteIndicators] = await Promise.all([listClients(), listBusinesses(), listAssignableExecutives(), listCrmQuoteIndicators()]);
+    [clients, businesses, executives, quoteIndicators, contactedWithUnsentQuotes] = await Promise.all([
+      listClients(), listBusinesses(), listAssignableExecutives(), listCrmQuoteIndicators(), listContactedClientsWithUnsentQuotes(),
+    ]);
   } catch (error) {
     console.error("[smartpro:dashboard:clientes] Error de conexión a la base de datos", error);
     loadError = true;
@@ -65,6 +69,7 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
     initialClients={clients}
     initialBusinesses={businesses}
     quoteIndicators={quoteIndicators}
+    contactedWithUnsentQuotes={contactedWithUnsentQuotes}
     assignable={executives.map(({ id, firstName, lastName, email }) => ({ id, firstName, lastName: lastName ?? "", email }))}
   />;
 }

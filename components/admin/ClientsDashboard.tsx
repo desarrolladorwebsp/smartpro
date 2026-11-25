@@ -1,12 +1,13 @@
 "use client";
 
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Plus, Search, SlidersHorizontal } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
 import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { CalendarSlotDialog } from "@/components/admin/CalendarSlotDialog";
 import { ClientQuickView } from "@/components/admin/ClientQuickView";
+import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { NotificationCenter } from "@/components/admin/NotificationCenter";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
@@ -53,10 +54,11 @@ function parseCollapsedCards(snapshot: string) {
   }
 }
 
-export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
+export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, contactedWithUnsentQuotes, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
   initialClients: ClientRecord[];
   initialBusinesses: BusinessProfile[];
   quoteIndicators: Record<string, CrmQuoteIndicator>;
+  contactedWithUnsentQuotes: string[];
   assignable: ClientAssignedExecutive[];
   preferenceKey: string;
   hasPaused: boolean;
@@ -64,6 +66,14 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   zoomConfigured: boolean;
 }) {
   const router = useRouter();
+  const quoteResult = useSearchParams().get("cotizacion");
+  const quoteMessage = quoteResult === "enviada" ? "Cotización enviada al cliente."
+    : quoteResult === "guardada" ? "Cotización guardada en la ficha del cliente." : "";
+  const dismissQuoteMessage = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cotizacion");
+    window.history.replaceState(null, "", url);
+  }, []);
   useEffect(() => {
     if (!hasPaused) return;
     const timer = window.setInterval(() => router.refresh(), 60_000);
@@ -162,6 +172,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
 
   return (
     <div className={`flex min-w-0 flex-col gap-4 ${view === "board" ? "lg:h-[max(36rem,calc(100dvh-4rem))]" : ""}`}>
+      {quoteMessage && <DashboardSuccessToast message={quoteMessage} onDismiss={dismissQuoteMessage} />}
       <header className="sticky top-16 z-20 -mx-4 grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 bg-[#f7f7fb] px-4 py-1.5 sm:-mx-6 sm:px-6 lg:top-0 lg:mx-0 lg:px-0 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-3 2xl:min-h-15 2xl:gap-4">
         <h1 className="min-w-0 text-3xl font-bold tracking-[-0.05em] text-navy sm:text-4xl 2xl:text-[2.65rem]">Clientes</h1>
         <div role="group" aria-label="Controles de clientes" className="relative z-10 order-last col-span-2 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-2 shadow-sm xl:order-none xl:col-span-1 xl:flex-nowrap">
@@ -260,7 +271,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
       </header>
       {scheduleMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{scheduleMessage}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} quoteIndicators={quoteIndicators} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
+      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} quoteIndicators={quoteIndicators} contactedWithUnsentQuotes={contactedWithUnsentQuotes} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
         onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}

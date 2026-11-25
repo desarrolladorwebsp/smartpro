@@ -1,13 +1,14 @@
 "use client";
 
 import { CommercialRecipientFields } from "@/components/admin/CommercialRecipientFields";
-import { personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+import { commercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 import { formatCurrency } from "@/lib/orders/service";
 import { quoteDepositAmounts } from "@/lib/quotes/fields";
+import { paymentScheduleText } from "@/lib/quotes/proposal";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
 import { parseSaleClpInput } from "@/lib/sales/amounts";
 import {
@@ -28,6 +29,8 @@ type SaleCreateModalProps = {
   onClose: () => void;
   accounts: CommercialClient[];
   initialAccountId?: string;
+  initialQuote?: QuoteForSaleConversion | null;
+  onQuoteAlreadyConverted?: () => void;
   onCreated?: (sale: SaleRecord) => void;
 };
 
@@ -50,15 +53,16 @@ export function SaleCreateModal({ open, ...props }: SaleCreateModalProps) {
   return <SaleCreateForm {...props} />;
 }
 
-function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit<SaleCreateModalProps, "open">) {
+function SaleCreateForm({ onClose, accounts, initialAccountId, initialQuote, onQuoteAlreadyConverted, onCreated }: Omit<SaleCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
   const directRequest = useRef<{ key: string; details: string; receipt: File | null } | null>(null);
   const quotesRequestRef = useRef(0);
-  const [entryMode, setEntryMode] = useState<SaleEntryMode>("DIRECT");
-  const [clientId, setClientId] = useState(initialAccountId ?? "");
-  const [contactId, setContactId] = useState("");
-  const [quoteId, setQuoteId] = useState("");
-  const [quotes, setQuotes] = useState<QuoteForSaleConversion[]>([]);
+  const [entryMode, setEntryMode] = useState<SaleEntryMode>(initialQuote ? "QUOTE" : "DIRECT");
+  const [clientId, setClientId] = useState(() => initialQuote
+    ? commercialClientId(initialQuote.quote.clientId, initialQuote.quote.businessId) : initialAccountId ?? "");
+  const [contactId, setContactId] = useState(initialQuote?.quote.clientId ?? "");
+  const [quoteId, setQuoteId] = useState(initialQuote?.quote.id ?? "");
+  const [quotes, setQuotes] = useState<QuoteForSaleConversion[]>(() => initialQuote ? [initialQuote] : []);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState("");
   const [serviceName, setServiceName] = useState("");
@@ -181,7 +185,9 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
     () => quotes.find((entry) => entry.quote.id === quoteId) ?? null,
     [quotes, quoteId],
   );
-  const selectedQuote: QuoteRecord | null = selectedOption?.convertible ? selectedOption.quote : null;
+  const selectedQuote: QuoteRecord | null = selectedOption?.quote ?? null;
+  const quoteConvertible = Boolean(selectedOption?.convertible);
+  const paymentFieldsDisabled = isSaving || Boolean(initialQuote && !quoteConvertible);
   const deposit = selectedQuote && selectedQuote.proposal?.showDeposit !== false ? quoteDepositAmounts(selectedQuote) : null;
   const directNetAmount = parseSaleClpInput(netAmount);
   const directAmountsValid =
@@ -198,7 +204,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
     receivedAmount <= activeTotal;
   const canSubmit = entryMode === "DIRECT"
     ? Boolean(clientId && contactId && serviceName.trim() && soldAt && directAmountsValid && directTotal > 0 && receivedAmountValid && (receivedAmount === 0 || paymentMethod))
-    : Boolean(selectedQuote && receivedAmountValid && (receivedAmount === 0 || paymentMethod));
+    : quoteConvertible && receivedAmountValid && (receivedAmount === 0 || Boolean(paymentMethod));
 
   async function create() {
     if (isSavingRef.current) return;
@@ -211,8 +217,8 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
       setSubmitError("Selecciona un contacto.");
       return;
     }
-    if (entryMode === "QUOTE" && !selectedQuote) {
-      setSubmitError("Selecciona una cotización válida.");
+    if (entryMode === "QUOTE" && !quoteConvertible) {
+      setSubmitError(selectedOption?.reason ?? "Selecciona una cotización válida.");
       return;
     }
     if (entryMode === "DIRECT" && !serviceName.trim()) {
@@ -281,6 +287,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
       });
       const data = (await response.json().catch(() => ({}))) as { sale?: SaleRecord; error?: string };
       if (!response.ok || !data.sale) {
+        if (response.status === 409 && initialQuote) onQuoteAlreadyConverted?.();
         throw new Error(data.error ?? "No se pudo registrar la venta.");
       }
 
@@ -306,10 +313,10 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">Ventas</p>
             <h2 id="sale-create-title" className="mt-1 text-2xl font-bold tracking-[-0.05em] text-foreground">
-              Nueva venta
+              {initialQuote ? "Cerrar venta" : "Nueva venta"}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {entryMode === "DIRECT"
+              {initialQuote ? "Revisa la cotización aceptada. Si queda saldo, podrás definir las fechas de cobro al registrar la venta." : entryMode === "DIRECT"
                 ? "Registra una venta directa aunque no exista una cotización. Puedes dejar saldo pendiente."
                 : "Convierte una cotización existente y registra cuánto se recibió ahora."}
             </p>
@@ -326,7 +333,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1">
+          {!initialQuote && <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1">
             <button
               type="button"
               onClick={() => changeEntryMode("DIRECT")}
@@ -345,10 +352,10 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
             >
               Desde cotización
             </button>
-          </div>
+          </div>}
 
           <CommercialRecipientFields accounts={accounts} accountId={clientId} onAccountChange={selectClient}
-            contacts={contacts} contactId={contactId} loading={isLoadingQuotes} disabled={isSaving}
+            contacts={contacts} contactId={contactId} loading={isLoadingQuotes} disabled={isSaving || Boolean(initialQuote)}
             onContactChange={(id) => { setContactId(id); setQuoteId(""); setPaidAmount("0"); setPaymentMethod(""); setReceipt(null); setSubmitError(""); }} />
 
           {entryMode === "QUOTE" ? (
@@ -366,7 +373,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
                     setReceipt(null);
                   }}
                   className="dashboard-field"
-                  disabled={!contactId || isLoadingQuotes || isSaving}
+                  disabled={!contactId || isLoadingQuotes || isSaving || Boolean(initialQuote)}
                 >
                   <option value="">{isLoadingQuotes ? "Cargando cotizaciones..." : "Selecciona una cotización"}</option>
                   {visibleQuotes.map((entry) => (
@@ -439,12 +446,15 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
                 </div>
               </div>
               <ul className="mt-4 space-y-2 text-sm">
-                {selectedQuote.items.map((item) => (
+                {selectedQuote.items.map((item, index) => (
                   <li key={item.id} className="flex items-start justify-between gap-3">
-                    <span>
+                    <div className="min-w-0">
                       {item.planName}
                       {item.quantity > 1 ? ` × ${item.quantity}` : ""}
-                    </span>
+                      {selectedQuote.proposal?.payments[index] && <p className="mt-0.5 text-xs text-muted">
+                        {paymentScheduleText(selectedQuote.proposal.payments[index])}
+                      </p>}
+                    </div>
                     <span className="shrink-0 font-medium">{formatCurrency(item.total)}</span>
                   </li>
                 ))}
@@ -463,6 +473,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
             </div>
           ) : null}
 
+          {initialQuote?.reason && <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">{initialQuote.reason}</p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1.5 block text-sm font-semibold text-foreground">
@@ -474,7 +485,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
                 value={paidAmount}
                 onChange={(event) => setPaidAmount(event.target.value)}
                 className="dashboard-field"
-                disabled={isSaving || activeTotal <= 0}
+                disabled={paymentFieldsDisabled || activeTotal <= 0}
               />
               <p className="mt-1.5 text-xs text-muted">0 deja la venta como deuda. Puedes registrar el abono o el total.</p>
               {!receivedAmountValid ? <p className="mt-1 text-xs text-red-700" role="alert">Ingresa un monto válido, hasta {formatCurrency(activeTotal)}.</p> : null}
@@ -485,7 +496,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as SaleManualPaymentMethod | "")}
                 className="dashboard-field"
-                disabled={isSaving || receivedAmount <= 0 || activeTotal <= 0}
+                disabled={paymentFieldsDisabled || receivedAmount <= 0 || activeTotal <= 0}
               >
                 <option value="">Selecciona un medio de pago</option>
                 {SALE_MANUAL_PAYMENT_METHODS.map((method) => (
@@ -500,7 +511,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
             </label>
           </div>
 
-          <button type="button" onClick={() => setPaidAmount(String(activeTotal))} disabled={isSaving || activeTotal <= 0} className="rounded-full border border-border px-3 py-2 text-sm font-semibold text-primary disabled:opacity-50">
+          <button type="button" onClick={() => setPaidAmount(String(activeTotal))} disabled={paymentFieldsDisabled || activeTotal <= 0} className="rounded-full border border-border px-3 py-2 text-sm font-semibold text-primary disabled:opacity-50">
             Registrar pago completo · {formatCurrency(activeTotal)}
           </button>
 
@@ -511,7 +522,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
               onChange={(event) => setObservation(event.target.value.slice(0, SALE_OBSERVATION_MAX_LENGTH))}
               className="dashboard-field min-h-24 resize-y"
               placeholder="Opcional. Notas internas de la venta."
-              disabled={isSaving}
+              disabled={paymentFieldsDisabled}
               maxLength={SALE_OBSERVATION_MAX_LENGTH}
             />
           </label>
@@ -522,7 +533,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
               key={`${entryMode}:${clientId}:${contactId}:${quoteId}`}
               type="file"
               accept={SALE_RECEIPT_ACCEPT}
-              disabled={isSaving}
+              disabled={paymentFieldsDisabled}
               onChange={(event) => {
                 const file = event.target.files?.[0] ?? null;
                 setReceipt(file);
@@ -547,7 +558,7 @@ function SaleCreateForm({ onClose, accounts, initialAccountId, onCreated }: Omit
               disabled={isSaving || !canSubmit}
               className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isSaving ? "Registrando..." : entryMode === "DIRECT" ? "Registrar venta" : "Convertir en venta"}
+              {isSaving ? "Registrando..." : initialQuote || entryMode === "DIRECT" ? "Registrar venta" : "Convertir en venta"}
             </button>
           </div>
         </div>

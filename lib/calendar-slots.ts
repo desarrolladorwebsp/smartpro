@@ -5,8 +5,8 @@ const chileDate = new Intl.DateTimeFormat("sv-SE", {
   day: "2-digit",
 });
 
-export function calendarToday() {
-  return chileDate.format(new Date());
+export function calendarToday(now = new Date()) {
+  return chileDate.format(now);
 }
 
 export function formatCalendarTime(time: string) {

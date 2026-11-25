@@ -1,6 +1,8 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { requireAdminSession } from "@/lib/auth";
+import { getCurrentAdminSession, requireAdminSession } from "@/lib/auth";
+import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
 import { parseQuoteItemInputs } from "@/lib/quotes/custom-item";
 import { parseQuoteDiscount } from "@/lib/quotes/pricing";
 import { getQuoteById, updateQuoteRecord, updateQuoteStatus } from "@/lib/quotes/repository";
@@ -57,6 +59,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       actorEmail: session.email,
     });
 
+    revalidatePath("/dashboard/clientes");
     return NextResponse.json({ quote }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo actualizar la cotización.";
@@ -66,9 +69,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAdminSession();
+    const session = await getCurrentAdminSession();
+    if (!session) return NextResponse.json({ error: "Inicia sesión para actualizar la cotización." }, { status: 401 });
     const { id } = await params;
-    const body = (await request.json().catch(() => ({}))) as { status?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { status?: unknown; clientKey?: unknown };
 
     if (!isQuoteStatus(body.status)) {
       return NextResponse.json({ error: "Estado de cotización inválido." }, { status: 400 });
@@ -81,7 +85,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       );
     }
 
-    const quote = await updateQuoteStatus(id, body.status, session.email);
+    const clientKey = typeof body.clientKey === "string" ? body.clientKey : "";
+    const decisionClient = clientKey.length <= 191 ? parseCommercialClientId(clientKey) : null;
+    if (body.clientKey !== undefined && (!decisionClient || (body.status !== "ACCEPTED" && body.status !== "REJECTED"))) {
+      return NextResponse.json({ error: "Decisión de cotización inválida." }, { status: 400 });
+    }
+
+    const quote = await updateQuoteStatus(id, body.status, session.email, decisionClient ?? undefined);
+    revalidatePath("/dashboard/clientes");
     return NextResponse.json({ quote }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo actualizar la cotización.";

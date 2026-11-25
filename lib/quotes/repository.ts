@@ -6,7 +6,7 @@ import { ensureAgencySchema } from "../agencies/schema";
 import { getSmartProFallback, parseAgencyIdentity, SMARTPRO_AGENCY_ID } from "../agencies/types";
 import { resolveCommercialRecipient } from "../clients/commercial-recipient";
 import { advanceCrmForQuote } from "../clients/quote-crm";
-import { parseContactSnapshot, personName } from "../clients/commercial-clients";
+import { commercialClientId, parseContactSnapshot, personName, type parseCommercialClientId } from "../clients/commercial-clients";
 import { parseBusinessRecipient } from "../clients/business";
 import { notifyQuoteCreated, notifyQuoteSent, notifyQuoteStatusChanged } from "../notifications/events";
 import { formatCurrency, TAX_RATE } from "../orders/service";
@@ -127,6 +127,31 @@ const quoteInclude = {
   client: true,
   items: true,
 } as const;
+
+type QuoteDecisionClient = NonNullable<ReturnType<typeof parseCommercialClientId>>;
+type QuoteDecisionStage = "CONTACTED" | "QUOTED";
+
+const quotesAwaitingDecision: Prisma.QuoteWhereInput[] = [
+  { status: "SENT" },
+  { status: "CREATED" },
+];
+const unsentCreatedQuote = { status: "CREATED", sentAt: null } satisfies Prisma.QuoteWhereInput;
+
+function quoteDecisionScope(client?: QuoteDecisionClient, stage?: QuoteDecisionStage): Prisma.QuoteWhereInput {
+  const visible = { deletedAt: null, crmArchiveState: null, crmStage: stage };
+  const business = { businessId: client?.id, business: { is: visible } };
+  const person = { clientId: client?.id, businessId: null, client: { is: { ...visible, businessId: null } } };
+  return { sale: null, ...(client ? client.kind === "business" ? business : person : { OR: [business, person] }) };
+}
+
+function contactedUnsentQuoteScope(client?: QuoteDecisionClient): Prisma.QuoteWhereInput {
+  return { ...quoteDecisionScope(client, "CONTACTED"), ...unsentCreatedQuote };
+}
+
+function quoteDecisionFilters(client: QuoteDecisionClient, includeAccepted = false): Prisma.QuoteWhereInput[] {
+  const quotedStates = includeAccepted ? [...quotesAwaitingDecision, { status: "ACCEPTED" } as const] : quotesAwaitingDecision;
+  return [contactedUnsentQuoteScope(client), { ...quoteDecisionScope(client, "QUOTED"), OR: quotedStates }];
+}
 
 function parseDateFilter(value: string | undefined, endOfDay = false): Date | undefined {
   if (!value) return undefined;
@@ -303,6 +328,37 @@ export async function listQuotesByClientId(clientId: string): Promise<QuoteRecor
   return listQuotes({ clientId });
 }
 
+export async function listContactedClientsWithUnsentQuotes(): Promise<string[]> {
+  const db = getPrisma();
+  const quotes = await db.quote.findMany({
+    where: contactedUnsentQuoteScope(),
+    select: { clientId: true, businessId: true },
+    distinct: ["clientId", "businessId"],
+  });
+  return [...new Set(quotes.map(({ clientId, businessId }) => commercialClientId(clientId, businessId)))];
+}
+
+export async function listQuotesForDecision(client: QuoteDecisionClient) {
+  const db = getPrisma();
+  await ensureQuoteSchema(db);
+  const quotes = await db.quote.findMany({
+    where: { OR: quoteDecisionFilters(client, true) },
+    select: {
+      id: true, number: true, createdAt: true, validUntil: true, total: true, status: true,
+      items: { select: { planName: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], take: 1 },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+
+  return quotes.map(({ createdAt, validUntil, total, items, ...quote }) => ({
+    ...quote,
+    name: items[0]?.planName.trim() ?? "",
+    createdAt: createdAt.toISOString(),
+    validUntil: validUntil?.toISOString() ?? null,
+    total: decimalToNumber(total),
+  }));
+}
+
 export async function countQuotesByClientId(clientId: string): Promise<number> {
   return getPrisma().quote.count({ where: { clientId } });
 }
@@ -339,6 +395,7 @@ export async function createQuoteRecord(input: {
   discount?: QuoteDiscountInput;
   status?: QuoteStatus;
   createdByEmail: string;
+  origin?: "clients-board";
 }): Promise<QuoteRecord> {
   const prisma = getPrisma();
   await ensureQuoteSchema(prisma);
@@ -402,6 +459,7 @@ export async function createQuoteRecord(input: {
             agencyId: agency.id,
             agencySnapshot: agency,
             createdByEmail,
+            crmAdvanceOnSendOnly: input.origin === "clients-board",
             notes,
             proposal,
             validUntil,
@@ -419,7 +477,9 @@ export async function createQuoteRecord(input: {
           },
           include: quoteInclude,
         });
-        if (status === "CREATED") await advanceCrmForQuote(tx, quote, "FINALIZED", createdByEmail);
+        if (status === "CREATED" && !quote.crmAdvanceOnSendOnly) {
+          await advanceCrmForQuote(tx, quote, "FINALIZED", createdByEmail);
+        }
         return quote;
       });
 
@@ -550,7 +610,7 @@ export async function updateQuoteRecord(
       },
       include: quoteInclude,
     });
-    if (existing.status === "DRAFT" && status === "CREATED") {
+    if (existing.status === "DRAFT" && status === "CREATED" && !quote.crmAdvanceOnSendOnly) {
       await advanceCrmForQuote(tx, quote, "FINALIZED", input.actorEmail ?? quote.createdByEmail);
     }
     return quote;
@@ -559,25 +619,41 @@ export async function updateQuoteRecord(
   return toQuoteRecord(updated);
 }
 
-export async function updateQuoteStatus(id: string, status: QuoteStatus, actorEmail?: string): Promise<QuoteRecord> {
-  const existing = await getQuoteById(id);
+export async function updateQuoteStatus(id: string, status: QuoteStatus, actorEmail?: string, decisionClient?: QuoteDecisionClient): Promise<QuoteRecord> {
+  const db = getPrisma();
+  await ensureQuoteSchema(db);
+  await ensureAgencySchema(db);
+  const existing = await db.quote.findUnique({
+    where: { id, AND: decisionClient ? [quoteDecisionScope(decisionClient)] : undefined },
+    include: quoteInclude,
+  });
   if (!existing) {
-    throw new Error("La cotización no existe.");
+    throw new Error(decisionClient ? "La cotización no está disponible para este cliente." : "La cotización no existe.");
   }
 
   const nextStatus = parseQuoteStatus(status);
+  if (decisionClient && existing.status === nextStatus) return toQuoteRecord(existing);
   assertQuoteStatusTransition(existing.status, nextStatus);
 
-  const updated = await getPrisma().$transaction(async (tx) => {
+  const decisionScope = decisionClient ? { OR: quoteDecisionFilters(decisionClient), updatedAt: existing.updatedAt } : undefined;
+  const updated = await db.$transaction(async (tx) => {
     const quote = await tx.quote.update({
-      where: { id, status: existing.status },
+      where: { id, status: existing.status, AND: decisionScope ? [decisionScope] : undefined },
       data: { status: nextStatus },
       include: quoteInclude,
     });
-    if (existing.status !== nextStatus && (nextStatus === "CREATED" || nextStatus === "ACCEPTED")) {
+    if (
+      existing.status !== nextStatus &&
+      (nextStatus === "ACCEPTED" || (nextStatus === "CREATED" && !quote.crmAdvanceOnSendOnly))
+    ) {
       await advanceCrmForQuote(tx, quote, nextStatus === "ACCEPTED" ? "ACCEPTED" : "FINALIZED", actorEmail ?? quote.createdByEmail);
     }
     return quote;
+  }).catch((error: unknown) => {
+    if (decisionClient && error instanceof Prisma.PrismaClientKnownRequestError && ["P2025", "P2034"].includes(error.code)) {
+      throw new Error("La cotización cambió o ya no está disponible en esta etapa. Vuelve a cargar las cotizaciones.");
+    }
+    throw error;
   });
 
   const record = toQuoteRecord(updated);
@@ -585,7 +661,7 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus, actorEm
   return record;
 }
 
-export async function markQuoteSent(id: string): Promise<QuoteRecord> {
+export async function markQuoteSent(id: string, senderEmail: string): Promise<QuoteRecord> {
   const existing = await getQuoteById(id);
   if (!existing) {
     throw new Error("La cotización no existe.");
@@ -599,7 +675,7 @@ export async function markQuoteSent(id: string): Promise<QuoteRecord> {
       data: { status: "SENT", sentAt: new Date() },
       include: quoteInclude,
     });
-    if (existing.status === "DRAFT") await advanceCrmForQuote(tx, quote, "FINALIZED", quote.createdByEmail);
+    await advanceCrmForQuote(tx, quote, "SENT", senderEmail);
     return quote;
   });
 

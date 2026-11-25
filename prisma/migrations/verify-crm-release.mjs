@@ -41,6 +41,9 @@ const steps = [
   ["20261123183000_calendar_notification_targets"],
   ["20261124180000_crm_proposal_rejected", "Client", "crmStage", "PROPOSAL_REJECTED"],
   ["20261124180000_crm_proposal_rejected", "Business", "crmStage", "PROPOSAL_REJECTED"],
+  ["20261125110000_sale_collection_dues", "SaleCollectionDue", "id"],
+  ["20261125130200_sale_collection_alert_read", "SaleCollectionAlertRead", "id"],
+  ["20261125141500_quote_crm_advance_on_send", "Quote", "crmAdvanceOnSendOnly"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "ClientCrmHistory", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

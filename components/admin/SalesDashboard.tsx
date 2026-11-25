@@ -2,22 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardEmptyState } from "@/components/admin/DashboardEmptyState";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
+import { fetchSaleCollection, formatCollectionDate, SaleCollectionDialog } from "@/components/admin/SaleCollectionDialog";
 import { SaleCreateModal } from "@/components/admin/SaleCreateModal";
 import { SaleInvoiceModal } from "@/components/admin/SaleInvoiceModal";
 import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
 import { commercialClientFilters, recordBelongsToClient, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { formatCurrency } from "@/lib/orders/service";
+import type { SaleCollection, SaleCollectionSummary } from "@/lib/sales/collections";
 import { summarizeFilteredSales } from "@/lib/sales/summary";
 import {
   getSaleCollectionStatusLabel,
   getSalePaymentMethodLabel,
   getSaleStatusLabel,
   SALE_STATUSES,
+  type QuoteForSaleConversion,
   type SaleCollectionStatus,
   type SaleRecord,
   type SaleStatus,
@@ -45,36 +48,45 @@ function formatDate(value: string | null): string {
 
 type SalesDashboardProps = {
   initialSales: SaleRecord[];
+  initialCollections: Record<string, SaleCollectionSummary>;
   accounts: CommercialClient[];
   initialClientId?: string;
+  initialQuote: QuoteForSaleConversion | null;
+  quoteError: string;
 };
 
-export function SalesDashboard({ initialSales, accounts, initialClientId }: SalesDashboardProps) {
+export function SalesDashboard({ initialSales, initialCollections, accounts, initialClientId, initialQuote, quoteError }: SalesDashboardProps) {
   const router = useRouter();
   const [sales, setSales] = useState(initialSales);
+  const [collections, setCollections] = useState(initialCollections);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaleStatus | "ALL">("ALL");
-  const [collectionFilter, setCollectionFilter] = useState<"ALL" | "DUE">("ALL");
+  const [collectionFilter, setCollectionFilter] = useState<"ALL" | "DUE" | "UNSCHEDULED">("ALL");
   const [clientFilter, setClientFilter] = useState(initialClientId || "ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(Boolean(initialQuote));
   const [invoiceSale, setInvoiceSale] = useState<SaleRecord | null>(null);
   const [paymentSale, setPaymentSale] = useState<SaleRecord | null>(null);
+  const [collectionSale, setCollectionSale] = useState<{ saleId: string; initialCollection?: SaleCollection } | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const refreshVersion = useRef(0);
   const dismissSuccess = useCallback(() => setSuccessMessage(""), []);
   const closeCreate = useCallback(() => setIsCreateOpen(false), []);
   const closePayment = useCallback(() => setPaymentSale(null), []);
 
   const refreshSales = useCallback(async () => {
+    const version = ++refreshVersion.current;
     try {
       const salesResponse = await fetch("/api/sales", { cache: "no-store" });
 
       if (salesResponse.ok) {
-        const data = (await salesResponse.json()) as { sales?: SaleRecord[] };
+        const data = (await salesResponse.json()) as { sales?: SaleRecord[]; collections?: Record<string, SaleCollectionSummary> };
+        if (version !== refreshVersion.current) return;
         if (Array.isArray(data.sales)) {
           setSales(data.sales);
         }
+        if (data.collections) setCollections(data.collections);
       }
 
     } catch {
@@ -107,14 +119,16 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
           .toLowerCase()
           .includes(query);
       const matchesStatus = statusFilter === "ALL" || sale.status === statusFilter;
-      const matchesCollection = collectionFilter === "ALL" || (sale.status !== "CANCELLED" && sale.balanceDue > 0);
+      const hasBalance = sale.status !== "CANCELLED" && sale.balanceDue > 0;
+      const collection = collections[sale.id];
+      const matchesCollection = collectionFilter === "ALL" || (hasBalance && (collectionFilter === "DUE" || (collection && !collection.nextDue)));
       const matchesClient = clientFilter === "ALL" || (clientFilter.includes(":") ? recordBelongsToClient(sale, clientFilter) : sale.clientId === clientFilter);
       const soldAt = new Date(sale.soldAt);
       const matchesFrom = !fromDate || soldAt >= fromDate;
       const matchesTo = !toDate || soldAt <= toDate;
       return matchesSearch && matchesStatus && matchesCollection && matchesClient && matchesFrom && matchesTo;
     });
-  }, [sales, search, statusFilter, collectionFilter, clientFilter, from, to]);
+  }, [sales, collections, search, statusFilter, collectionFilter, clientFilter, from, to]);
 
   const listTotals = useMemo(() => summarizeFilteredSales(filteredSales), [filteredSales]);
 
@@ -124,13 +138,14 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
         icon="ventas"
         eyebrow="Gestión comercial"
         title="Ventas"
-        action={{ label: "Nueva venta", onClick: () => setIsCreateOpen(true), icon: "plus" }}
+        action={{ label: initialQuote ? "Completar venta" : "Nueva venta", onClick: () => setIsCreateOpen(true), icon: "plus" }}
         trailing={
           <p className="text-sm font-semibold text-muted">
             {sales.length} {sales.length === 1 ? "venta" : "ventas"}
           </p>
         }
       />
+      {quoteError && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">{quoteError}</p>}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[20px] border border-border bg-white p-4">
@@ -163,9 +178,10 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
               </option>
             ))}
           </select>
-          <select value={collectionFilter} onChange={(event) => setCollectionFilter(event.target.value as "ALL" | "DUE")} className="dashboard-field">
+          <select value={collectionFilter} onChange={(event) => setCollectionFilter(event.target.value as typeof collectionFilter)} aria-label="Filtrar cobros" className="dashboard-field">
             <option value="ALL">Todos los cobros</option>
             <option value="DUE">Con saldo</option>
+            <option value="UNSCHEDULED">Sin fecha de cobro</option>
           </select>
           <select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} className="dashboard-field">
             <option value="ALL">Todos los clientes</option>
@@ -245,6 +261,7 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${collectionStyles[sale.collectionStatus]}`}>
                         {getSaleCollectionStatusLabel(sale.collectionStatus)}
                       </span>
+                      {sale.balanceDue > 0 && collections[sale.id] && <SaleCollectionAction summary={collections[sale.id]} onClick={() => setCollectionSale({ saleId: sale.id })} />}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[sale.status]}`}>
@@ -311,17 +328,36 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
         onClose={closeCreate}
         accounts={accounts}
         initialAccountId={accounts.some((entry) => entry.id === clientFilter) ? clientFilter : undefined}
+        initialQuote={initialQuote}
+        onQuoteAlreadyConverted={() => router.refresh()}
         onCreated={(sale) => {
+          if (initialQuote) {
+            const saleUrl = `/dashboard/ventas/${encodeURIComponent(sale.id)}`;
+            router.replace(sale.balanceDue > 0 ? `${saleUrl}?cobro=1` : saleUrl);
+            return;
+          }
           setSales((current) => [sale, ...current.filter((entry) => entry.id !== sale.id)]);
           setSearch("");
           setStatusFilter("ALL");
+          setCollectionFilter("ALL");
           setClientFilter("ALL");
           setFrom("");
           setTo("");
           setSuccessMessage(`Venta ${sale.number} registrada correctamente.`);
+          if (sale.balanceDue > 0) {
+            void fetchSaleCollection(sale.id).then((collection) => {
+              if (collection.canSchedule && !collection.mode) setCollectionSale((current) => current ?? { saleId: sale.id, initialCollection: collection });
+            }).catch(() => {});
+          }
           void refreshSales();
         }}
       />
+      {collectionSale && <SaleCollectionDialog key={collectionSale.saleId} {...collectionSale} onClose={() => setCollectionSale(null)} onSaved={(collection) => {
+        setCollectionSale(null);
+        setCollections((current) => ({ ...current, [collection.saleId]: { nextDue: collection.installments.find((due) => due.remaining > 0) ?? null } }));
+        setSuccessMessage("Fechas de cobro guardadas.");
+        void refreshSales();
+      }} />}
       <SalePaymentModal
         sale={paymentSale}
         onClose={closePayment}
@@ -346,5 +382,14 @@ export function SalesDashboard({ initialSales, accounts, initialClientId }: Sale
       />
       {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}
     </div>
+  );
+}
+
+function SaleCollectionAction({ summary: { nextDue }, onClick }: { summary: SaleCollectionSummary; onClick: () => void }) {
+  return (
+    <button type="button" onClick={(event) => { event.stopPropagation(); onClick(); }}
+      className={`mt-1.5 block text-left text-xs font-semibold hover:underline ${nextDue?.status === "OVERDUE" ? "text-rose-700" : "text-primary"}`}>
+      {nextDue ? <><span>{nextDue.status === "OVERDUE" ? "Venció " : "Vence "}</span><time dateTime={nextDue.dueOn}>{formatCollectionDate(nextDue.dueOn)}</time></> : "Programar cobro"}
+    </button>
   );
 }

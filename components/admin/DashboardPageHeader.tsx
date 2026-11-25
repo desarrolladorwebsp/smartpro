@@ -27,6 +27,7 @@ type HeaderIconName = keyof typeof HEADER_ICONS;
 type HeaderAction = {
   label: string;
   href?: string;
+  prefetch?: false;
   onClick?: () => void;
   icon?: HeaderIconName;
   variant?: "primary" | "secondary";
@@ -102,7 +103,7 @@ function HeaderActionButton({ action }: { action: HeaderAction }) {
 
   if (action.href) {
     return (
-      <Link href={action.href} onClick={action.onClick} className={className}>
+      <Link href={action.href} prefetch={action.prefetch} onClick={action.onClick} className={className}>
         {content}
       </Link>
     );

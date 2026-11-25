@@ -1,14 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useId, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, GripVertical, StickyNote, UserRound } from "lucide-react";
+import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, FileCheck2, FileText, GripVertical, StickyNote, UserRound } from "lucide-react";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
 import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
+import { ClientQuoteDecisionDialog } from "@/components/admin/ClientQuoteDecisionDialog";
 
 const colors: Record<CrmColumn, { accent: string; dot: string }> = {
   NEW: { accent: "border-t-blue-500", dot: "bg-blue-500" },
@@ -33,10 +35,13 @@ const quoteStyles: Record<CrmQuoteIndicator, { label: string; tone: keyof typeof
   REJECTED: { label: "Cotización rechazada", tone: "red" },
 };
 
-export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
+const quoteActionClassName = "col-span-full inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-primary focus-visible:outline-primary lg:min-h-9";
+
+export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWithUnsentQuotes, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
   clients: CommercialClient[];
   columns: ReadonlyArray<{ id: CrmColumn; label: string }>;
   quoteIndicators: Record<string, CrmQuoteIndicator>;
+  contactedWithUnsentQuotes: string[];
   collapsed: ReadonlySet<string>;
   onCollapse: (ids: string[], compact: boolean) => void;
   onOpenClient: (id: string) => void;
@@ -47,6 +52,7 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
   onMoved: (id: string, stage: ClientCrmStage) => void;
 }) {
   const router = useRouter();
+  const contactedQuoteKeys = new Set(contactedWithUnsentQuotes);
   const boardId = useId();
   const [insertion, setInsertion] = useState<{ key: string; after: boolean } | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -59,6 +65,7 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
   const [archive, setArchive] = useState<{ client: CommercialClient; state: CrmArchiveState } | null>(null);
   const [rejecting, setRejecting] = useState<{ client: CommercialClient; position?: { key: string; after: boolean } } | null>(null);
   const [noteClient, setNoteClient] = useState<CommercialClient | null>(null);
+  const [quoteClient, setQuoteClient] = useState<CommercialClient | null>(null);
   const noteTrigger = useRef<HTMLButtonElement | null>(null);
   const saving = useRef(false);
   const draggedClient = useRef<CommercialClient | null>(null);
@@ -333,6 +340,17 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
                           className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-1.5 text-xs font-semibold text-primary hover:bg-primary/15 focus-visible:outline-primary lg:min-h-9">
                           <CalendarPlus size={15} aria-hidden="true" /> Agendar
                         </button>
+                        {(stage.id === "QUOTED" || (stage.id === "CONTACTED" && contactedQuoteKeys.has(client.id))) && <button type="button" draggable={false}
+                          onClick={() => { setFeedback(null); setQuoteClient(client); }}
+                          aria-label={`Resolver cotización de ${client.name}`}
+                          className={`${quoteActionClassName} border border-primary/25 bg-white text-center hover:bg-primary/5`}>
+                          <FileCheck2 size={15} className="shrink-0" aria-hidden="true" /> Resolver cotización
+                        </button>}
+                        {(stage.id === "NEW" || stage.id === "CONTACTED") && <Link href={`/dashboard/cotizaciones?clientId=${encodeURIComponent(client.id)}&nueva=1&origen=clientes`}
+                          prefetch={false} draggable={false} aria-label={`Cotizar para ${client.name}`}
+                          className={`${quoteActionClassName} bg-primary/10 hover:bg-primary/15`}>
+                          <FileText size={15} aria-hidden="true" /> Cotizar
+                        </Link>}
                         <div className="relative col-span-full">
                           <ArrowLeftRight size={15} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary" />
                           <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
@@ -396,6 +414,17 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, assignable, 
         closeNote();
         setFeedback({ error: false, message: `Nota guardada para ${noteClient.name}.` });
       }} />}
+      {quoteClient && <ClientQuoteDecisionDialog client={quoteClient} onClose={() => setQuoteClient(null)}
+        onAccepted={(quoteId, newlyAccepted) => {
+          if (newlyAccepted) onMoved(quoteClient.id, "NEGOTIATION");
+          setQuoteClient(null);
+          router.push(`/dashboard/ventas?cotizacion=${encodeURIComponent(quoteId)}`);
+        }}
+        onRejected={(number) => {
+          setQuoteClient(null);
+          setFeedback({ error: false, message: `La cotización ${number} quedó rechazada.` });
+          router.refresh();
+        }} />}
       {feedback && (
         <p role={feedback.error ? "alert" : "status"} className={feedback.error ? "text-sm text-red-700" : "text-sm text-emerald-700"}>
           {feedback.message}

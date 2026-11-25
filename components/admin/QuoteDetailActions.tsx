@@ -18,9 +18,11 @@ import {
 type QuoteDetailActionsProps = {
   quote: QuoteRecord;
   initialEditOpen: boolean;
+  fromClientBoard: boolean;
+  initialSendOpen: boolean;
 };
 
-export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailActionsProps) {
+export function QuoteDetailActions({ quote, initialEditOpen, fromClientBoard, initialSendOpen }: QuoteDetailActionsProps) {
   const router = useRouter();
   const [localUpdate, setLocalUpdate] = useState<{ source: QuoteRecord; value: QuoteRecord } | null>(null);
   const current = localUpdate?.source === quote ? localUpdate.value : quote;
@@ -29,7 +31,7 @@ export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailAction
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(initialEditOpen && canEditQuote(quote.status));
-  const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(false);
+  const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(initialSendOpen && Boolean(quote.clientEmail) && canSendQuote(quote.status));
 
   function setCurrent(value: QuoteRecord) {
     setLocalUpdate({ source: quote, value });
@@ -52,6 +54,10 @@ export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailAction
 
       setCurrent(data.quote);
       setIsSendConfirmOpen(false);
+      if (fromClientBoard) {
+        router.replace("/dashboard/clientes?cotizacion=enviada");
+        return;
+      }
       setMessage(`Cotización enviada a ${data.quote.clientEmail}.`);
       router.refresh();
     } catch {
@@ -114,7 +120,7 @@ export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailAction
       </div>
 
       {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700" role="status">{message}</p> : null}
-      {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p> : null}
+      {error && !isSendConfirmOpen ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p> : null}
 
       <div className="rounded-[20px] border border-border bg-slate-50/80 p-4">
         <p className="text-xs text-muted">Total</p>
@@ -141,7 +147,7 @@ export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailAction
 
       <button
         type="button"
-        onClick={() => setIsSendConfirmOpen(true)}
+        onClick={() => { setError(""); setIsSendConfirmOpen(true); }}
         disabled={sendDisabled}
         className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-primary to-magenta px-4 text-sm font-semibold text-white disabled:opacity-60"
       >
@@ -204,8 +210,15 @@ export function QuoteDetailActions({ quote, initialEditOpen }: QuoteDetailAction
         confirmLabel={current.status === "SENT" ? "Confirmar reenvío" : "Confirmar envío"}
         busyLabel="Enviando..."
         isBusy={isSending}
+        error={error}
         onCancel={() => {
-          if (!isSending) setIsSendConfirmOpen(false);
+          if (isSending) return;
+          setIsSendConfirmOpen(false);
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("enviar")) {
+            url.searchParams.delete("enviar");
+            window.history.replaceState(null, "", url);
+          }
         }}
         onConfirm={() => void sendQuote()}
       />

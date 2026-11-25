@@ -1,9 +1,11 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/auth";
+import { parseCommercialClientId } from "@/lib/clients/commercial-clients";
 import { parseQuoteItemInputs } from "@/lib/quotes/custom-item";
 import { parseQuoteDiscount } from "@/lib/quotes/pricing";
-import { createQuoteRecord, listQuotes } from "@/lib/quotes/repository";
+import { createQuoteRecord, listQuotes, listQuotesForDecision } from "@/lib/quotes/repository";
 import { isQuoteStatus, type QuoteStatus } from "@/lib/quotes/types";
 
 export async function GET(request: Request) {
@@ -15,6 +17,17 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("context") === "decision") {
+      const clientKey = searchParams.get("clientId") ?? "";
+      const client = parseCommercialClientId(clientKey);
+      if (!client || clientKey.length > 191) {
+        return NextResponse.json({ error: "Cliente inválido." }, { status: 400 });
+      }
+
+      const quotes = await listQuotesForDecision(client);
+      return NextResponse.json({ quotes }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+
     const statusParam = searchParams.get("status") ?? "ALL";
     const status = statusParam === "ALL" || isQuoteStatus(statusParam) ? statusParam : "ALL";
 
@@ -49,6 +62,7 @@ export async function POST(request: Request) {
       discountType?: unknown;
       discountValue?: unknown;
       status?: unknown;
+      origin?: unknown;
     };
 
     const quote = await createQuoteRecord({
@@ -64,8 +78,10 @@ export async function POST(request: Request) {
       discount: parseQuoteDiscount({ type: body.discountType, value: body.discountValue }),
       status: body.status === "DRAFT" ? "DRAFT" : "CREATED",
       createdByEmail: session.email,
+      origin: body.origin === "clients-board" ? body.origin : undefined,
     });
 
+    if (quote.status === "CREATED") revalidatePath("/dashboard/clientes");
     return NextResponse.json({ quote }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo crear la cotización.";

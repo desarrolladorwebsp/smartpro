@@ -8,6 +8,7 @@ export const ADMIN_NOTIFICATION_TYPES = [
   "ORDER_PAID",
   "SALE_REGISTERED",
   "PAYMENT_RECEIVED",
+  "SALE_COLLECTION_DUE",
 ] as const;
 
 export type AdminNotificationType = (typeof ADMIN_NOTIFICATION_TYPES)[number];
@@ -22,6 +23,7 @@ export const ADMIN_NOTIFICATION_TYPE_LABELS: Record<AdminNotificationType, strin
   ORDER_PAID: "Pago en línea",
   SALE_REGISTERED: "Venta registrada",
   PAYMENT_RECEIVED: "Abono recibido",
+  SALE_COLLECTION_DUE: "Vencimiento de cobro",
 };
 
 export type AdminNotificationRecord = {
@@ -38,7 +40,7 @@ export type AdminNotificationRecord = {
 };
 
 export type AdminNotificationDraft = {
-  type: AdminNotificationType;
+  type: Exclude<AdminNotificationType, "SALE_COLLECTION_DUE">;
   title: string;
   body: string;
   href: string;

@@ -8,6 +8,7 @@ import { parseSalePaymentAmount, roundClp } from "@/lib/sales/balances";
 import {
   getSalePaymentMethodLabel,
   getSaleReceiptValidationError,
+  SALE_MANUAL_PAYMENT_METHODS,
   SALE_OBSERVATION_MAX_LENGTH,
   SALE_PAYMENT_METHODS,
   SALE_RECEIPT_ACCEPT,
@@ -19,6 +20,7 @@ import {
 type SalePaymentModalProps = {
   sale: SaleRecord | null;
   payment?: SalePaymentRecord | null;
+  initialAmount?: number;
   onClose: () => void;
   onSaved?: (sale: SaleRecord) => void;
 };
@@ -32,15 +34,15 @@ function toDateInputValue(value?: string | null) {
   return `${year}-${month}-${day}`;
 }
 
-export function SalePaymentModal({ sale, payment = null, onClose, onSaved }: SalePaymentModalProps) {
+export function SalePaymentModal({ sale, payment = null, initialAmount, onClose, onSaved }: SalePaymentModalProps) {
   if (!sale) return null;
-  return <SalePaymentForm key={payment?.id ?? "new-payment"} sale={sale} payment={payment} onClose={onClose} onSaved={onSaved} />;
+  return <SalePaymentForm key={payment?.id ?? sale.id} sale={sale} payment={payment} initialAmount={initialAmount} onClose={onClose} onSaved={onSaved} />;
 }
 
-function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord; payment: SalePaymentRecord | null; onClose: () => void; onSaved?: (sale: SaleRecord) => void }) {
+function SalePaymentForm({ sale, payment, initialAmount, onClose, onSaved }: SalePaymentModalProps & { sale: SaleRecord; payment: SalePaymentRecord | null }) {
   const maximumAmount = roundClp(payment ? sale.balanceDue + payment.amount : sale.balanceDue);
   const isSavingRef = useRef(false);
-  const [amount, setAmount] = useState(String(roundClp(payment?.amount ?? sale.balanceDue)));
+  const [amount, setAmount] = useState(() => String(roundClp(payment?.amount ?? Math.min(initialAmount ?? sale.balanceDue, sale.balanceDue))));
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>(payment?.method ?? "transfer");
   const [paidAt, setPaidAt] = useState(() => toDateInputValue(payment?.paidAt));
   const [observation, setObservation] = useState(payment?.observation ?? "");
@@ -167,7 +169,7 @@ function SalePaymentForm({ sale, payment, onClose, onSaved }: { sale: SaleRecord
               className="dashboard-field"
               disabled={isSaving}
             >
-              {SALE_PAYMENT_METHODS.map((method) => (
+              {(payment ? SALE_PAYMENT_METHODS : SALE_MANUAL_PAYMENT_METHODS).map((method) => (
                 <option key={method} value={method}>{getSalePaymentMethodLabel(method)}</option>
               ))}
             </select>

@@ -74,7 +74,8 @@ type QuoteCreateModalProps = {
   accounts?: CommercialClient[];
   initialAccountId?: string;
   quote?: QuoteRecord | null;
-  onCreated?: (quote: QuoteRecord) => void;
+  fromClientBoard?: boolean;
+  onCreated?: (quote: QuoteRecord, intent: "save" | "send") => void;
 };
 
 function defaultValidUntil(): string {
@@ -136,7 +137,7 @@ export function QuoteCreateModal({ open, ...props }: QuoteCreateModalProps) {
   return <QuoteCreateForm {...props} />;
 }
 
-function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quote, onCreated }: Omit<QuoteCreateModalProps, "open">) {
+function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quote, fromClientBoard, onCreated }: Omit<QuoteCreateModalProps, "open">) {
   const isSavingRef = useRef(false);
   const hydratedQuoteId = useRef<string | null>(null);
   const [catalog, setCatalog] = useState<QuoteCatalogGroup[]>([]);
@@ -203,7 +204,7 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
     quote?.discountType && quote.discountType !== "NONE" ? String(quote.discountValue) : "",
   );
   const [submitError, setSubmitError] = useState("");
-  const [isSaving, setIsSaving] = useState<"DRAFT" | "CREATED" | null>(null);
+  const [isSaving, setIsSaving] = useState<"DRAFT" | "CREATED" | "SEND" | null>(null);
   const [pendingSaveStatus, setPendingSaveStatus] = useState<"DRAFT" | "CREATED" | null>(null);
 
   useEffect(() => {
@@ -463,18 +464,19 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
     void save(status);
   }
 
-  async function save(status: "DRAFT" | "CREATED") {
+  async function save(status: "DRAFT" | "CREATED", intent: "save" | "send" = "save") {
     if (isSavingRef.current) return;
     if (!canSubmit()) return;
 
     isSavingRef.current = true;
-    setIsSaving(status);
+    setIsSaving(intent === "send" ? "SEND" : status);
     setPendingSaveStatus(null);
     setSubmitError("");
 
     const payload = {
       clientId,
       ...(quote ? {} : { agencyId, accountId }),
+      ...(fromClientBoard ? { origin: "clients-board" } : {}),
       status,
       notes,
       ...(useProposal ? { proposal: proposalInput() } : {}),
@@ -508,8 +510,8 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
         return;
       }
 
-      onCreated?.(data.quote);
       onClose();
+      onCreated?.(data.quote, intent);
     } catch {
       setSubmitError("No se pudo guardar la cotización.");
     } finally {
@@ -1017,7 +1019,9 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
           <p className="text-xs leading-5 text-muted">
             {quote
               ? "Los cambios se guardan en SmartPro. El correo al cliente solo se envía si confirmas Enviar cotización."
-              : "Crear o guardar no envía el correo. El envío se hace después, desde el detalle, con confirmación."}
+              : fromClientBoard
+                ? "Puedes guardar la cotización o confirmar el envío por correo."
+                : "Crear o guardar no envía el correo. El envío se hace después, desde el detalle, con confirmación."}
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={Boolean(isSaving)} className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">
@@ -1028,7 +1032,7 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
                 {isSaving === "DRAFT" ? "Guardando..." : "Guardar borrador"}
               </button>
             ) : null}
-            <button type="button" onClick={() => requestSave("CREATED")} disabled={Boolean(isSaving)} className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60">
+            <button type="button" onClick={() => requestSave("CREATED")} disabled={Boolean(isSaving)} className={`min-h-11 rounded-full px-5 text-sm font-semibold disabled:opacity-60 ${fromClientBoard ? "border border-primary/25 text-primary" : "bg-gradient-to-r from-primary to-magenta text-white"}`}>
               {isSaving === "CREATED"
                 ? quote && quote.status !== "DRAFT"
                   ? "Guardando..."
@@ -1037,6 +1041,10 @@ function QuoteCreateForm({ onClose, client, accounts = [], initialAccountId, quo
                   ? "Guardar cambios"
                   : "Crear cotización"}
             </button>
+            {fromClientBoard && <button type="button" onClick={() => void save("CREATED", "send")} disabled={Boolean(isSaving) || !selectedContact?.email?.trim()}
+              className="min-h-11 rounded-full bg-gradient-to-r from-primary to-magenta px-5 text-sm font-semibold text-white disabled:opacity-60">
+              {isSaving === "SEND" ? "Creando..." : "Crear y enviar"}
+            </button>}
           </div>
         </div>
       </div>

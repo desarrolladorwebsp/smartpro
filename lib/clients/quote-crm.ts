@@ -93,12 +93,13 @@ export async function moveCrmStageForQuote(
 export function advanceCrmForQuote(
   tx: Prisma.TransactionClient,
   quote: QuoteOwner & { number: string },
-  event: "FINALIZED" | "ACCEPTED",
+  event: "FINALIZED" | "SENT" | "ACCEPTED",
   actorEmail: string,
 ) {
   const accepted = event === "ACCEPTED";
+  const action = { FINALIZED: "creada", SENT: "enviada", ACCEPTED: "aceptada" }[event];
   return moveCrmStageForQuote(tx, quote, accepted ? stageBeforeNegotiation : earlyStages, accepted ? "NEGOTIATION" : "QUOTED", {
     actorEmail,
-    note: `Cotización ${quote.number} ${accepted ? "aceptada" : "creada"}.`,
+    note: `Cotización ${quote.number} ${action}.`,
   });
 }

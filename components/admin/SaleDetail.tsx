@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DashboardPageHeader } from "@/components/admin/DashboardPageHeader";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
+import { SaleCollectionDialog, SaleCollectionDues } from "@/components/admin/SaleCollectionDialog";
 import { SaleInvoiceModal } from "@/components/admin/SaleInvoiceModal";
 import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
 import { formatCurrency } from "@/lib/orders/service";
+import type { SaleCollection } from "@/lib/sales/collections";
 import { type SaleInternalCommentRecord } from "@/lib/sales/comments";
 import {
   getSaleCollectionStatusLabel,
@@ -29,7 +31,13 @@ function formatDate(value: string | null) {
 const panelClass = "rounded-[24px] border border-border bg-white p-5 shadow-[0_18px_46px_rgba(16,16,36,0.04)] sm:p-6";
 const labelClass = "text-xs font-medium uppercase tracking-[0.14em] text-muted";
 
-export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
+export function SaleDetail({ initialSale, collection, openPaymentOnLoad, openCollectionOnLoad, fromCalendar }: {
+  initialSale: SaleRecord;
+  collection: SaleCollection | null;
+  openPaymentOnLoad: boolean;
+  openCollectionOnLoad: boolean;
+  fromCalendar: boolean;
+}) {
   const router = useRouter();
   const [sale, setSale] = useState(initialSale);
   const [comments, setComments] = useState<SaleInternalCommentRecord[]>([]);
@@ -37,28 +45,33 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState("");
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(openPaymentOnLoad);
+  const [collectionOpen, setCollectionOpen] = useState(openCollectionOnLoad);
   const [editingPayment, setEditingPayment] = useState<SalePaymentRecord | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceEmailSending, setInvoiceEmailSending] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const nextCollectionDue = collection?.installments.find((due) => due.remaining > 0);
+  const canSchedule = Boolean(collection) && !sale.archivedAt && sale.status !== "CANCELLED" && sale.balanceDue > 0;
 
-  const refreshComments = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/sales/${encodeURIComponent(sale.id)}/comments`, { cache: "no-store" });
-      const data = await response.json() as { comments?: SaleInternalCommentRecord[]; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "No se pudieron cargar los comentarios.");
-      setComments(data.comments ?? []);
-    } catch (error) {
-      setCommentError(error instanceof Error ? error.message : "No se pudieron cargar los comentarios.");
-    } finally {
-      setCommentsLoading(false);
-    }
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/sales/${encodeURIComponent(sale.id)}/comments`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json() as { comments?: SaleInternalCommentRecord[]; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "No se pudieron cargar los comentarios.");
+        if (!controller.signal.aborted) setComments(data.comments ?? []);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setCommentError(error instanceof Error ? error.message : "No se pudieron cargar los comentarios.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCommentsLoading(false);
+      });
+    return () => controller.abort();
   }, [sale.id]);
-
-  useEffect(() => { void refreshComments(); }, [refreshComments]);
 
   async function saveComment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,6 +135,7 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
       }
       setSale((current) => ({ ...current, archivedAt: null, archivedByEmail: null, archiveReason: null }));
       setSuccessMessage("Venta restaurada a la lista.");
+      router.refresh();
     } catch (error) {
       setArchiveError(error instanceof Error ? error.message : "No se pudo actualizar la venta.");
     } finally {
@@ -145,7 +159,9 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         icon="ventas"
         eyebrow="Detalle de venta"
         title={sale.number}
-        action={{ label: "Volver a ventas", href: "/dashboard/ventas", icon: "back", variant: "secondary" }}
+        action={fromCalendar
+          ? { label: "Volver al calendario", href: "/dashboard/calendario", prefetch: false, icon: "back", variant: "secondary" }
+          : { label: "Volver a ventas", href: "/dashboard/ventas", icon: "back", variant: "secondary" }}
         trailing={<span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold">{sale.archivedAt ? "Oculta" : getSaleStatusLabel(sale.status)}</span>}
       />
 
@@ -202,6 +218,20 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         ))}
       </section>
 
+      {collection && (canSchedule || collection.installments.length > 0) && (
+        <section className={panelClass} aria-labelledby="sale-collections-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="sale-collections-heading" className="text-lg font-bold">Cobros programados</h2>
+            {canSchedule && <button type="button" onClick={() => setCollectionOpen(true)} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-primary hover:border-primary/30">
+              {collection.mode ? "Editar fechas" : "Programar cobro"}
+            </button>}
+          </div>
+          {collection.installments.length > 0
+            ? <div className="mt-3"><SaleCollectionDues dues={collection.installments} /></div>
+            : <p className="mt-2 text-sm text-muted">Sin fecha de cobro</p>}
+        </section>
+      )}
+
       <section className={panelClass} aria-labelledby="payments-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div><p className={labelClass}>Historial</p><h2 id="payments-heading" className="mt-1 text-lg font-bold">Pagos y comprobantes</h2></div>
@@ -251,10 +281,16 @@ export function SaleDetail({ initialSale }: { initialSale: SaleRecord }) {
         </div>
       </section>
 
-      <SalePaymentModal sale={paymentOpen || editingPayment ? sale : null} payment={editingPayment} onClose={() => { setPaymentOpen(false); setEditingPayment(null); }} onSaved={(updated) => {
+      {collectionOpen && <SaleCollectionDialog saleId={sale.id} initialCollection={openCollectionOnLoad ? collection ?? undefined : undefined} onClose={() => setCollectionOpen(false)} onSaved={() => {
+        setCollectionOpen(false);
+        setSuccessMessage("Fechas de cobro guardadas.");
+        router.refresh();
+      }} />}
+      <SalePaymentModal sale={paymentOpen || editingPayment ? sale : null} payment={editingPayment} initialAmount={nextCollectionDue?.remaining} onClose={() => { setPaymentOpen(false); setEditingPayment(null); }} onSaved={(updated) => {
         const wasEditing = Boolean(editingPayment);
         setSale(updated); setPaymentOpen(false); setEditingPayment(null);
         setSuccessMessage(wasEditing ? "Pago y comprobante actualizados." : `Abono registrado en ${updated.number}.`);
+        router.refresh();
       }} />
       <SaleInvoiceModal sale={invoiceOpen ? sale : null} onClose={() => setInvoiceOpen(false)} onIssued={(updated) => {
         setSale(updated); setInvoiceOpen(false); setSuccessMessage(`Factura emitida para ${updated.number}.`);
