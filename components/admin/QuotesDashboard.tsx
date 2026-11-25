@@ -213,6 +213,7 @@ export function QuotesDashboard({ initialQuotes, accounts, initialClientId, init
           setFrom("");
           setTo("");
           setSuccessMessage(`Cotización ${quote.number} guardada. Aún no se envió al cliente.`);
+          if (quote.status === "CREATED") router.refresh();
         }}
       />
       {successMessage ? <DashboardSuccessToast message={successMessage} onDismiss={dismissSuccess} /> : null}
