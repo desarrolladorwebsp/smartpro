@@ -16,6 +16,10 @@ function readText(value: unknown, max: number) {
 export function matchesWebhookToken(headers: Headers, secret: string) {
   const supplied = headers.get("authorization") ?? headers.get("bearer") ?? "";
   const token = supplied.trim().replace(/^Bearer\s+/i, "");
+  return matchesToken(token, secret);
+}
+
+export function matchesToken(token: string, secret: string) {
   const hash = (value: string) => createHash("sha256").update(value).digest();
   return timingSafeEqual(hash(token), hash(secret));
 }
@@ -28,6 +32,26 @@ export function parseContactAction(value: unknown) {
 }
 
 export type ContactAction = NonNullable<ReturnType<typeof parseContactAction>>;
+
+export function parseIncomingContacts(events: unknown[], botId: string): ContactAction[] {
+  const contacts = new Map<string, ContactAction>();
+
+  for (const event of events) {
+    const { service, title, bot, contact, info } = asRecord(event);
+    if (service !== "whatsapp" || title !== "incoming_message" || asRecord(bot).id !== botId) continue;
+
+    const message = asRecord(asRecord(asRecord(asRecord(info).message).channel_data).message);
+    if (message.type === "system") continue;
+
+    const sender = typeof message.from === "number" && Number.isSafeInteger(message.from)
+      ? String(message.from)
+      : message.from;
+    const subscriber = asRecord(contact);
+    const action = parseContactAction({ id: subscriber.id, nombre: subscriber.name, telefono: sender });
+    if (action && !contacts.has(action.id)) contacts.set(action.id, action);
+  }
+  return [...contacts.values()];
+}
 
 function normalizePhone(value: string) {
   if (!/^[+\d().\s-]+$/.test(value)) return "";

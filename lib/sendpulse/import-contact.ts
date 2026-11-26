@@ -2,9 +2,27 @@ import { setTimeout } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import { linkImportedContact } from "@/lib/clients/account-repository";
 import { prisma } from "@/lib/db";
-import type { resolveContact } from "./contact";
+import { fetchContactProfile, resolveContact, type ContactAction } from "./contact";
 
 type ImportContact = NonNullable<ReturnType<typeof resolveContact>>;
+
+export async function registerSendpulseContact(action: ContactAction): Promise<200 | 409 | 422 | 503> {
+  try {
+    if (!prisma) return 503;
+    const linked = await prisma.sendpulseContact.findUnique({ where: { externalId: action.id } });
+    if (linked) return 200;
+
+    const apiKey = process.env.SENDPULSE_API_KEY?.trim();
+    const profile = apiKey ? await fetchContactProfile(action.id, apiKey).catch(() => undefined) : undefined;
+    const contact = resolveContact(action, profile);
+    if (!contact) return apiKey && !profile ? 503 : 422;
+
+    return await importSendpulseContact(contact) === "conflict" ? 409 : 200;
+  } catch {
+    console.error("[smartpro:sendpulse] No se pudo guardar la ficha.");
+    return 503;
+  }
+}
 
 function isRetryableConflict(error: unknown) {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;

@@ -1,6 +1,12 @@
-# Alta de clientes desde el bot de WhatsApp de SendPulse
+# Alta de clientes desde el primer mensaje de WhatsApp
 
-En **Estructura del bot → Flujos del sistema → Saludo del bot**, agrega un bloque **Solicitud API** al inicio del flujo. El saludo se dispara cuando la persona inicia por primera vez un chat con ese bot.
+En SendPulse, abre **Chatbots → Smart Pro → Configuración del bot → Webhooks** y selecciona **Mensaje entrante**. Configura la URL HTTPS `/api/webhooks/sendpulse/incoming?key=<token privado>` de SmartPro con `SENDPULSE_INCOMING_TOKEN` y el ID del bot conectado en `SENDPULSE_WHATSAPP_BOT_ID`. Mantén privada la URL completa.
+
+SmartPro crea la ficha con el primer mensaje que recibe de un contacto sin ficha, aunque el mensaje active palabras clave o el cliente ya haya conversado por WhatsApp antes de configurar la integración. Los siguientes mensajes reutilizan la ficha. Solo se procesan los datos de contacto. El texto, los archivos adjuntos y el resto del evento se descartan.
+
+## Solicitud API desde un flujo
+
+Para acciones explícitas en flujos de SendPulse, también está disponible el formato de **Solicitud API**.
 
 - Método `POST` y ruta `/api/webhooks/sendpulse` en un servidor de SmartPro accesible por HTTPS.
 - Encabezado `Authorization: Bearer <token de SmartPro>` o `bearer: <token de SmartPro>`.
