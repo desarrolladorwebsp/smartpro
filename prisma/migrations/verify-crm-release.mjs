@@ -89,6 +89,19 @@ async function snapshot() {
   return tables;
 }
 
+async function ensureClientOriginSchema() {
+  const [column] = await connection.query("SELECT COLUMN_DEFAULT AS defaultValue FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Business' AND COLUMN_NAME = 'origin'");
+  if (column && !column.defaultValue?.includes("CAMPAIGN_WEB")) return;
+
+  const folder = "20261126120000_client_origin";
+  const sql = await readFile(new URL(`./${folder}/migration.sql`, import.meta.url), "utf8");
+  const [addOrigin, dropDefault] = sql.split(/;\s*(?:\r?\n|$)/).filter((statement) => statement.trim());
+  // The temporary default fills existing rows. Removing it keeps future signups optional.
+  if (!column) await connection.query(addOrigin);
+  await connection.query(dropDefault);
+  console.log(`[smartpro:crm] Migración aplicada: ${folder}`);
+}
+
 async function assertNoDemos() {
   const tables = await connection.query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Business'");
   const queries = ["SELECT COUNT(*) AS count FROM Client WHERE id LIKE 'crm-scroll-demo-%' OR companyName LIKE 'Demo CRM%'"];
@@ -127,6 +140,7 @@ try {
   }
 
   await ensureClientSoftDeleteSchema();
+  await ensureClientOriginSchema();
   await assertNoDemos();
   for (const [table, { columns, digests }] of before) {
     const query = 'SELECT ' + columns.map((name) => '`' + name + '`').join(', ') + ' FROM `' + table + '`';

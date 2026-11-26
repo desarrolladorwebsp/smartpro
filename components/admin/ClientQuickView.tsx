@@ -4,6 +4,7 @@ import { CalendarPlus, FileText, Plus, Video, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
+import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import { personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
@@ -133,6 +134,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
             <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-3.5 text-sm">
               <div><dt className="text-muted">Ejecutivo asignado</dt><dd className="mt-1 break-words font-semibold">{getAssignedExecutiveName(executive) || "Sin asignar"}</dd></div>
               {client.rut && <div><dt className="text-muted">RUT</dt><dd className="mt-1 font-semibold">{client.rut}</dd></div>}
+              {client.kind === "business" && <div><dt className="text-muted">Origen</dt><dd className="mt-1 break-words font-semibold">{client.origin ? CLIENT_ACQUISITION_ORIGINS[client.origin] : "Sin origen"}</dd></div>}
             </dl>
             <div>
               <h3 className="text-sm font-semibold">Contactos</h3>

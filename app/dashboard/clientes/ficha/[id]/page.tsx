@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth";
+import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import { getBusiness } from "@/lib/clients/business-repository";
 import { commercialClientId, personName } from "@/lib/clients/commercial-clients";
 import { listClientNotes, listClients } from "@/lib/clients/repository";
@@ -45,6 +46,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         </div>
         {(business.rut || business.address) && <p className="text-sm text-muted">{[business.rut, business.address].filter(Boolean).join(" · ")}</p>}
         {business.website && <p className="text-sm text-muted">{business.website}</p>}
+        <p className="text-sm text-muted">Origen · {business.origin ? CLIENT_ACQUISITION_ORIGINS[business.origin] : "Sin origen"}</p>
         {business.notes && <p className="whitespace-pre-wrap text-sm text-muted">{business.notes}</p>}
         {executives.length > 0 && <p className="text-sm text-muted">Ejecutivos de contacto · {executives.join(", ")}</p>}
         <p className="text-sm">{getClientStatusLabel(business.status)} · {CRM_STAGES.find(({ id }) => id === business.crmStage)?.label}</p>

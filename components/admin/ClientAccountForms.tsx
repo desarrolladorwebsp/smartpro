@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ContactRound, IdCard, Plus, Trash2, type LucideIcon } from "lucide-react";
 import { DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
+import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { CLIENT_STATUSES, getClientStatusLabel, type ClientRecord } from "@/lib/clients/types";
 
@@ -83,7 +84,7 @@ export function ClientAccountForm({ account, onClose }: { account?: BusinessProf
     setPending(true);
     setError("");
     const fields = new FormData(event.currentTarget);
-    const data = Object.fromEntries(["name", "rut", "website", "address", "status", "notes"].map((key) => [key, fields.get(key)]));
+    const data = Object.fromEntries(["name", "rut", "website", "address", "status", "origin", "notes"].map((key) => [key, fields.get(key)]));
     try {
       if (account) {
         await save(`/api/clientes/${encodeURIComponent(account.id)}`, "PATCH", data);
@@ -125,6 +126,12 @@ export function ClientAccountForm({ account, onClose }: { account?: BusinessProf
                 </label>
                 <label className={`${fieldLabel} ${account ? "" : "sm:max-lg:col-span-3"}`}>Dirección <span className="font-normal text-muted">(opcional)</span>
                   <input className={field} name="address" maxLength={191} defaultValue={account?.address} />
+                </label>
+                <label className={`${fieldLabel} ${account ? "" : "sm:max-lg:col-span-3"}`}>Origen <span className="font-normal text-muted">(opcional)</span>
+                  <select className={field} name="origin" defaultValue={account?.origin ?? ""}>
+                    <option value="">Sin origen</option>
+                    {Object.entries(CLIENT_ACQUISITION_ORIGINS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
                 </label>
                 <label className={`${fieldLabel} col-span-full ${account ? "" : "sm:max-lg:col-span-3"}`}>Notas <span className="font-normal text-muted">(opcional)</span>
                   <textarea className="dashboard-field mt-1.5 min-h-14 resize-y rounded-xl px-3 py-2" name="notes" maxLength={10000} defaultValue={account?.notes ?? ""} />

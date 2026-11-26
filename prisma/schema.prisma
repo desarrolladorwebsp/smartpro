@@ -244,6 +244,12 @@ model ApiWebhookDelivery {
   @@index([status, nextAttemptAt])
 }
 
+enum ClientAcquisitionOrigin {
+  CAMPAIGN_WEB
+  REFERRAL
+  SENDPULSE
+}
+
 model Business {
   id      String   @id @default(cuid())
   name    String
@@ -263,6 +269,7 @@ model Business {
   crmReactivateOn DateTime? @db.Date
   deletedAt DateTime?
   status ClientStatus @default(POTENCIAL)
+  origin ClientAcquisitionOrigin?
   quotes Quote[]
   sales Sale[]
 

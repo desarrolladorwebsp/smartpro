@@ -1,6 +1,7 @@
 import { recordCrmChange } from "./crm-history";
-import { Prisma, type Client } from "@prisma/client";
+import { Prisma, type Client, type ClientAcquisitionOrigin } from "@prisma/client";
 import { prisma } from "../db";
+import { parseClientAcquisitionOrigin } from "./acquisition-origin";
 import { normalizeBusinessRut } from "./business";
 import { isClientStatus } from "./types";
 
@@ -27,6 +28,7 @@ function accountData(input: unknown, existingRut?: string | null) {
   return {
     name, rut, website: text(form.website), address: text(form.address), notes: text(form.notes, 10000),
     status: isClientStatus(form.status) ? form.status : undefined,
+    origin: parseClientAcquisitionOrigin(form.origin),
   };
 }
 
@@ -131,7 +133,7 @@ export function accountApiError(error: unknown) {
   return { error: error instanceof Error ? error.message : "No se pudo guardar el cambio.", status: 400 };
 }
 
-export async function linkImportedContact(tx: Prisma.TransactionClient, client: Client) {
+export async function linkImportedContact(tx: Prisma.TransactionClient, client: Client, origin?: ClientAcquisitionOrigin) {
   const { contactFirstName, contactLastName, phone, email } = client;
   let accountId = client.businessId;
   if (!accountId) {
@@ -149,6 +151,7 @@ export async function linkImportedContact(tx: Prisma.TransactionClient, client: 
         notes: client.notes,
         crmStage: client.crmStage,
         status: client.status,
+        origin,
       },
     });
     accountId = account.id;

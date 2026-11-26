@@ -79,7 +79,7 @@ export async function importSendpulseContact(contact: ImportContact) {
               status: "POTENCIAL",
             },
           });
-          await linkImportedContact(tx, legacy);
+          await linkImportedContact(tx, legacy, "SENDPULSE");
           clientId = legacy.id;
         }
         await tx.sendpulseContact.create({ data: { externalId: contact.externalId, clientId } });
