@@ -340,6 +340,7 @@ model Client {
   initialContact InitialContact?
   quotes         Quote[]
   sales          Sale[]
+  sendpulseContacts SendpulseContact[]
 
   @@index([email])
   @@index([status])
@@ -353,6 +354,14 @@ model Client {
   @@index([interestSubcategoryId])
   @@index([interestPlanId])
   @@index([apiClientId])
+}
+
+model SendpulseContact {
+  externalId String @id @db.VarChar(128)
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 model ClientNote {
