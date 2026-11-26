@@ -47,10 +47,19 @@ model User {
   assignedAccounts   Business[]
   assignedClients    Client[]     @relation("ClientAssignedExecutive")
   sales              Sale[]       @relation("SaleExecutive")
+  clientBoardPreference ClientBoardPreference?
 
   @@index([email])
   @@index([role])
   @@index([deletedAt])
+}
+
+model ClientBoardPreference {
+  userId    String @id
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  display   Json?
+  collapsed Json?
+  cardOrder Json?
 }
 
 model Invitation {

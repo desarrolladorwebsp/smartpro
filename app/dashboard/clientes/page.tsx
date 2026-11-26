@@ -15,6 +15,8 @@ import { reactivatePausedCrmClients } from "@/lib/clients/crm-archive-repository
 import { listCrmQuoteIndicators } from "@/lib/clients/quote-crm";
 import type { ClientRecord } from "@/lib/clients/types";
 import { listContactedClientsWithUnsentQuotes } from "@/lib/quotes/repository";
+import { loadClientBoardPreferences } from "@/lib/clients/board-preferences-repository";
+import { resolveClientBoardPreferences } from "@/lib/clients/board-preferences";
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +36,17 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   let executives: Awaited<ReturnType<typeof listAssignableExecutives>> = [];
   let quoteIndicators: Awaited<ReturnType<typeof listCrmQuoteIndicators>> = {};
   let contactedWithUnsentQuotes: string[] = [];
+  let preferences = resolveClientBoardPreferences(null);
   let loadError = false;
 
   try {
     await reactivatePausedCrmClients();
-    [clients, businesses, executives, quoteIndicators, contactedWithUnsentQuotes] = await Promise.all([
+    [clients, businesses, executives, quoteIndicators, contactedWithUnsentQuotes, preferences] = await Promise.all([
       listClients(), listBusinesses(), listAssignableExecutives(), listCrmQuoteIndicators(), listContactedClientsWithUnsentQuotes(),
+      loadClientBoardPreferences(session.id).catch((error) => {
+        console.error("[smartpro:clients:board-preferences]", error);
+        return resolveClientBoardPreferences(null);
+      }),
     ]);
   } catch (error) {
     console.error("[smartpro:dashboard:clientes] Error de conexión a la base de datos", error);
@@ -62,6 +69,9 @@ async function ClientsPageContent({ searchParams }: { searchParams: Promise<{ em
   const hasPaused = businesses.some((entry) => entry.crmArchiveState === "PAUSED") ||
     clients.some((entry) => !entry.businessId && entry.crmArchiveState === "PAUSED");
   return <ClientsDashboard
+    key={session.id}
+    userId={session.id}
+    initialPreferences={preferences}
     preferenceKey={`smartpro:crm:collapsed:${session.email.trim().toLowerCase()}`}
     hasPaused={hasPaused}
     calendarDate={calendarToday()}

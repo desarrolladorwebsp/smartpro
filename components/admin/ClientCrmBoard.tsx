@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
+import { orderClientCards, type BoardCardOrder } from "@/lib/clients/board-preferences";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useId, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, FileCheck2, FileText, GripVertical, StickyNote, UserRound } from "lucide-react";
@@ -37,9 +38,11 @@ const quoteStyles: Record<CrmQuoteIndicator, { label: string; tone: keyof typeof
 
 const quoteActionClassName = "col-span-full inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-primary focus-visible:outline-primary lg:min-h-9";
 
-export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWithUnsentQuotes, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
+export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIndicators, contactedWithUnsentQuotes, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
   clients: CommercialClient[];
   columns: ReadonlyArray<{ id: CrmColumn; label: string }>;
+  cardOrder: BoardCardOrder;
+  onReorder: (column: CrmColumn, id: string, anchor: { key: string; after: boolean }) => void;
   quoteIndicators: Record<string, CrmQuoteIndicator>;
   contactedWithUnsentQuotes: string[];
   collapsed: ReadonlySet<string>;
@@ -109,10 +112,10 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWit
     }
   }, [clients]);
   function insertionAt(event: DragEvent<HTMLElement>, client: CommercialClient) {
-    if (!(event.target instanceof Element) || client.kind !== "business") return null;
+    if (!(event.target instanceof Element)) return null;
     const card = event.target.closest<HTMLElement>("[data-client-id]");
     const key = card?.dataset.clientId;
-    if (!card || !key?.startsWith("business:") || key === client.id) return null;
+    if (!card || !key || key === client.id) return null;
     const bounds = card.getBoundingClientRect();
     return { key, after: event.clientY >= bounds.top + bounds.height / 2 };
   }
@@ -142,7 +145,11 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWit
 
   async function move(client: CommercialClient, stage: ClientCrmStage, restoreFocus = false, position?: { key: string; after: boolean }) {
     const originalStage = client.crmStage ?? "NEW";
-    if (saving.current || (originalStage === stage && !position)) return;
+    if (saving.current) return;
+    if (originalStage === stage) {
+      if (position) onReorder(stage, client.id, position);
+      return;
+    }
 
     saving.current = true;
     setPending(client.id);
@@ -157,15 +164,16 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWit
       const response = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ crmStage: stage, ...(position && { anchor: { id: parseCommercialClientId(position.key)?.id, after: position.after } }) }),
+        body: JSON.stringify({ crmStage: stage }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? "No se pudo mover el cliente.");
       }
+      if (position) onReorder(stage, client.id, position);
       if (account.kind === "business") router.refresh();
       const label = CRM_STAGES.find((entry) => entry.id === stage)?.label;
-      setFeedback({ error: false, message: originalStage === stage ? `Orden actualizado en «${label}».` : `${client.name} se movió a «${label}».` });
+      setFeedback({ error: false, message: `${client.name} se movió a «${label}».` });
     } catch (error) {
       if (restoreFocus && document.activeElement?.closest("[data-client-id]")?.getAttribute("data-client-id") === client.id) {
         focusClient.current = client.id;
@@ -190,8 +198,7 @@ export function ClientCrmBoard({ clients, columns, quoteIndicators, contactedWit
         <div className={`grid h-full min-w-full gap-2.5 [--crm-column-width:15rem] ${columns.length <= 4 ? "lg:[--crm-column-width:11.5rem]" : "lg:[--crm-column-width:14rem]"}`}
           style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(var(--crm-column-width), 1fr))`, width: `max(100%, calc(${columns.length} * var(--crm-column-width) + ${Math.max(0, columns.length - 1) * 0.625}rem))` }}>
           {columns.map((stage) => {
-            const cards = clients.filter((client) => (client.crmArchiveState ?? client.crmStage) === stage.id)
-              .sort((a, b) => (a.crmPosition ?? Infinity) - (b.crmPosition ?? Infinity) || a.name.localeCompare(b.name, "es-CL") || a.id.localeCompare(b.id));
+            const cards = orderClientCards(clients.filter((client) => (client.crmArchiveState ?? client.crmStage) === stage.id), cardOrder[stage.id]);
             const color = colors[stage.id];
             const archivedColumn = isCrmArchiveState(stage.id);
             const columnCollapsed = cards.length > 0 && cards.every(({ id }) => collapsed.has(id));

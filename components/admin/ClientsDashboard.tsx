@@ -2,17 +2,19 @@
 
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
 import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { CalendarSlotDialog } from "@/components/admin/CalendarSlotDialog";
 import { ClientQuickView } from "@/components/admin/ClientQuickView";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { NotificationCenter } from "@/components/admin/NotificationCenter";
+import { useClientBoardPreferences } from "@/components/admin/useClientBoardPreferences";
+import { defaultBoardDisplay, moveClientCardInOrder, orderClientCards, type BoardDisplay, type ClientBoardPreferences } from "@/lib/clients/board-preferences";
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
-import { CLIENT_STATUSES, CRM_COLUMNS, DEFAULT_CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
+import { CLIENT_STATUSES, CRM_COLUMNS, getAssignedExecutiveName, getClientStatusLabel, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 const statusStyles: Record<ClientStatus, string> = {
   POTENCIAL: "bg-amber-50 text-amber-800",
@@ -21,46 +23,17 @@ const statusStyles: Record<ClientStatus, string> = {
   INACTIVO: "bg-slate-100 text-slate-700",
 };
 
-const collapsePreferenceEvent = "smartpro:crm-collapse-preference";
-const defaultColumns = DEFAULT_CRM_STAGES.map(({ id }) => id);
+const defaultColumns = defaultBoardDisplay.columns;
 
-function subscribeToCollapsePreference(notify: () => void) {
-  window.addEventListener("storage", notify);
-  window.addEventListener(collapsePreferenceEvent, notify);
-  return () => {
-    window.removeEventListener("storage", notify);
-    window.removeEventListener(collapsePreferenceEvent, notify);
-  };
-}
-
-function readCollapsePreference(key: string) {
-  try {
-    return window.localStorage.getItem(key) ?? "[]";
-  } catch {
-    return "[]";
-  }
-}
-
-function getDefaultCollapsePreference() {
-  return "[]";
-}
-
-function parseCollapsedCards(snapshot: string) {
-  try {
-    const ids: unknown = JSON.parse(snapshot);
-    return new Set<string>(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
-  } catch {
-    return new Set<string>();
-  }
-}
-
-export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, contactedWithUnsentQuotes, assignable, preferenceKey, hasPaused, calendarDate, zoomConfigured }: {
+export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, contactedWithUnsentQuotes, assignable, preferenceKey, userId, initialPreferences, hasPaused, calendarDate, zoomConfigured }: {
   initialClients: ClientRecord[];
   initialBusinesses: BusinessProfile[];
   quoteIndicators: Record<string, CrmQuoteIndicator>;
   contactedWithUnsentQuotes: string[];
   assignable: ClientAssignedExecutive[];
   preferenceKey: string;
+  userId: string;
+  initialPreferences: ClientBoardPreferences;
   hasPaused: boolean;
   calendarDate: string;
   zoomConfigured: boolean;
@@ -80,24 +53,22 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
     return () => window.clearInterval(timer);
   }, [hasPaused, router]);
 
-  const [temporaryCollapsed, setTemporaryCollapsed] = useState<Set<string> | null>(null);
-  const collapseSnapshot = useSyncExternalStore(
-    subscribeToCollapsePreference,
-    () => readCollapsePreference(preferenceKey),
-    getDefaultCollapsePreference,
-  );
-  const savedCollapsed = useMemo(() => parseCollapsedCards(collapseSnapshot), [collapseSnapshot]);
-  const collapsed = temporaryCollapsed ?? savedCollapsed;
-  const [view, setView] = useState<"board" | "list" | "archived">("board");
+  const { preferences, current, update, saveFailed, retry } = useClientBoardPreferences(initialPreferences, userId, preferenceKey);
+  const { view, status } = preferences.display;
+  const selectedColumns = new Set(preferences.display.columns);
+  const collapsed = new Set(preferences.collapsed);
+  function setDisplay(patch: Partial<BoardDisplay>) {
+    update({ display: { ...current.current.display, ...patch } });
+  }
   const [creating, setCreating] = useState(false);
   const [openClientId, setOpenClientId] = useState<string | null>(null);
   const [scheduleClientId, setScheduleClientId] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const [executive, setExecutive] = useState("");
-  const [service, setService] = useState("");
-  const [selectedColumns, setSelectedColumns] = useState(() => new Set<CrmColumn>(defaultColumns));
+  const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
+  const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
+  const executive = executives.has(preferences.display.executive) ? preferences.display.executive : "";
+  const service = services.includes(preferences.display.service) ? preferences.display.service : "";
   const columns = CRM_COLUMNS.filter(({ id }) => selectedColumns.has(id));
   const customColumns = view === "board" && (selectedColumns.size !== defaultColumns.length || defaultColumns.some((id) => !selectedColumns.has(id)));
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -118,11 +89,10 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   const [stages, setStages] = useState<Record<string, ClientCrmStage>>({});
   const [classifications, setClassifications] = useState<Record<string, ClientStatus>>({});
   const allAccounts = useMemo(() => listCommercialClients(initialClients, initialBusinesses), [initialClients, initialBusinesses]);
-  const accounts = allAccounts.map((account) => ({
+  const currentAccounts = allAccounts.map((account) => ({
     ...account, crmStage: stages[account.id] ?? account.crmStage, status: classifications[account.id] ?? account.status,
-  })).filter((account) => view === "board" ? selectedColumns.has(account.crmArchiveState ?? account.crmStage) : Boolean(account.crmArchiveState) === (view === "archived"));
-  const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
-  const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
+  }));
+  const accounts = currentAccounts.filter((account) => view === "board" ? selectedColumns.has(account.crmArchiveState ?? account.crmStage) : Boolean(account.crmArchiveState) === (view === "archived"));
   const query = search.trim().toLowerCase();
   const visible = accounts.filter((account) =>
     (!status || account.status === status) &&
@@ -141,19 +111,21 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   const collapsible = accounts.filter((account) => !account.crmArchiveState);
   const allCollapsed = collapsible.length > 0 && collapsible.every(({ id }) => collapsed.has(id));
   function setCardsCollapsed(ids: string[], compact: boolean) {
-    const next = new Set(temporaryCollapsed ?? parseCollapsedCards(readCollapsePreference(preferenceKey)));
+    const next = new Set(current.current.collapsed);
     for (const id of ids) {
       if (compact) next.add(id);
       else next.delete(id);
     }
 
-    try {
-      window.localStorage.setItem(preferenceKey, JSON.stringify([...next]));
-      setTemporaryCollapsed(null);
-      window.dispatchEvent(new Event(collapsePreferenceEvent));
-    } catch {
-      setTemporaryCollapsed(next);
-    }
+    update({ collapsed: [...next] });
+  }
+
+  function reorderCard(column: CrmColumn, id: string, anchor: { key: string; after: boolean }) {
+    const order = current.current.cardOrder;
+    const cards = currentAccounts.filter((account) => (account.crmArchiveState ?? account.crmStage) === column);
+    const ids = orderClientCards(cards, order[column]).map((account) => account.id);
+    const next = moveClientCardInOrder(ids, id, anchor);
+    if (next !== ids) update({ cardOrder: { ...order, [column]: next } });
   }
 
   async function changeStatus(key: string, value: ClientStatus) {
@@ -200,19 +172,19 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
             <div id={filtersId} hidden={!filtersOpen} className="absolute right-0 top-full z-30 mt-2 max-h-[min(36rem,55dvh)] w-[min(17rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-white p-3 shadow-lg sm:left-0 sm:right-auto">
               <div className="space-y-2.5">
                 <label className="block text-xs font-semibold text-muted">Estado
-                  <select aria-label="Filtrar por estado" className="dashboard-field mt-1 rounded-xl" value={status} onChange={(event) => setStatus(event.target.value)}>
+                  <select aria-label="Filtrar por estado" className="dashboard-field mt-1 rounded-xl" value={status} onChange={(event) => setDisplay({ status: isClientStatus(event.target.value) ? event.target.value : "" })}>
                     <option value="">Todos los estados</option>
                     {CLIENT_STATUSES.map((entry) => <option key={entry} value={entry}>{getClientStatusLabel(entry)}</option>)}
                   </select>
                 </label>
                 <label className="block text-xs font-semibold text-muted">Ejecutivo
-                  <select aria-label="Filtrar por ejecutivo" className="dashboard-field mt-1 rounded-xl" value={executive} onChange={(event) => setExecutive(event.target.value)}>
+                  <select aria-label="Filtrar por ejecutivo" className="dashboard-field mt-1 rounded-xl" value={executive} onChange={(event) => setDisplay({ executive: event.target.value })}>
                     <option value="">Todos los ejecutivos</option>
                     {[...executives].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                   </select>
                 </label>
                 <label className="block text-xs font-semibold text-muted">Servicio
-                  <select aria-label="Filtrar por servicio" className="dashboard-field mt-1 rounded-xl" value={service} onChange={(event) => setService(event.target.value)}>
+                  <select aria-label="Filtrar por servicio" className="dashboard-field mt-1 rounded-xl" value={service} onChange={(event) => setDisplay({ service: event.target.value })}>
                     <option value="">Todos los servicios</option>
                     {services.map((entry) => <option key={entry}>{entry}</option>)}
                   </select>
@@ -220,25 +192,22 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
                 {view === "board" && <fieldset className="border-t border-border pt-1.5">
                   <legend className="pr-2 text-xs font-semibold text-muted">Columnas visibles</legend>
                   <button type="button" className="min-h-8 text-xs font-semibold text-primary hover:underline"
-                    onClick={() => setSelectedColumns(new Set(selectedColumns.size === CRM_COLUMNS.length ? defaultColumns : CRM_COLUMNS.map(({ id }) => id)))}>
+                    onClick={() => setDisplay({ columns: selectedColumns.size === CRM_COLUMNS.length ? defaultColumns : CRM_COLUMNS.map(({ id }) => id) })}>
                     {selectedColumns.size === CRM_COLUMNS.length ? "Restaurar columnas predeterminadas" : "Mostrar todas las columnas"}
                   </button>
                   {CRM_COLUMNS.map(({ id, label }) => <label key={id} className="flex min-h-8 items-center gap-2 text-sm">
                     <input type="checkbox" className="size-4 accent-primary" checked={selectedColumns.has(id)}
                       onChange={(event) => {
-                        const checked = event.target.checked;
-                        setSelectedColumns((current) => {
-                          const next = new Set(current);
-                          if (checked) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        });
+                        const next = new Set(current.current.display.columns);
+                        if (event.target.checked) next.add(id);
+                        else next.delete(id);
+                        setDisplay({ columns: [...next] });
                       }} />
                     {label}
                   </label>)}
                 </fieldset>}
                 {activeFilterCount > 0 && <button type="button" className="min-h-9 text-sm font-semibold text-primary hover:underline"
-                  onClick={() => { setStatus(""); setExecutive(""); setService(""); if (view === "board") setSelectedColumns(new Set(defaultColumns)); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
+                  onClick={() => { setDisplay({ status: "", executive: "", service: "", ...(view === "board" ? { columns: defaultColumns } : {}) }); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
               </div>
             </div>
           </div>
@@ -246,7 +215,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
           <div className="flex basis-full items-center gap-1.5 sm:basis-auto xl:shrink-0">
             <div role="group" aria-label="Vista de clientes" className="flex min-w-0 flex-1 items-center rounded-xl border border-border p-0.5 sm:flex-none">
               {(["board", "list", "archived"] as const).map((entry) => <button key={entry} type="button" aria-pressed={view === entry}
-                onClick={() => setView(entry)} className={`min-h-9 flex-1 rounded-lg px-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary sm:flex-none sm:px-3 2xl:min-h-10 ${view === entry ? "bg-primary/10 text-primary" : "text-muted hover:bg-slate-50 hover:text-foreground"}`}>
+                onClick={() => setDisplay({ view: entry })} className={`min-h-9 flex-1 rounded-lg px-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary sm:flex-none sm:px-3 2xl:min-h-10 ${view === entry ? "bg-primary/10 text-primary" : "text-muted hover:bg-slate-50 hover:text-foreground"}`}>
                 {entry === "board" ? "Tablero" : entry === "list" ? "Lista" : "Archivados"}
               </button>)}
             </div>
@@ -271,7 +240,10 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
       </header>
       {scheduleMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{scheduleMessage}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} quoteIndicators={quoteIndicators} contactedWithUnsentQuotes={contactedWithUnsentQuotes} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
+      {saveFailed && <p role="alert" className="text-sm text-red-700">No se pudo guardar tu configuración.{" "}
+        <button type="button" onClick={() => void retry()} className="font-semibold underline">Reintentar</button>
+      </p>}
+      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} cardOrder={preferences.cardOrder} onReorder={reorderCard} quoteIndicators={quoteIndicators} contactedWithUnsentQuotes={contactedWithUnsentQuotes} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
         onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}

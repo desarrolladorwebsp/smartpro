@@ -143,7 +143,7 @@ export function verifySessionToken(token: string | undefined): { email: string; 
   }
 }
 
-export const getCurrentAdminSession = cache(async (): Promise<{ email: string; role: AdminSessionRole } | null> => {
+export const getCurrentAdminSession = cache(async (): Promise<{ id: string; email: string; role: AdminSessionRole } | null> => {
   const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
   const session = verifySessionToken(token);
@@ -166,10 +166,10 @@ export const getCurrentAdminSession = cache(async (): Promise<{ email: string; r
     return null;
   }
 
-  return { email: user.email, role: user.role };
+  return { id: user.id, email: user.email, role: user.role };
 });
 
-export async function requireAdminSession(): Promise<{ email: string; role: AdminSessionRole }> {
+export async function requireAdminSession(): Promise<{ id: string; email: string; role: AdminSessionRole }> {
   const session = await getCurrentAdminSession();
 
   if (!session) {
