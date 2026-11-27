@@ -48,6 +48,7 @@ const steps = [
   ["20261126110000_sendpulse_contacts", "SendpulseContact", "externalId"],
   ["20261127130000_client_service_interests", "Business", "serviceInterests"],
   ["20261127130000_client_service_interests", "Client", "serviceInterests"],
+  ["20261127140000_client_attachments", "ClientAttachment", "id"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "ClientCrmHistory", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

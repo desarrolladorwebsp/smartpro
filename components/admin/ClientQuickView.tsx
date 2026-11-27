@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
+import { ClientAttachments } from "@/components/admin/ClientAttachments";
 import { ClientCreationDate } from "@/components/admin/ClientCreationDate";
 import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseConversation";
 import { ClientServiceInterestSelector } from "@/components/admin/ClientServiceInterests";
@@ -16,8 +17,9 @@ import { canEditQuote } from "@/lib/quotes/status";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
 import type { SendpulseConversationOption } from "@/lib/sendpulse/conversation-access";
 
-const clientTabs = ["Resumen", "Reuniones", "Cotizaciones"] as const;
+const clientTabs = ["Resumen", "Reuniones", "Cotizaciones", "Archivos"] as const;
 const sendpulseTabs = [...clientTabs, "SendPulse"] as const;
+const attachmentsTab = clientTabs.indexOf("Archivos");
 const sendpulseTab = clientTabs.length;
 const documentDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeZone: "America/Santiago" });
 const calendarDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeZone: "UTC" });
@@ -46,6 +48,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
   const content = useRef<HTMLDivElement>(null);
   const id = useId();
   const [selectedTab, setTab] = useState(0);
+  const [visitedAttachments, setVisitedAttachments] = useState(false);
   const [data, setData] = useState<QuickView | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -78,6 +81,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
 
   function selectTab(index: number) {
     setTab(index);
+    if (index === attachmentsTab) setVisitedAttachments(true);
     content.current?.scrollTo({ top: 0 });
   }
 
@@ -222,6 +226,9 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
                 </li>;
               })}
             </ul>
+          </section>
+          <section role="tabpanel" id={`${id}-panel-${attachmentsTab}`} aria-labelledby={`${id}-tab-${attachmentsTab}`} hidden={tab !== attachmentsTab} tabIndex={0}>
+            {visitedAttachments && <ClientAttachments key={client.id} clientKey={client.id} />}
           </section>
           {showSendpulse && <section role="tabpanel" id={`${id}-panel-${sendpulseTab}`} aria-labelledby={`${id}-tab-${sendpulseTab}`} hidden={tab !== sendpulseTab} tabIndex={0}>
             {data ? <ClientSendpulseConversation

@@ -1,4 +1,5 @@
 import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
+import { ClientAttachments } from "@/components/admin/ClientAttachments";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -8,6 +9,7 @@ import { DashboardDataError } from "@/components/admin/DashboardDataError";
 import { ClientDetailPageSkeleton } from "@/components/admin/dashboard-skeletons";
 import { requireAdminSession } from "@/lib/auth";
 import { getClientById, listClientNotes } from "@/lib/clients/repository";
+import { commercialClientId } from "@/lib/clients/commercial-clients";
 import type { ClientNoteRecord } from "@/lib/clients/repository";
 import type { ClientRecord } from "@/lib/clients/types";
 import { listAssignableExecutives } from "@/lib/executives/repository";
@@ -88,6 +90,10 @@ async function ClientDetailContent({ params }: { params: Promise<{ id: string }>
       notes={clientNotes}
       sales={sales}
     />
+    <section className="space-y-3 rounded-2xl border border-border bg-white p-5" aria-labelledby="archivos">
+      <h2 id="archivos" className="font-semibold">Archivos</h2>
+      <ClientAttachments key={client.id} clientKey={commercialClientId(client.id, client.businessId)} />
+    </section>
     <ClientCrmHistory accountId={client.businessId ?? null} clientId={client.id} />
     </div>
   );

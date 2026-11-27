@@ -1,4 +1,5 @@
 import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
+import { ClientAttachments } from "@/components/admin/ClientAttachments";
 import Link from "next/link";
 import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
 import { ClientCreationDate } from "@/components/admin/ClientCreationDate";
@@ -76,6 +77,10 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         </ul>
       </section>
       <ClientSendpulseConversation key={id} accountId={id} options={sendpulseOptions} />
+      <section className={panel} aria-labelledby="archivos">
+        <h2 id="archivos" className="font-semibold">Archivos</h2>
+        <ClientAttachments key={id} clientKey={commercialClientId("", id)} />
+      </section>
       <div className="grid gap-5 lg:grid-cols-2">
         <section className={panel}>
           <div className="flex items-center justify-between gap-3">
