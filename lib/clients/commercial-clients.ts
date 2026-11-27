@@ -14,6 +14,7 @@ export type CommercialClient = {
   crmArchiveState?: ClientRecord["crmArchiveState"];
   responsible?: ClientAssignedExecutive | null;
   origin?: BusinessProfile["origin"];
+  createdAt?: string | null;
 };
 
 export const personName = (contact: Pick<ClientRecord, "contactFirstName" | "contactLastName">) =>
@@ -51,6 +52,7 @@ export function listCommercialClients(contacts: ClientRecord[], businesses: Busi
       crmStage: contact.crmStage ?? "NEW",
       crmArchiveState: contact.crmArchiveState,
       status: contact.status,
+      createdAt: contact.createdAt,
       contacts: [contact],
     });
   }
@@ -67,6 +69,7 @@ export function listCommercialClients(contacts: ClientRecord[], businesses: Busi
     crmPosition: business.crmPosition,
     responsible: business.responsible,
     origin: business.origin,
+    createdAt: business.createdAt?.toISOString() ?? null,
     contacts: (byBusiness.get(business.id) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
   }));
   return [...companies, ...individuals].sort((a, b) => a.name.localeCompare(b.name, "es-CL"));

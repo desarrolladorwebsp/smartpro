@@ -1,6 +1,7 @@
 import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
 import Link from "next/link";
 import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
+import { ClientCreationDate } from "@/components/admin/ClientCreationDate";
 import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseConversation";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth";
@@ -12,7 +13,7 @@ import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/li
 import { formatCurrency } from "@/lib/orders/service";
 import { listQuotes } from "@/lib/quotes/repository";
 import { listSales } from "@/lib/sales/repository";
-import { listSendpulseConversations } from "@/lib/sendpulse/conversation-access";
+import { listSendpulseConversationOptions } from "@/lib/sendpulse/conversation-access";
 
 export const dynamic = "force-dynamic";
 
@@ -23,17 +24,13 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const business = await getBusiness(id);
   if (!business || business.deletedAt) notFound();
-  const [contacts, quotes, sales, notes, conversations] = await Promise.all([
+  const [contacts, quotes, sales, notes, sendpulseOptions] = await Promise.all([
     listClients({ businessId: id }),
     listQuotes({ businessId: id }),
     listSales({ businessId: id }),
     listClientNotes("", id),
-    listSendpulseConversations(id, session),
+    listSendpulseConversationOptions(id, session),
   ]);
-  const sendpulseOptions = conversations.map(({ externalId, client }) => ({
-    externalId,
-    name: personName(client) || "Contacto de SendPulse",
-  }));
   const contactById = new Map(contacts.map((contact) => [contact.id, personName(contact)]));
   const executives = [...new Set(contacts.filter((contact) => contact.assignedExecutive).map((contact) =>
     getAssignedExecutiveName(contact.assignedExecutive)))];
@@ -54,6 +51,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         {(business.rut || business.address) && <p className="text-sm text-muted">{[business.rut, business.address].filter(Boolean).join(" · ")}</p>}
         {business.website && <p className="text-sm text-muted">{business.website}</p>}
         <p className="text-sm text-muted">Origen · {business.origin ? CLIENT_ACQUISITION_ORIGINS[business.origin] : "Sin origen"}</p>
+        <p className="text-sm text-muted">Fecha de creación · <ClientCreationDate createdAt={business.createdAt} /></p>
         {business.notes && <p className="whitespace-pre-wrap text-sm text-muted">{business.notes}</p>}
         {executives.length > 0 && <p className="text-sm text-muted">Ejecutivos de contacto · {executives.join(", ")}</p>}
         <p className="text-sm">{getClientStatusLabel(business.status)} · {CRM_STAGES.find(({ id }) => id === business.crmStage)?.label}</p>

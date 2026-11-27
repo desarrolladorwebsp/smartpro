@@ -270,6 +270,7 @@ model Business {
   deletedAt DateTime?
   status ClientStatus @default(POTENCIAL)
   origin ClientAcquisitionOrigin?
+  createdAt DateTime? @default(now())
   quotes Quote[]
   sales Sale[]
 

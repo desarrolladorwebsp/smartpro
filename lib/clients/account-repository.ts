@@ -152,6 +152,7 @@ export async function linkImportedContact(tx: Prisma.TransactionClient, client: 
         crmStage: client.crmStage,
         status: client.status,
         origin,
+        createdAt: client.createdAt,
       },
     });
     accountId = account.id;

@@ -112,6 +112,19 @@ async function assertNoDemos() {
   }
 }
 
+async function ensureBusinessCreationDateSchema() {
+  const [column] = await connection.query("SELECT COLUMN_DEFAULT AS defaultValue FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Business' AND COLUMN_NAME = 'createdAt'");
+  if (column?.defaultValue?.toLowerCase().startsWith("current_timestamp")) return;
+
+  const folder = "20261127110000_business_created_at";
+  const sql = await readFile(new URL(`./${folder}/migration.sql`, import.meta.url), "utf8");
+  const [addColumn, backfill, setDefault] = sql.split(/;\s*(?:\r?\n|$)/).filter((statement) => statement.trim());
+  if (!column) await connection.query(addColumn);
+  await connection.query(backfill);
+  await connection.query(setDefault);
+  console.log(`[smartpro:crm] Migración aplicada: ${folder}`);
+}
+
 try {
   const [{ name }] = await connection.query("SELECT DATABASE() AS name");
   if (name !== database) throw new Error("La conexión del CRM apunta a una base inesperada.");
@@ -175,6 +188,7 @@ try {
     throw new Error("La verificación de los contactos migrados encontró diferencias.");
   }
   console.log(`[smartpro:crm] Contactos: ${contacts}. Vínculos: ${linked}. Demo CRM: 0.`);
+  await ensureBusinessCreationDateSchema();
 } catch (error) {
   if (error.sqlMessage) throw new Error(`Falló la migración CRM (${error.code}).`);
   throw error;

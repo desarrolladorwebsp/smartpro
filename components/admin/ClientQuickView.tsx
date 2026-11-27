@@ -4,14 +4,19 @@ import { CalendarPlus, FileText, Plus, Video, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
+import { ClientCreationDate } from "@/components/admin/ClientCreationDate";
+import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseConversation";
 import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
-import { personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import { canEditQuote } from "@/lib/quotes/status";
 import { getQuoteStatusLabel, type QuoteRecord } from "@/lib/quotes/types";
+import type { SendpulseConversationOption } from "@/lib/sendpulse/conversation-access";
 
-const tabs = ["Resumen", "Reuniones", "Cotizaciones"] as const;
+const clientTabs = ["Resumen", "Reuniones", "Cotizaciones"] as const;
+const sendpulseTabs = [...clientTabs, "SendPulse"] as const;
+const sendpulseTab = clientTabs.length;
 const documentDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeZone: "America/Santiago" });
 const calendarDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeZone: "UTC" });
 const chileClock = new Intl.DateTimeFormat("sv-SE", {
@@ -23,6 +28,7 @@ type QuickView = {
   note: { title: string; content: string; createdAt: string } | null;
   quotes: Pick<QuoteRecord, "id" | "number" | "createdAt" | "total" | "status">[];
   meetings: Meeting[];
+  sendpulseOptions?: SendpulseConversationOption[];
 };
 
 function meetingLabel({ date, time, duration }: Meeting) {
@@ -36,11 +42,14 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
   const dialog = useRef<HTMLDialogElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const id = useId();
-  const [tab, setTab] = useState(0);
+  const [selectedTab, setTab] = useState(0);
   const [data, setData] = useState<QuickView | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const key = encodeURIComponent(client.id);
+  const showSendpulse = client.kind === "business" && client.origin === "SENDPULSE";
+  const tabs = showSendpulse ? sendpulseTabs : clientTabs;
+  const tab = selectedTab < tabs.length ? selectedTab : 0;
 
   useEffect(() => {
     const element = dialog.current;
@@ -112,12 +121,12 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
           </button>
         </header>
 
-        <div role="tablist" aria-label="Ficha del cliente" className="flex shrink-0 border-b border-border px-3 sm:px-6">
+        <div role="tablist" aria-label="Ficha del cliente" className="flex shrink-0 overflow-x-auto border-b border-border px-1.5 min-[390px]:px-2 sm:px-6">
           {tabs.map((name, index) => (
             <button key={name} type="button" role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel-${index}`}
               aria-selected={index === tab} tabIndex={index === tab ? 0 : -1} onClick={() => selectTab(index)}
               onKeyDown={(event) => navigateTabs(event, index)}
-              className={`min-h-11 border-b-2 px-2 text-sm font-semibold sm:px-4 ${index === tab ? "border-primary text-primary" : "border-transparent text-muted hover:text-primary"}`}>
+              className={`min-h-11 shrink-0 border-b-2 px-1.5 text-[13px] font-semibold min-[390px]:px-2 min-[390px]:text-sm sm:px-4 ${index === tab ? "border-primary text-primary" : "border-transparent text-muted hover:text-primary"}`}>
               {name}
             </button>
           ))}
@@ -135,6 +144,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
               <div><dt className="text-muted">Ejecutivo asignado</dt><dd className="mt-1 break-words font-semibold">{getAssignedExecutiveName(executive) || "Sin asignar"}</dd></div>
               {client.rut && <div><dt className="text-muted">RUT</dt><dd className="mt-1 font-semibold">{client.rut}</dd></div>}
               {client.kind === "business" && <div><dt className="text-muted">Origen</dt><dd className="mt-1 break-words font-semibold">{client.origin ? CLIENT_ACQUISITION_ORIGINS[client.origin] : "Sin origen"}</dd></div>}
+              <div><dt className="text-muted">Fecha de creación</dt><dd className="mt-1 font-semibold"><ClientCreationDate createdAt={client.createdAt} /></dd></div>
             </dl>
             <div>
               <h3 className="text-sm font-semibold">Contactos</h3>
@@ -208,6 +218,14 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
               })}
             </ul>
           </section>
+          {showSendpulse && <section role="tabpanel" id={`${id}-panel-${sendpulseTab}`} aria-labelledby={`${id}-tab-${sendpulseTab}`} hidden={tab !== sendpulseTab} tabIndex={0}>
+            {data ? <ClientSendpulseConversation
+              accountId={parseCommercialClientId(client.id)?.id ?? ""}
+              options={data.sendpulseOptions ?? []}
+              active={tab === sendpulseTab}
+              manualView
+            /> : !error && <p role="status" className="text-sm text-muted">Cargando contactos vinculados a SendPulse…</p>}
+          </section>}
         </div>
       </div>
     </dialog>
