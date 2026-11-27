@@ -1,6 +1,7 @@
 import { ClientCrmHistory } from "@/components/admin/ClientCrmHistory";
 import Link from "next/link";
 import { ContactButton, DeleteClientButton, EditClientButton } from "@/components/admin/ClientAccountForms";
+import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseConversation";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth";
 import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
@@ -11,22 +12,28 @@ import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/li
 import { formatCurrency } from "@/lib/orders/service";
 import { listQuotes } from "@/lib/quotes/repository";
 import { listSales } from "@/lib/sales/repository";
+import { listSendpulseConversations } from "@/lib/sendpulse/conversation-access";
 
 export const dynamic = "force-dynamic";
 
 const noteDate = new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santiago" });
 
 export default async function BusinessDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminSession();
+  const session = await requireAdminSession();
   const { id } = await params;
   const business = await getBusiness(id);
   if (!business || business.deletedAt) notFound();
-  const [contacts, quotes, sales, notes] = await Promise.all([
+  const [contacts, quotes, sales, notes, conversations] = await Promise.all([
     listClients({ businessId: id }),
     listQuotes({ businessId: id }),
     listSales({ businessId: id }),
     listClientNotes("", id),
+    listSendpulseConversations(id, session),
   ]);
+  const sendpulseOptions = conversations.map(({ externalId, client }) => ({
+    externalId,
+    name: personName(client) || "Contacto de SendPulse",
+  }));
   const contactById = new Map(contacts.map((contact) => [contact.id, personName(contact)]));
   const executives = [...new Set(contacts.filter((contact) => contact.assignedExecutive).map((contact) =>
     getAssignedExecutiveName(contact.assignedExecutive)))];
@@ -70,6 +77,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
           ))}
         </ul>
       </section>
+      <ClientSendpulseConversation key={id} accountId={id} options={sendpulseOptions} />
       <div className="grid gap-5 lg:grid-cols-2">
         <section className={panel}>
           <div className="flex items-center justify-between gap-3">
