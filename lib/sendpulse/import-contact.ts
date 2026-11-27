@@ -76,7 +76,7 @@ export async function importSendpulseContact(contact: ImportContact) {
               contactLastName: contact.lastName,
               email: contact.email,
               phone: contact.phone,
-              status: "POTENCIAL",
+              status: "ACTIVO",
             },
           });
           await linkImportedContact(tx, legacy, "SENDPULSE");

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   try {
     if (!prisma) throw new Error("Base de datos no disponible.");
     const visible = client.kind === "business"
-      ? await prisma.business.findUnique({ where: { id: client.id, deletedAt: null }, select: { id: true, origin: true } })
+      ? await prisma.business.findUnique({ where: { id: client.id, deletedAt: null }, select: { id: true } })
       : await prisma.client.findUnique({ where: { id: client.id, businessId: null, deletedAt: null }, select: { id: true } });
     if (!visible) return NextResponse.json({ error: "El cliente no existe." }, { status: 404 });
     const businessId = client.kind === "business" ? client.id : undefined;
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
         select: { id: true, date: true, time: true, title: true, duration: true, joinUrl: true },
         orderBy: [{ date: "asc" }, { time: "asc" }],
       }),
-      businessId && "origin" in visible && visible.origin === "SENDPULSE" ? listSendpulseConversationOptions(businessId, session) : [],
+      businessId ? listSendpulseConversationOptions(businessId, session) : [],
     ]);
 
     return NextResponse.json({

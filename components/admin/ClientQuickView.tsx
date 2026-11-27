@@ -47,7 +47,8 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const key = encodeURIComponent(client.id);
-  const showSendpulse = client.kind === "business" && client.origin === "SENDPULSE";
+  const showSendpulse = client.kind === "business" &&
+    (client.origin === "SENDPULSE" || (data?.sendpulseOptions?.length ?? 0) > 0);
   const tabs = showSendpulse ? sendpulseTabs : clientTabs;
   const tab = selectedTab < tabs.length ? selectedTab : 0;
 
