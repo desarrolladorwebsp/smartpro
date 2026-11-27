@@ -8,6 +8,7 @@ import { normalizeBusinessRut } from "./business";
 import { notifyClientCreated } from "../notifications/events";
 import { CLIENT_ORIGINS, type ClientOrigin, type QuoteMotive } from "./contact-options";
 import { emptyClientInterest, formatClientInterestLabel, resolveClientInterest } from "./interest";
+import { parseClientServiceInterests } from "./service-interests";
 import { getCatalogTree } from "../services/repository";
 import { type ClientCommercialStatus, type ClientRecord, type ClientStatus } from "./types";
 import { visibleClientWhere } from "./visibility";
@@ -114,6 +115,7 @@ type ClientRow = {
     email: string;
   } | null;
   interestServiceId: string | null;
+  serviceInterests?: Prisma.JsonValue;
   interestServiceName: string;
   interestSubcategoryId: string | null;
   interestSubcategoryName: string;
@@ -225,6 +227,7 @@ function toClientRecord(client: ClientRow): ClientRecord {
     assignedExecutiveId: client.assignedExecutiveId,
     assignedExecutive: toAssignedExecutive(client.assignedExecutive),
     interestServiceId: client.interestServiceId ?? null,
+    serviceInterests: parseClientServiceInterests(client.serviceInterests),
     interestServiceName: client.interestServiceName ?? "",
     interestSubcategoryId: client.interestSubcategoryId ?? null,
     interestSubcategoryName: client.interestSubcategoryName ?? "",

@@ -1,4 +1,5 @@
 import { CRM_ARCHIVE_STATES } from "./crm-archive";
+import type { ClientServiceInterest } from "./service-interests";
 
 export const DEFAULT_CRM_STAGES = [
   { id: "NEW", label: "nuevo" },
@@ -60,6 +61,7 @@ export type ClientRecord = {
   assignedExecutiveId: string | null;
   assignedExecutive: ClientAssignedExecutive | null;
   interestServiceId: string | null;
+  serviceInterests?: ClientServiceInterest[] | null;
   interestServiceName: string;
   interestSubcategoryId: string | null;
   interestSubcategoryName: string;

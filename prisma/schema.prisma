@@ -270,6 +270,7 @@ model Business {
   deletedAt DateTime?
   status ClientStatus @default(POTENCIAL)
   origin ClientAcquisitionOrigin?
+  serviceInterests Json?
   createdAt DateTime? @default(now())
   quotes Quote[]
   sales Sale[]
@@ -329,6 +330,7 @@ model Client {
   assignedExecutiveId String?
   assignedExecutive   User?     @relation("ClientAssignedExecutive", fields: [assignedExecutiveId], references: [id], onDelete: SetNull)
   interestServiceId          String?
+  serviceInterests           Json?
   interestServiceName        String  @default("")
   interestSubcategoryId      String?
   interestSubcategoryName    String  @default("")

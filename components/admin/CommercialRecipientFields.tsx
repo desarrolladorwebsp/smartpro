@@ -5,7 +5,7 @@ type ContactOption = { id: string; name: string; email?: string };
 export function CommercialRecipientFields({
   accounts, accountId, onAccountChange, contacts, contactId, onContactChange, disabled = false, loading = false,
 }: {
-  accounts: CommercialClient[];
+  accounts: Pick<CommercialClient, "id" | "name" | "rut">[];
   accountId: string;
   onAccountChange: (id: string) => void;
   contacts: ContactOption[];

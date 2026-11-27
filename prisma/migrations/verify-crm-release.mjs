@@ -46,6 +46,8 @@ const steps = [
   ["20261125141500_quote_crm_advance_on_send", "Quote", "crmAdvanceOnSendOnly"],
   ["20261126100000_client_board_preferences", "ClientBoardPreference", "userId"],
   ["20261126110000_sendpulse_contacts", "SendpulseContact", "externalId"],
+  ["20261127130000_client_service_interests", "Business", "serviceInterests"],
+  ["20261127130000_client_service_interests", "Client", "serviceInterests"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "ClientCrmHistory", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

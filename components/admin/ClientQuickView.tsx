@@ -2,10 +2,12 @@
 
 import { CalendarPlus, FileText, Plus, Video, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { ClientCreationDate } from "@/components/admin/ClientCreationDate";
 import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseConversation";
+import { ClientServiceInterestSelector } from "@/components/admin/ClientServiceInterests";
 import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/lib/clients/types";
@@ -39,6 +41,7 @@ const secondaryButton = "inline-flex min-h-10 items-center justify-center gap-1.
 const primaryButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-sm font-semibold text-white hover:bg-primary/90";
 
 export function ClientQuickView({ client, onClose, onSchedule }: { client: CommercialClient; onClose: () => void; onSchedule: () => void }) {
+  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -116,6 +119,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
               <Video size={16} aria-hidden="true" /> Unirse a Zoom
             </a>}
           </div>
+          <ClientServiceInterestSelector clientKey={client.id} services={client.serviceInterests} onSaved={() => router.refresh()} />
           <button type="button" aria-label="Cerrar ficha" onClick={() => dialog.current?.close()}
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-slate-100">
             <X size={18} aria-hidden="true" />

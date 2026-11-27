@@ -8,10 +8,12 @@ import { parseCommercialClientId, personName, type CommercialClient } from "@/li
 import { useId, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, FileCheck2, FileText, GripVertical, StickyNote, UserRound } from "lucide-react";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
+import { clientServiceInterestFromName } from "@/lib/clients/service-interests";
 import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
 import { ClientQuoteDecisionDialog } from "@/components/admin/ClientQuoteDecisionDialog";
+import { ClientServiceIcons } from "@/components/admin/ClientServiceInterests";
 
 const colors: Record<CrmColumn, { accent: string; dot: string }> = {
   NEW: { accent: "border-t-blue-500", dot: "bg-blue-500" },
@@ -264,6 +266,8 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
                     const quoteStyle = indicator ? quoteStyles[indicator] : undefined;
                     const quoteTone = quoteStyle ? quoteTones[quoteStyle.tone] : undefined;
                     const quoteDescriptionId = quoteStyle ? `${boardId}-${client.id}-quote` : undefined;
+                    const servicesDescriptionId = `${boardId}-${client.id}-services`;
+                    const description = [quoteDescriptionId, client.serviceInterests.length ? servicesDescriptionId : null].filter(Boolean).join(" ");
                     const contact = client.contacts[0];
                     const responsible = client.kind === "business" ? client.responsible : contact?.assignedExecutive;
                     const responsibleId = assigned[client.id] ?? responsible?.id ?? "";
@@ -283,11 +287,12 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
                       {insertion?.key === client.id && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full bg-primary ${insertion.after ? "-bottom-1" : "-top-1"}`} />}
                       <div className={compact ? "px-2.5 py-1 2xl:py-1.5" : "space-y-2.5 p-2.5"}>
                         <div className={`flex gap-1.5 ${compact ? "items-center" : "items-start"}`}>
-                          {!compact && <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary" aria-hidden="true">{initials}</span>}
+                          {!compact && client.serviceInterests.length === 0 && <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary" aria-hidden="true">{initials}</span>}
                           <button type="button" draggable={false} onClick={() => onOpenClient(client.id)}
-                            aria-describedby={quoteDescriptionId}
-                            className="min-h-10 min-w-0 flex-1 self-center break-words text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
-                            {client.name}
+                            aria-describedby={description || undefined}
+                            className="flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 self-center py-1 text-left text-sm font-bold leading-tight tracking-tight text-foreground hover:text-primary focus-visible:rounded-md focus-visible:outline-primary 2xl:text-base">
+                            <span className="min-w-0 break-words">{client.name}</span>
+                            <ClientServiceIcons services={client.serviceInterests} descriptionId={servicesDescriptionId} />
                           </button>
                           {!archivedColumn && <button type="button" draggable={false} onClick={() => onCollapse([client.id], !compact)}
                             aria-expanded={!compact} aria-label={`${compact ? "Expandir" : "Minimizar"} tarjeta de ${client.name}`}
@@ -302,7 +307,7 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
                           <ContactRound size={14} aria-hidden="true" className="shrink-0" />
                           <span className="min-w-0 break-words">{contactName || "Sin contactos"}</span>
                         </p>}
-                        {contact?.interestServiceName && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted">
+                        {contact?.interestServiceName && !clientServiceInterestFromName(contact.interestServiceName) && <p className="flex items-start gap-1.5 text-xs leading-snug text-muted">
                           <BriefcaseBusiness size={14} aria-hidden="true" className="shrink-0" />
                           <span className="min-w-0 break-words">{contact.interestServiceName}</span>
                         </p>}

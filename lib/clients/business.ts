@@ -1,10 +1,10 @@
-import type { ClientAcquisitionOrigin } from "@prisma/client";
+import type { ClientAcquisitionOrigin, Prisma } from "@prisma/client";
 import type { CrmArchiveState } from "./crm-archive";
 import type { ClientAssignedExecutive, ClientCrmStage, ClientRecord, ClientStatus } from "./types";
 
 export type BusinessRecord = { id: string; name: string; rut: string; address: string };
 
-export type BusinessProfile = BusinessRecord & { crmStage: ClientCrmStage; status: ClientStatus; crmPosition?: number | null; crmArchiveState?: CrmArchiveState | null; responsible?: ClientAssignedExecutive | null; website?: string; notes?: string | null; origin?: ClientAcquisitionOrigin | null; createdAt?: Date | null };
+export type BusinessProfile = BusinessRecord & { crmStage: ClientCrmStage; status: ClientStatus; crmPosition?: number | null; crmArchiveState?: CrmArchiveState | null; responsible?: ClientAssignedExecutive | null; website?: string; notes?: string | null; origin?: ClientAcquisitionOrigin | null; serviceInterests?: Prisma.JsonValue; createdAt?: Date | null };
 
 export function parseBusinessRecipient(value: unknown): BusinessRecord | null {
   if (!value || typeof value !== "object") return null;

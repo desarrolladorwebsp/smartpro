@@ -7,6 +7,7 @@ import { ClientAccountForm } from "@/components/admin/ClientAccountForms";
 import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { CalendarSlotDialog } from "@/components/admin/CalendarSlotDialog";
 import { ClientQuickView } from "@/components/admin/ClientQuickView";
+import { ClientServiceIcons } from "@/components/admin/ClientServiceInterests";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
 import { NotificationCenter } from "@/components/admin/NotificationCenter";
 import { useClientBoardPreferences } from "@/components/admin/useClientBoardPreferences";
@@ -14,6 +15,7 @@ import { defaultBoardDisplay, moveClientCardInOrder, orderClientCards, type Boar
 import type { BusinessProfile } from "@/lib/clients/business";
 import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
+import { CLIENT_SERVICE_INTERESTS, clientServiceInterestFromName } from "@/lib/clients/service-interests";
 import { CLIENT_STATUSES, CRM_COLUMNS, getAssignedExecutiveName, getClientStatusLabel, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 const statusStyles: Record<ClientStatus, string> = {
@@ -66,9 +68,13 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   const [scheduleMessage, setScheduleMessage] = useState("");
   const [search, setSearch] = useState("");
   const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
-  const services = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName).filter(Boolean))].sort();
+  const legacyServices = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName)
+    .filter((name) => name && !clientServiceInterestFromName(name)))].sort((a, b) => a.localeCompare(b, "es-CL"));
+  const services = [...Object.values(CLIENT_SERVICE_INTERESTS), ...legacyServices];
   const executive = executives.has(preferences.display.executive) ? preferences.display.executive : "";
-  const service = services.includes(preferences.display.service) ? preferences.display.service : "";
+  const serviceInterest = clientServiceInterestFromName(preferences.display.service);
+  const service = serviceInterest ? CLIENT_SERVICE_INTERESTS[serviceInterest]
+    : legacyServices.includes(preferences.display.service) ? preferences.display.service : "";
   const columns = CRM_COLUMNS.filter(({ id }) => selectedColumns.has(id));
   const customColumns = view === "board" && (selectedColumns.size !== defaultColumns.length || defaultColumns.some((id) => !selectedColumns.has(id)));
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -99,9 +105,10 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
     (!query || [account.name, account.rut, ...account.contacts.flatMap((contact) =>
       [personName(contact), contact.email, contact.phone, contact.jobTitle])].join(" ").toLowerCase().includes(query)) &&
     (!executive || (account.kind === "business" ? account.responsible?.id === executive : account.contacts[0]?.assignedExecutiveId === executive)) &&
-    (!service || account.contacts.some((contact) => contact.interestServiceName === service)));
+    (!service || (serviceInterest ? account.serviceInterests.includes(serviceInterest)
+      : account.contacts.some((contact) => contact.interestServiceName === service))));
 
-  const openClient = visible.find(({ id }) => id === openClientId);
+  const openClient = currentAccounts.find(({ id }) => id === openClientId);
   function openScheduler(clientId: string) {
     setOpenClientId(null);
     setScheduleMessage("");
@@ -248,8 +255,12 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}
           {visible.map((account) => <button key={account.id} type="button" onClick={() => setOpenClientId(account.id)}
+            aria-describedby={account.serviceInterests.length ? `${filtersId}-${account.id}-services` : undefined}
             className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
-            <div><p className="font-semibold">{account.name}</p>
+            <div className="min-w-0 break-words"><div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
+              <span className="min-w-0">{account.name}</span>
+              <ClientServiceIcons services={account.serviceInterests} descriptionId={`${filtersId}-${account.id}-services`} />
+            </div>
               <p className="text-sm text-muted">{account.contacts.length} {account.contacts.length === 1 ? "contacto" : "contactos"}{account.rut && ` · ${account.rut}`}</p></div>
             <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{account.crmArchiveState === "PAUSED" ? "En pausa" : account.crmArchiveState === "LOST" ? "Perdido" : getClientStatusLabel(account.status)}</span>
           </button>)}

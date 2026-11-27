@@ -1,0 +1,2 @@
+ALTER TABLE `Business` ADD COLUMN IF NOT EXISTS `serviceInterests` JSON NULL;
+ALTER TABLE `Client` ADD COLUMN IF NOT EXISTS `serviceInterests` JSON NULL;

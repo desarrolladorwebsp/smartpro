@@ -1,4 +1,5 @@
 import type { BusinessProfile } from "./business";
+import { CLIENT_SERVICE_INTEREST_KEYS, clientServiceInterestFromName, parseClientServiceInterests, type ClientServiceInterest } from "./service-interests";
 import type { ClientAssignedExecutive, ClientCrmStage, ClientRecord, ClientStatus } from "./types";
 
 export type CommercialClient = {
@@ -10,6 +11,7 @@ export type CommercialClient = {
   crmStage: ClientCrmStage;
   status: ClientStatus;
   contacts: ClientRecord[];
+  serviceInterests: ClientServiceInterest[];
   crmPosition?: number | null;
   crmArchiveState?: ClientRecord["crmArchiveState"];
   responsible?: ClientAssignedExecutive | null;
@@ -33,6 +35,12 @@ export function parseCommercialClientId(key: string) {
   };
 }
 
+function contactServiceInterests(contact: ClientRecord): ClientServiceInterest[] {
+  if (contact.serviceInterests) return contact.serviceInterests;
+  const historical = clientServiceInterestFromName(contact.interestServiceName);
+  return historical ? [historical] : [];
+}
+
 export function listCommercialClients(contacts: ClientRecord[], businesses: BusinessProfile[]): CommercialClient[] {
   const byBusiness = new Map<string, ClientRecord[]>();
   const individuals: CommercialClient[] = [];
@@ -54,24 +62,33 @@ export function listCommercialClients(contacts: ClientRecord[], businesses: Busi
       status: contact.status,
       createdAt: contact.createdAt,
       contacts: [contact],
+      serviceInterests: contactServiceInterests(contact),
     });
   }
 
-  const companies: CommercialClient[] = businesses.map((business) => ({
-    id: commercialClientId("", business.id),
-    kind: "business",
-    name: business.name,
-    rut: business.rut,
-    href: `/dashboard/clientes/ficha/${business.id}`,
-    crmStage: business.crmStage,
-    crmArchiveState: business.crmArchiveState,
-    status: business.status,
-    crmPosition: business.crmPosition,
-    responsible: business.responsible,
-    origin: business.origin,
-    createdAt: business.createdAt?.toISOString() ?? null,
-    contacts: (byBusiness.get(business.id) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
-  }));
+  const companies: CommercialClient[] = businesses.map((business) => {
+    const contacts = (byBusiness.get(business.id) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const savedInterests = parseClientServiceInterests(business.serviceInterests);
+    const serviceInterests = savedInterests ?? CLIENT_SERVICE_INTEREST_KEYS.filter((key) =>
+      contacts.some((contact) => contactServiceInterests(contact).includes(key)),
+    );
+    return {
+      id: commercialClientId("", business.id),
+      kind: "business",
+      name: business.name,
+      rut: business.rut,
+      href: `/dashboard/clientes/ficha/${business.id}`,
+      crmStage: business.crmStage,
+      crmArchiveState: business.crmArchiveState,
+      status: business.status,
+      crmPosition: business.crmPosition,
+      responsible: business.responsible,
+      origin: business.origin,
+      createdAt: business.createdAt?.toISOString() ?? null,
+      contacts,
+      serviceInterests,
+    };
+  });
   return [...companies, ...individuals].sort((a, b) => a.name.localeCompare(b.name, "es-CL"));
 }
 
