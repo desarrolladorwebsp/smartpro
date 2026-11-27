@@ -108,6 +108,7 @@ enum ClientStatus {
 enum CrmArchiveState {
   LOST
   PAUSED
+  ARCHIVED
 }
 
 enum ClientCrmStage {

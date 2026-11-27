@@ -11,6 +11,7 @@ import { ClientSendpulseConversation } from "@/components/admin/ClientSendpulseC
 import { ClientServiceInterestSelector } from "@/components/admin/ClientServiceInterests";
 import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+import { crmArchiveLabel } from "@/lib/clients/crm-archive";
 import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
 import { canEditQuote } from "@/lib/quotes/status";
@@ -106,8 +107,7 @@ export function ClientQuickView({ client, onClose, onSchedule }: { client: Comme
   const nextMeeting = upcoming[0];
   const executive = client.kind === "business" ? client.responsible : client.contacts[0]?.assignedExecutive;
   const stage = CRM_STAGES.find(({ id: value }) => value === client.crmStage)?.label;
-  const status = client.crmArchiveState === "PAUSED" ? "En pausa"
-    : client.crmArchiveState === "LOST" ? "Perdido" : getClientStatusLabel(client.status);
+  const status = crmArchiveLabel(client.crmArchiveState) ?? getClientStatusLabel(client.status);
 
   return (
     <dialog ref={dialog} onClose={onClose} aria-labelledby={`${id}-title`}

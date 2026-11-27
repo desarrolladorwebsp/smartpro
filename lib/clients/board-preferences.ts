@@ -2,9 +2,9 @@ import { CRM_COLUMNS, DEFAULT_CRM_STAGES, isClientStatus, type ClientStatus, typ
 
 export type BoardDisplay = {
   view: "board" | "list" | "archived";
-  status: ClientStatus | "";
-  executive: string;
-  service: string;
+  statuses: ClientStatus[];
+  executives: string[];
+  services: string[];
   columns: CrmColumn[];
 };
 
@@ -20,7 +20,7 @@ export type ClientBoardPreferencePatch = Partial<Omit<ClientBoardPreferences, "c
 
 const columnIds = CRM_COLUMNS.map(({ id }) => id);
 export const defaultBoardDisplay: BoardDisplay = {
-  view: "board", status: "", executive: "", service: "",
+  view: "board", statuses: [], executives: [], services: [],
   columns: DEFAULT_CRM_STAGES.map(({ id }) => id),
 };
 
@@ -33,18 +33,23 @@ export function parseBoardCardIds(value: unknown) {
   return [...new Set(value.filter((id): id is string => typeof id === "string" && /^(business|person):[^:]{1,191}$/.test(id)))];
 }
 
+function filterValues(value: unknown) {
+  const candidates: unknown[] = Array.isArray(value) ? value : [value];
+  return [...new Set(candidates.flatMap((entry) => typeof entry === "string" && entry ? [entry.slice(0, 191)] : []))];
+}
+
 export function parseClientBoardPreferencePatch(value: unknown): ClientBoardPreferencePatch {
   const input = object(value);
   if (!input) return {};
   const patch: ClientBoardPreferencePatch = {};
   const display = object(input.display);
   if (display) {
-    const { view, status, executive, service, columns } = display;
+    const { view, columns } = display;
     patch.display = {
       view: view === "list" || view === "archived" ? view : "board",
-      status: isClientStatus(status) ? status : "",
-      executive: typeof executive === "string" ? executive.slice(0, 191) : "",
-      service: typeof service === "string" ? service.slice(0, 191) : "",
+      statuses: filterValues(display.statuses ?? display.status).filter(isClientStatus),
+      executives: filterValues(display.executives ?? display.executive),
+      services: filterValues(display.services ?? display.service),
       columns: Array.isArray(columns) ? columnIds.filter((column) => columns.includes(column)) : defaultBoardDisplay.columns,
     };
   }

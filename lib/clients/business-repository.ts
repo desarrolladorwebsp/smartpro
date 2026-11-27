@@ -1,4 +1,5 @@
 import { recordCrmChange } from "./crm-history";
+import type { ManualCrmArchiveState } from "./crm-archive";
 import { Prisma } from "@prisma/client";
 import type { ClientCrmStage, ClientStatus } from "./types";
 import { prisma } from "../db";
@@ -100,12 +101,22 @@ export async function associateConfirmedBusinessClients(businessId: string, clie
   });
 }
 
-export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, actorEmail: string, anchor?: { id: string; after: boolean }) {
+export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, actorEmail: string, anchor?: { id: string; after: boolean }, reactivateFrom: ManualCrmArchiveState | null = null) {
   return database().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM Business ORDER BY id FOR UPDATE`;
     const current = await tx.business.findUnique({ where: { id, deletedAt: null }, select: { crmStage: true, crmArchiveState: true } });
-    if (!current || current.crmArchiveState) return false;
-    if (!anchor && current.crmStage === crmStage) return true;
+    if (!current || current.crmArchiveState !== reactivateFrom) return false;
+    if (!reactivateFrom && !anchor && current.crmStage === crmStage) return true;
+    if (reactivateFrom && !anchor) {
+      await tx.business.update({ where: { id }, data: {
+        crmStage, crmArchiveState: null, crmReactivateOn: null,
+        ...(current.crmStage !== crmStage ? { crmPosition: null } : {}),
+      } });
+      await recordCrmChange(tx, {
+        accountId: id, event: "REACTIVATION", fromState: reactivateFrom, toState: crmStage, actorEmail,
+      });
+      return true;
+    }
     const cards = await tx.business.findMany({
       where: { crmStage, id: { not: id }, deletedAt: null, crmArchiveState: null },
       select: { id: true, crmPosition: true, name: true },
@@ -117,10 +128,14 @@ export async function moveBusinessCard(id: string, crmStage: ClientCrmStage, act
     const ids = cards.map((card) => card.id);
     ids.splice(index + (anchor?.after ? 1 : 0), 0, id);
     for (const [crmPosition, cardId] of ids.entries()) {
-      await tx.business.update({ where: { id: cardId }, data: { crmStage, crmPosition } });
+      await tx.business.update({ where: { id: cardId }, data: {
+        crmStage, crmPosition,
+        ...(reactivateFrom && cardId === id ? { crmArchiveState: null, crmReactivateOn: null } : {}),
+      } });
     }
     await recordCrmChange(tx, {
-      accountId: id, event: "STAGE", fromState: current.crmStage, toState: crmStage, actorEmail,
+      accountId: id, event: reactivateFrom ? "REACTIVATION" : "STAGE",
+      fromState: current.crmArchiveState ?? current.crmStage, toState: crmStage, actorEmail,
     });
     return true;
   });

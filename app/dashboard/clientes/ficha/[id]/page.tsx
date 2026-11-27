@@ -9,6 +9,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { CLIENT_ACQUISITION_ORIGINS } from "@/lib/clients/acquisition-origin";
 import { getBusiness } from "@/lib/clients/business-repository";
 import { commercialClientId, personName } from "@/lib/clients/commercial-clients";
+import { crmArchiveLabel } from "@/lib/clients/crm-archive";
 import { listClientNotes, listClients } from "@/lib/clients/repository";
 import { CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel } from "@/lib/clients/types";
 import { formatCurrency } from "@/lib/orders/service";
@@ -55,7 +56,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         <p className="text-sm text-muted">Fecha de creación · <ClientCreationDate createdAt={business.createdAt} /></p>
         {business.notes && <p className="whitespace-pre-wrap text-sm text-muted">{business.notes}</p>}
         {executives.length > 0 && <p className="text-sm text-muted">Ejecutivos de contacto · {executives.join(", ")}</p>}
-        <p className="text-sm">{getClientStatusLabel(business.status)} · {CRM_STAGES.find(({ id }) => id === business.crmStage)?.label}</p>
+        <p className="text-sm">{getClientStatusLabel(business.status)} · {crmArchiveLabel(business.crmArchiveState) ?? CRM_STAGES.find(({ id }) => id === business.crmStage)?.label}</p>
       </header>
       <section className={panel}>
         <div className="flex items-center justify-between gap-3">

@@ -8,15 +8,18 @@ import { ClientCrmBoard } from "@/components/admin/ClientCrmBoard";
 import { CalendarSlotDialog } from "@/components/admin/CalendarSlotDialog";
 import { ClientQuickView } from "@/components/admin/ClientQuickView";
 import { ClientServiceIcons } from "@/components/admin/ClientServiceInterests";
+import { ClientStageSelect } from "@/components/admin/ClientStageSelect";
 import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast";
+import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
 import { NotificationCenter } from "@/components/admin/NotificationCenter";
 import { useClientBoardPreferences } from "@/components/admin/useClientBoardPreferences";
 import { defaultBoardDisplay, moveClientCardInOrder, orderClientCards, type BoardDisplay, type ClientBoardPreferences } from "@/lib/clients/board-preferences";
 import type { BusinessProfile } from "@/lib/clients/business";
-import { listCommercialClients, personName } from "@/lib/clients/commercial-clients";
+import { listCommercialClients, parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
+import { crmArchiveLabel } from "@/lib/clients/crm-archive";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
 import { CLIENT_SERVICE_INTERESTS, clientServiceInterestFromName } from "@/lib/clients/service-interests";
-import { CLIENT_STATUSES, CRM_COLUMNS, getAssignedExecutiveName, getClientStatusLabel, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
+import { CLIENT_STATUSES, CRM_COLUMNS, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, type ClientAssignedExecutive, type ClientCrmStage, type ClientRecord, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 const statusStyles: Record<ClientStatus, string> = {
   POTENCIAL: "bg-amber-50 text-amber-800",
@@ -26,6 +29,30 @@ const statusStyles: Record<ClientStatus, string> = {
 };
 
 const defaultColumns = defaultBoardDisplay.columns;
+
+function toggleFilter<T extends string>(values: T[], value: T) {
+  return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
+}
+
+function ClientFilterGroup<T extends string>({ label, options, selected, onToggle }: {
+  label: string;
+  options: ReadonlyArray<readonly [T, string]>;
+  selected: readonly T[];
+  onToggle: (value: T) => void;
+}) {
+  if (!options.length) return null;
+  return <details className="rounded-xl border border-border px-2.5">
+    <summary className="min-h-9 cursor-pointer py-2 text-sm font-semibold">
+      {label}{selected.length > 0 && <span className="ml-1 text-primary">({selected.length})</span>}
+    </summary>
+    <fieldset aria-label={label} className="max-h-32 overflow-y-auto pb-1">
+      {options.map(([value, name]) => <label key={value} className="flex min-h-8 items-center gap-2 text-sm">
+        <input type="checkbox" className="size-4 shrink-0 accent-primary" checked={selected.includes(value)} onChange={() => onToggle(value)} />
+        <span className="min-w-0 break-words">{name}</span>
+      </label>)}
+    </fieldset>
+  </details>;
+}
 
 export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndicators, contactedWithUnsentQuotes, assignable, preferenceKey, userId, initialPreferences, hasPaused, calendarDate, zoomConfigured }: {
   initialClients: ClientRecord[];
@@ -56,7 +83,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   }, [hasPaused, router]);
 
   const { preferences, current, update, saveFailed, retry } = useClientBoardPreferences(initialPreferences, userId, preferenceKey);
-  const { view, status } = preferences.display;
+  const { view, statuses } = preferences.display;
   const selectedColumns = new Set(preferences.display.columns);
   const collapsed = new Set(preferences.collapsed);
   function setDisplay(patch: Partial<BoardDisplay>) {
@@ -65,23 +92,32 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   const [creating, setCreating] = useState(false);
   const [openClientId, setOpenClientId] = useState<string | null>(null);
   const [scheduleClientId, setScheduleClientId] = useState<string | null>(null);
-  const [scheduleMessage, setScheduleMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [archiveMove, setArchiveMove] = useState<{ client: CommercialClient; stage: (typeof CRM_STAGES)[number] } | null>(null);
+  const [savingArchiveMove, setSavingArchiveMove] = useState(false);
+  const [archiveMoveError, setArchiveMoveError] = useState("");
+  const archiveMoveTrigger = useRef<HTMLElement | null>(null);
+  const focusArchiveMove = useCallback((form: HTMLFormElement | null) => {
+    form?.querySelector<HTMLButtonElement>('button[type="button"]')?.focus();
+  }, []);
   const [search, setSearch] = useState("");
   const executives = new Map(assignable.map((person) => [person.id, getAssignedExecutiveName(person)]));
   const legacyServices = [...new Set(initialClients.map(({ interestServiceName }) => interestServiceName)
     .filter((name) => name && !clientServiceInterestFromName(name)))].sort((a, b) => a.localeCompare(b, "es-CL"));
   const services = [...Object.values(CLIENT_SERVICE_INTERESTS), ...legacyServices];
-  const executive = executives.has(preferences.display.executive) ? preferences.display.executive : "";
-  const serviceInterest = clientServiceInterestFromName(preferences.display.service);
-  const service = serviceInterest ? CLIENT_SERVICE_INTERESTS[serviceInterest]
-    : legacyServices.includes(preferences.display.service) ? preferences.display.service : "";
+  const selectedExecutives = preferences.display.executives.filter((id) => executives.has(id));
+  const selectedServices = [...new Set(preferences.display.services.flatMap((value) => {
+    const interest = clientServiceInterestFromName(value);
+    return interest ? [CLIENT_SERVICE_INTERESTS[interest]] : legacyServices.includes(value) ? [value] : [];
+  }))];
+  const selectedServiceInterests = selectedServices.map((service) => ({ service, interest: clientServiceInterestFromName(service) }));
   const columns = CRM_COLUMNS.filter(({ id }) => selectedColumns.has(id));
   const customColumns = view === "board" && (selectedColumns.size !== defaultColumns.length || defaultColumns.some((id) => !selectedColumns.has(id)));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersId = useId();
   const filtersMenu = useRef<HTMLDivElement>(null);
   const filtersTrigger = useRef<HTMLButtonElement>(null);
-  const activeFilterCount = [status, executive, service, customColumns].filter(Boolean).length;
+  const activeFilterCount = [statuses.length, selectedExecutives.length, selectedServices.length, customColumns].filter(Boolean).length;
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -101,17 +137,17 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
   const accounts = currentAccounts.filter((account) => view === "board" ? selectedColumns.has(account.crmArchiveState ?? account.crmStage) : Boolean(account.crmArchiveState) === (view === "archived"));
   const query = search.trim().toLowerCase();
   const visible = accounts.filter((account) =>
-    (!status || account.status === status) &&
+    (!statuses.length || statuses.includes(account.status)) &&
     (!query || [account.name, account.rut, ...account.contacts.flatMap((contact) =>
       [personName(contact), contact.email, contact.phone, contact.jobTitle])].join(" ").toLowerCase().includes(query)) &&
-    (!executive || (account.kind === "business" ? account.responsible?.id === executive : account.contacts[0]?.assignedExecutiveId === executive)) &&
-    (!service || (serviceInterest ? account.serviceInterests.includes(serviceInterest)
-      : account.contacts.some((contact) => contact.interestServiceName === service))));
+    (!selectedExecutives.length || selectedExecutives.includes((account.kind === "business" ? account.responsible?.id : account.contacts[0]?.assignedExecutiveId) ?? "")) &&
+    (!selectedServiceInterests.length || selectedServiceInterests.some(({ service, interest }) => interest
+      ? account.serviceInterests.includes(interest) : account.contacts.some((contact) => contact.interestServiceName === service))));
 
   const openClient = currentAccounts.find(({ id }) => id === openClientId);
   function openScheduler(clientId: string) {
     setOpenClientId(null);
-    setScheduleMessage("");
+    setSuccessMessage("");
     setScheduleClientId(clientId);
   }
 
@@ -149,6 +185,55 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
     }
   }
 
+  function selectArchivedDestination(client: CommercialClient, destination: CrmColumn) {
+    const stage = CRM_STAGES.find(({ id }) => id === destination);
+    if (!stage || client.crmArchiveState !== "ARCHIVED") return;
+    archiveMoveTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSuccessMessage("");
+    setArchiveMoveError("");
+    setArchiveMove({ client, stage });
+  }
+
+  function closeArchiveMove() {
+    if (savingArchiveMove) return;
+    setArchiveMove(null);
+    archiveMoveTrigger.current?.focus();
+  }
+
+  async function reactivateClient() {
+    if (!archiveMove || savingArchiveMove) return;
+    const { client, stage } = archiveMove;
+    const target = parseCommercialClientId(client.id);
+    if (!target) return;
+    const id = encodeURIComponent(target.id);
+    const url = target.kind === "business" ? `/api/businesses/${id}/crm` : `/api/clients/${id}/crm-stage`;
+    setSavingArchiveMove(true);
+    setArchiveMoveError("");
+    try {
+      const response = await fetch(url, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crmStage: stage.id, reactivateFrom: client.crmArchiveState }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "No se pudo reactivar al cliente.");
+      }
+      if (target.kind === "person") setStages((current) => {
+        if (!(client.id in current)) return current;
+        const next = { ...current };
+        delete next[client.id];
+        return next;
+      });
+      setArchiveMove(null);
+      setSuccessMessage(`${client.name} se movió a «${stage.label}».`);
+      router.refresh();
+    } catch (error) {
+      setArchiveMoveError(error instanceof Error ? error.message : "No se pudo reactivar al cliente.");
+    } finally {
+      setSavingArchiveMove(false);
+    }
+  }
+
   return (
     <div className={`flex min-w-0 flex-col gap-4 ${view === "board" ? "lg:h-[max(36rem,calc(100dvh-4rem))]" : ""}`}>
       {quoteMessage && <DashboardSuccessToast message={quoteMessage} onDismiss={dismissQuoteMessage} />}
@@ -178,24 +263,12 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
             </button>
             <div id={filtersId} hidden={!filtersOpen} className="absolute right-0 top-full z-30 mt-2 max-h-[min(36rem,55dvh)] w-[min(17rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-white p-3 shadow-lg sm:left-0 sm:right-auto">
               <div className="space-y-2.5">
-                <label className="block text-xs font-semibold text-muted">Estado
-                  <select aria-label="Filtrar por estado" className="dashboard-field mt-1 rounded-xl" value={status} onChange={(event) => setDisplay({ status: isClientStatus(event.target.value) ? event.target.value : "" })}>
-                    <option value="">Todos los estados</option>
-                    {CLIENT_STATUSES.map((entry) => <option key={entry} value={entry}>{getClientStatusLabel(entry)}</option>)}
-                  </select>
-                </label>
-                <label className="block text-xs font-semibold text-muted">Ejecutivo
-                  <select aria-label="Filtrar por ejecutivo" className="dashboard-field mt-1 rounded-xl" value={executive} onChange={(event) => setDisplay({ executive: event.target.value })}>
-                    <option value="">Todos los ejecutivos</option>
-                    {[...executives].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                  </select>
-                </label>
-                <label className="block text-xs font-semibold text-muted">Servicio
-                  <select aria-label="Filtrar por servicio" className="dashboard-field mt-1 rounded-xl" value={service} onChange={(event) => setDisplay({ service: event.target.value })}>
-                    <option value="">Todos los servicios</option>
-                    {services.map((entry) => <option key={entry}>{entry}</option>)}
-                  </select>
-                </label>
+                <ClientFilterGroup label="Estado" options={CLIENT_STATUSES.map((entry) => [entry, getClientStatusLabel(entry)])} selected={statuses}
+                  onToggle={(entry) => setDisplay({ statuses: toggleFilter(current.current.display.statuses, entry) })} />
+                <ClientFilterGroup label="Ejecutivo" options={[...executives]} selected={selectedExecutives}
+                  onToggle={(entry) => setDisplay({ executives: toggleFilter(current.current.display.executives, entry) })} />
+                <ClientFilterGroup label="Servicio" options={services.map((entry) => [entry, entry])} selected={selectedServices}
+                  onToggle={(entry) => setDisplay({ services: toggleFilter(selectedServices, entry) })} />
                 {view === "board" && <fieldset className="border-t border-border pt-1.5">
                   <legend className="pr-2 text-xs font-semibold text-muted">Columnas visibles</legend>
                   <button type="button" className="min-h-8 text-xs font-semibold text-primary hover:underline"
@@ -214,7 +287,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
                   </label>)}
                 </fieldset>}
                 {activeFilterCount > 0 && <button type="button" className="min-h-9 text-sm font-semibold text-primary hover:underline"
-                  onClick={() => { setDisplay({ status: "", executive: "", service: "", ...(view === "board" ? { columns: defaultColumns } : {}) }); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
+                  onClick={() => { setDisplay({ statuses: [], executives: [], services: [], ...(view === "board" ? { columns: defaultColumns } : {}) }); filtersTrigger.current?.focus(); }}>Limpiar filtros</button>}
               </div>
             </div>
           </div>
@@ -245,26 +318,40 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
           </button>
         </div>
       </header>
-      {scheduleMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{scheduleMessage}</p>}
+      {successMessage && <p role="status" className="shrink-0 text-sm font-medium text-emerald-700">{successMessage}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {saveFailed && <p role="alert" className="text-sm text-red-700">No se pudo guardar tu configuración.{" "}
         <button type="button" onClick={() => void retry()} className="font-semibold underline">Reintentar</button>
       </p>}
-      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} cardOrder={preferences.cardOrder} onReorder={reorderCard} quoteIndicators={quoteIndicators} contactedWithUnsentQuotes={contactedWithUnsentQuotes} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler}
+      {view === "board" ? <ClientCrmBoard clients={visible} columns={columns} cardOrder={preferences.cardOrder} onReorder={reorderCard} quoteIndicators={quoteIndicators} contactedWithUnsentQuotes={contactedWithUnsentQuotes} collapsed={collapsed} onCollapse={setCardsCollapsed} assignable={assignable} statusStyles={statusStyles} onStatusChange={changeStatus} onOpenClient={setOpenClientId} onSchedule={openScheduler} onReactivateArchived={selectArchivedDestination}
         onMoved={(key, stage) => { if (key.startsWith("person:")) setStages((current) => ({ ...current, [key]: stage })); }} />
         : <div className="divide-y divide-border rounded-2xl border border-border bg-white">
           {visible.length === 0 && <p className="p-5 text-sm text-muted">Sin clientes para estos filtros.</p>}
-          {visible.map((account) => <button key={account.id} type="button" onClick={() => setOpenClientId(account.id)}
-            aria-describedby={account.serviceInterests.length ? `${filtersId}-${account.id}-services` : undefined}
-            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
-            <div className="min-w-0 break-words"><div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
-              <span className="min-w-0">{account.name}</span>
-              <ClientServiceIcons services={account.serviceInterests} descriptionId={`${filtersId}-${account.id}-services`} />
-            </div>
-              <p className="text-sm text-muted">{account.contacts.length} {account.contacts.length === 1 ? "contacto" : "contactos"}{account.rut && ` · ${account.rut}`}</p></div>
-            <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{account.crmArchiveState === "PAUSED" ? "En pausa" : account.crmArchiveState === "LOST" ? "Perdido" : getClientStatusLabel(account.status)}</span>
-          </button>)}
+          {visible.map((account) => <div key={account.id} className="flex flex-wrap items-center">
+            <button type="button" onClick={() => setOpenClientId(account.id)}
+              aria-describedby={account.serviceInterests.length ? `${filtersId}-${account.id}-services` : undefined}
+              className="flex min-w-48 flex-1 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
+              <div className="min-w-0 break-words"><div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
+                <span className="min-w-0">{account.name}</span>
+                <ClientServiceIcons services={account.serviceInterests} descriptionId={`${filtersId}-${account.id}-services`} />
+              </div>
+                <p className="text-sm text-muted">{account.contacts.length} {account.contacts.length === 1 ? "contacto" : "contactos"}{account.rut && ` · ${account.rut}`}</p></div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs ${statusStyles[account.status]}`}>{crmArchiveLabel(account.crmArchiveState) ?? getClientStatusLabel(account.status)}</span>
+            </button>
+            {account.crmArchiveState === "ARCHIVED" && <div className="px-4 py-2">
+              <ClientStageSelect name={account.name} currentStage={account.crmArchiveState} onSelect={(stage) => selectArchivedDestination(account, stage)} />
+            </div>}
+          </div>)}
         </div>}
+      {archiveMove && <DashboardFormModal eyebrow="Clientes" title="Reactivar cliente" onClose={closeArchiveMove}>
+        <form ref={focusArchiveMove} onKeyDown={(event) => { if (event.key === "Escape") closeArchiveMove(); }}
+          onSubmit={(event) => { event.preventDefault(); void reactivateClient(); }}>
+          <p className="break-words p-4 text-sm">¿Mover a <strong>{archiveMove.client.name}</strong> de «{crmArchiveLabel(archiveMove.client.crmArchiveState)}» a «{archiveMove.stage.label}»?</p>
+          <DashboardFormFooter error={archiveMoveError}>
+            <DashboardFormActions isSaving={savingArchiveMove} onCancel={closeArchiveMove} submitLabel="Confirmar cambio" />
+          </DashboardFormFooter>
+        </form>
+      </DashboardFormModal>}
       {openClient && <ClientQuickView key={openClient.id} client={openClient} onClose={() => setOpenClientId(null)}
         onSchedule={() => openScheduler(openClient.id)} />}
       {scheduleClientId && <CalendarSlotDialog key={scheduleClientId} date={calendarDate} initialClientKey={scheduleClientId}
@@ -276,7 +363,7 @@ export function ClientsDashboard({ initialClients, initialBusinesses, quoteIndic
         onContactAdded={() => router.refresh()}
         onClose={() => setScheduleClientId(null)}
         onSaved={() => {
-          setScheduleMessage("Recordatorio guardado en el calendario.");
+          setSuccessMessage("Recordatorio guardado en el calendario.");
           setScheduleClientId(null);
         }} />}
       {creating && <ClientAccountForm onClose={() => setCreating(false)} />}

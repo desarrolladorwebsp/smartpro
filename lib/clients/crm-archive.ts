@@ -1,12 +1,19 @@
 export const CRM_ARCHIVE_STATES = [
   { id: "LOST", label: "Perdido" },
   { id: "PAUSED", label: "En pausa" },
+  { id: "ARCHIVED", label: "Archivados" },
 ] as const;
 
 export type CrmArchiveState = (typeof CRM_ARCHIVE_STATES)[number]["id"];
+export type ManualCrmArchiveState = Extract<CrmArchiveState, "ARCHIVED">;
 
 export function isCrmArchiveState(value: unknown): value is CrmArchiveState {
-  return value === "LOST" || value === "PAUSED";
+  return CRM_ARCHIVE_STATES.some(({ id }) => id === value);
+}
+
+
+export function crmArchiveLabel(state?: CrmArchiveState | null) {
+  return CRM_ARCHIVE_STATES.find(({ id }) => id === state)?.label;
 }
 
 export function crmToday(now = new Date()) {

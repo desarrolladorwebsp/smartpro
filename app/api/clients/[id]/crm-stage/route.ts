@@ -11,13 +11,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => null);
   const stage: unknown = body?.crmStage;
+  const from: unknown = body?.reactivateFrom ?? null;
+  if (from !== null && from !== "ARCHIVED") return NextResponse.json({ error: "El estado de origen no es válido." }, { status: 400 });
   if (!isClientCrmStage(stage)) {
     return NextResponse.json({ error: "La etapa del CRM no es válida." }, { status: 400 });
   }
 
   try {
     const { id } = await params;
-    if (!(await updateClientCrmStage(id, stage, session.email))) {
+    if (!(await updateClientCrmStage(id, stage, session.email, from))) {
+      if (from) return NextResponse.json({ error: "El estado del cliente cambió. Actualiza el tablero." }, { status: 409 });
       return NextResponse.json({ error: "El cliente no existe." }, { status: 404 });
     }
     return NextResponse.json({ crmStage: stage });

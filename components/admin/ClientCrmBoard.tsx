@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CRM_ARCHIVE_STATES, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
+import { crmArchiveLabel, crmToday, isCrmArchiveState, parseReactivationDate, type CrmArchiveState } from "@/lib/clients/crm-archive";
 import { orderClientCards, type BoardCardOrder } from "@/lib/clients/board-preferences";
 import { parseCommercialClientId, personName, type CommercialClient } from "@/lib/clients/commercial-clients";
 import { useId, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { ArrowLeftRight, BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, FileCheck2, FileText, GripVertical, StickyNote, UserRound } from "lucide-react";
+import { BriefcaseBusiness, CalendarPlus, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown, ContactRound, FileCheck2, FileText, GripVertical, StickyNote, UserRound } from "lucide-react";
 import type { CrmQuoteIndicator } from "@/lib/clients/quote-crm";
 import { clientServiceInterestFromName } from "@/lib/clients/service-interests";
-import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientCrmStage, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
+import { CLIENT_STATUSES, CRM_STAGES, getAssignedExecutiveName, getClientStatusLabel, isClientStatus, type ClientAssignedExecutive, type ClientCrmStage, type ClientStatus, type CrmColumn } from "@/lib/clients/types";
 
 import { DashboardFormActions, DashboardFormFooter, DashboardFormModal } from "@/components/admin/dashboard-form";
 import { ClientQuoteDecisionDialog } from "@/components/admin/ClientQuoteDecisionDialog";
+import { ClientStageSelect } from "@/components/admin/ClientStageSelect";
 import { ClientServiceIcons } from "@/components/admin/ClientServiceInterests";
 
 const colors: Record<CrmColumn, { accent: string; dot: string }> = {
@@ -23,6 +24,7 @@ const colors: Record<CrmColumn, { accent: string; dot: string }> = {
   PROPOSAL_REJECTED: { accent: "border-t-rose-600", dot: "bg-rose-600" },
   LOST: { accent: "border-t-slate-500", dot: "bg-slate-500" },
   PAUSED: { accent: "border-t-sky-600", dot: "bg-sky-600" },
+  ARCHIVED: { accent: "border-t-zinc-800", dot: "bg-zinc-800" },
 };
 
 const quoteTones = {
@@ -40,7 +42,7 @@ const quoteStyles: Record<CrmQuoteIndicator, { label: string; tone: keyof typeof
 
 const quoteActionClassName = "col-span-full inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-primary focus-visible:outline-primary lg:min-h-9";
 
-export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIndicators, contactedWithUnsentQuotes, assignable, onMoved, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
+export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIndicators, contactedWithUnsentQuotes, assignable, onMoved, onReactivateArchived, statusStyles, onStatusChange, collapsed, onCollapse, onOpenClient, onSchedule }: {
   clients: CommercialClient[];
   columns: ReadonlyArray<{ id: CrmColumn; label: string }>;
   cardOrder: BoardCardOrder;
@@ -55,6 +57,7 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
   statusStyles: Record<ClientStatus, string>;
   onStatusChange: (id: string, status: ClientStatus) => Promise<void>;
   onMoved: (id: string, stage: ClientCrmStage) => void;
+  onReactivateArchived: (client: CommercialClient, stage: CrmColumn) => void;
 }) {
   const router = useRouter();
   const contactedQuoteKeys = new Set(contactedWithUnsentQuotes);
@@ -338,6 +341,9 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
                         </div>
                         </>}
                       </div>
+                      {stage.id === "ARCHIVED" && <div className="px-2.5 pb-2.5">
+                        <ClientStageSelect name={client.name} currentStage={stage.id} onSelect={(nextStage) => onReactivateArchived(client, nextStage)} />
+                      </div>}
                       {!compact && <div className="grid grid-cols-2 gap-2 rounded-b-xl border-t border-border/70 p-2.5">
                         <button type="button" onClick={(event) => {
                           noteTrigger.current = event.currentTarget;
@@ -363,31 +369,21 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
                           className={`${quoteActionClassName} bg-primary/10 hover:bg-primary/15`}>
                           <FileText size={15} aria-hidden="true" /> Cotizar
                         </Link>}
-                        <div className="relative col-span-full">
-                          <ArrowLeftRight size={15} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary" />
-                          <select data-stage-control aria-label={`Cambiar estado de ${client.name}`} value="" aria-disabled={pending !== null}
-                            className="min-h-11 w-full appearance-none rounded-lg border border-border bg-white px-8 text-center text-xs font-semibold text-foreground hover:bg-slate-50 focus-visible:outline-primary aria-disabled:opacity-60 lg:min-h-9"
-                          onChange={(event) => {
+                        <div className="col-span-full">
+                          <ClientStageSelect name={client.name} currentStage={stage.id} locked={pending !== null} saving={pending === client.id}
+                          onSelect={(state) => {
                             if (saving.current) return;
-                            const state = event.target.value;
                             if (isCrmArchiveState(state)) {
                               setArchive({ client, state });
                             } else if (state === "PROPOSAL_REJECTED") {
                               setRejecting({ client });
-                            } else if (isClientCrmStage(state)) {
+                            } else {
                               const label = CRM_STAGES.find((entry) => entry.id === state)?.label;
                               if (window.confirm(`¿Cambiar el estado de ${client.name} a «${label}»?`)) {
                                 void move(client, state, true);
                               }
                             }
-                          }}>
-                          <option value="">{pending === client.id ? "Guardando…" : "Cambiar etapa"}</option>
-                          {CRM_STAGES.filter((entry) => entry.id !== stage.id).map((entry) => (
-                            <option key={entry.id} value={entry.id}>{entry.label}</option>
-                          ))}
-                          {CRM_ARCHIVE_STATES.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
-                          </select>
-                          <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
+                          }} />
                         </div>
                       </div>}
                     </li>;
@@ -417,7 +413,7 @@ export function ClientCrmBoard({ clients, columns, cardOrder, onReorder, quoteIn
         </form>
       </DashboardFormModal>}
       {archive && <ArchiveClientForm {...archive} onClose={() => setArchive(null)} onSaved={() => {
-        const label = CRM_ARCHIVE_STATES.find((entry) => entry.id === archive.state)?.label;
+        const label = crmArchiveLabel(archive.state);
         setFeedback({ error: false, message: `${archive.client.name} pasó a «${label}».` });
         setArchive(null);
         router.refresh();
@@ -454,6 +450,7 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const paused = state === "PAUSED";
+  const archived = state === "ARCHIVED";
   const saving = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -464,7 +461,7 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
     const form = new FormData(event.currentTarget);
     const reactivateOn = form.get("reactivateOn");
     const note = String(form.get("note") ?? "").trim();
-    if (!note || note.length > 10000) {
+    if ((!note && !archived) || note.length > 10000) {
       setError("Escribe una nota de hasta 10.000 caracteres.");
       return;
     }
@@ -494,7 +491,7 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
   }
 
   return (
-    <DashboardFormModal eyebrow="Clientes" title={paused ? "Poner en pausa" : "Marcar como perdido"}
+    <DashboardFormModal eyebrow="Clientes" title={archived ? "Archivar cliente" : paused ? "Poner en pausa" : "Marcar como perdido"}
       onClose={() => { if (!saving.current) onClose(); }}>
       <form onSubmit={submit} className="flex min-h-0 flex-col">
         <div className="space-y-3 overflow-y-auto p-4">
@@ -503,8 +500,8 @@ function ArchiveClientForm({ client, state, onClose, onSaved }: {
             ? "La tarjeta volverá a su columna en la fecha elegida."
             : "La tarjeta se archivará sin reactivación automática."}</p>
           <label className="block text-sm font-medium">
-            Motivo del cambio
-            <textarea name="note" required maxLength={10000} rows={4} autoFocus
+            Motivo del cambio {archived && <span className="font-normal text-muted">(opcional)</span>}
+            <textarea name="note" required={!archived} maxLength={10000} rows={4} autoFocus
               className="dashboard-field mt-1.5 resize-y" placeholder="Explica el motivo y el próximo paso…" />
           </label>
           {paused && <label className="block text-sm font-medium">

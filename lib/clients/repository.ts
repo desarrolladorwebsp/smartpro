@@ -1,4 +1,5 @@
 import { recordCrmChange } from "./crm-history";
+import type { ManualCrmArchiveState } from "./crm-archive";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
@@ -637,16 +638,19 @@ export async function updateClientStatus(id: string, status: ClientStatus, actor
   });
 }
 
-export async function updateClientCrmStage(id: string, crmStage: NonNullable<ClientRecord["crmStage"]>, actorEmail: string): Promise<boolean> {
+export async function updateClientCrmStage(id: string, crmStage: NonNullable<ClientRecord["crmStage"]>, actorEmail: string, reactivateFrom: ManualCrmArchiveState | null = null): Promise<boolean> {
   return getPrisma().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM Client WHERE id = ${id} FOR UPDATE`;
     const current = await tx.client.findUnique({ where: { ...visibleClientWhere, id } });
-    if (!current || current.crmArchiveState) return false;
-    if (current.crmStage === crmStage) return true;
-    await tx.client.update({ where: { id }, data: { crmStage } });
+    if (!current || current.crmArchiveState !== reactivateFrom || (reactivateFrom && current.businessId)) return false;
+    if (!reactivateFrom && current.crmStage === crmStage) return true;
+    await tx.client.update({ where: { id }, data: {
+      crmStage,
+      ...(reactivateFrom ? { crmArchiveState: null, crmReactivateOn: null } : {}),
+    } });
     await recordCrmChange(tx, {
-      clientId: id, accountId: current.businessId, event: "STAGE",
-      fromState: current.crmStage, toState: crmStage, actorEmail,
+      clientId: id, accountId: current.businessId, event: reactivateFrom ? "REACTIVATION" : "STAGE",
+      fromState: current.crmArchiveState ?? current.crmStage, toState: crmStage, actorEmail,
     });
     return true;
   });

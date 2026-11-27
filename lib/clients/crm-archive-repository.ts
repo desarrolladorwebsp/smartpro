@@ -1,5 +1,5 @@
 import { prisma } from "../db";
-import { crmToday, parseReactivationDate, type CrmArchiveState } from "./crm-archive";
+import { crmArchiveLabel, crmToday, parseReactivationDate, type CrmArchiveState } from "./crm-archive";
 import { crmChangeNote, recordCrmChange } from "./crm-history";
 
 function database() {
@@ -12,7 +12,7 @@ export async function archiveCrmClient(
   note: string, actorEmail: string,
 ) {
   const content = crmChangeNote(note);
-  if (!content || content.length > 10000) throw new Error("Escribe una nota de hasta 10.000 caracteres.");
+  if ((!content && crmArchiveState !== "ARCHIVED") || content.length > 10000) throw new Error("Escribe una nota de hasta 10.000 caracteres.");
   if (crmArchiveState === "PAUSED" && !parseReactivationDate(crmReactivateOn?.toISOString().slice(0, 10))) {
     throw new Error("Elige una fecha de reactivación posterior a hoy.");
   }
@@ -30,8 +30,8 @@ export async function archiveCrmClient(
     if (kind === "business") await tx.business.update({ where: { id }, data });
     else await tx.client.update({ where: { id }, data });
     const target = kind === "business" ? { accountId: id } : { clientId: id };
-    await tx.clientNote.create({ data: {
-      ...target, title: crmArchiveState === "PAUSED" ? "En pausa" : "Perdido",
+    if (content) await tx.clientNote.create({ data: {
+      ...target, title: crmArchiveLabel(crmArchiveState),
       content, executiveEmail: actorEmail,
     } });
     await recordCrmChange(tx, {

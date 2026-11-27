@@ -6,16 +6,33 @@ test("restaura las preferencias predeterminadas cuando la cuenta aún no tiene c
   assert.deepEqual(resolveClientBoardPreferences(null), { display: defaultBoardDisplay, collapsed: null, cardOrder: {} });
 });
 
+
 test("conserva las selecciones vacías y descarta identificadores inválidos o repetidos", () => {
   assert.deepEqual(parseClientBoardPreferencePatch({
     display: { view: "archived", status: "ACTIVO", executive: "exec", service: "Diseño", columns: [] },
     collapsed: ["business:a", "business:a", "invalido"],
     cardOrder: { NEW: ["person:b", "business:a"], INVALID: ["person:c"] },
   }), {
-    display: { view: "archived", status: "ACTIVO", executive: "exec", service: "Diseño", columns: [] },
+    display: { view: "archived", statuses: ["ACTIVO"], executives: ["exec"], services: ["Diseño"], columns: [] },
     collapsed: ["business:a"],
     cardOrder: { NEW: ["person:b", "business:a"] },
   });
+});
+
+test("guarda varias opciones por filtro y conserva Archivados en las columnas y el orden personal", () => {
+  const result = resolveClientBoardPreferences({
+    display: {
+      statuses: ["ACTIVO", "POTENCIAL", "ACTIVO", "otro"],
+      executives: ["e1", "e2", "e1", 3],
+      services: ["Podcast", "Desarrollo web", "Podcast", ""],
+      columns: ["NEW", "ARCHIVED", "ARCHIVED"],
+    },
+    cardOrder: { ARCHIVED: ["business:a"] },
+  });
+  assert.deepEqual(result.display, {
+    view: "board", statuses: ["ACTIVO", "POTENCIAL"], executives: ["e1", "e2"], services: ["Podcast", "Desarrollo web"], columns: ["NEW", "ARCHIVED"],
+  });
+  assert.deepEqual(result.cardOrder, { ARCHIVED: ["business:a"] });
 });
 
 test("respeta el orden personal sin perder tarjetas nuevas ni depender de las que están filtradas", () => {

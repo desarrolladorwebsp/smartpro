@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const note = crmChangeNote(body.note);
-  if (!note || note.length > 10000) {
+  if ((!note && body.state !== "ARCHIVED") || note.length > 10000) {
     return Response.json({ error: "Escribe una nota de hasta 10.000 caracteres." }, { status: 400 });
   }
 
