@@ -9,6 +9,8 @@ import { DashboardSuccessToast } from "@/components/admin/DashboardSuccessToast"
 import { SaleCollectionDialog, SaleCollectionDues } from "@/components/admin/SaleCollectionDialog";
 import { SaleInvoiceModal } from "@/components/admin/SaleInvoiceModal";
 import { SalePaymentModal } from "@/components/admin/SalePaymentModal";
+import { SalePaymentRequests } from "@/components/admin/SalePaymentRequests";
+import { SMARTPRO_AGENCY_ID } from "@/lib/agencies/types";
 import { formatCurrency } from "@/lib/orders/service";
 import type { SaleCollection } from "@/lib/sales/collections";
 import { type SaleInternalCommentRecord } from "@/lib/sales/comments";
@@ -46,6 +48,7 @@ export function SaleDetail({ initialSale, collection, openPaymentOnLoad, openCol
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(openPaymentOnLoad);
+  const [paymentRequestOpen, setPaymentRequestOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(openCollectionOnLoad);
   const [editingPayment, setEditingPayment] = useState<SalePaymentRecord | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -55,6 +58,7 @@ export function SaleDetail({ initialSale, collection, openPaymentOnLoad, openCol
   const [successMessage, setSuccessMessage] = useState("");
   const nextCollectionDue = collection?.installments.find((due) => due.remaining > 0);
   const canSchedule = Boolean(collection) && !sale.archivedAt && sale.status !== "CANCELLED" && sale.balanceDue > 0;
+  const showPaymentRequests = Boolean(collection) && sale.agencyId === SMARTPRO_AGENCY_ID;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -181,6 +185,7 @@ export function SaleDetail({ initialSale, collection, openPaymentOnLoad, openCol
             {!sale.archivedAt && sale.status !== "CANCELLED" && sale.balanceDue > 0 ? (
               <button type="button" onClick={() => setPaymentOpen(true)} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary/30 hover:text-primary">Registrar abono</button>
             ) : null}
+            {showPaymentRequests && canSchedule && <button type="button" onClick={() => setPaymentRequestOpen(true)} className="min-h-10 rounded-full border border-border px-4 text-sm font-semibold text-primary hover:border-primary/30">Solicitar abono</button>}
             {sale.liorenInvoice.status === "ISSUED" ? (
               <>
                 <span className="inline-flex min-h-10 items-center rounded-full bg-emerald-100 px-4 text-sm font-semibold text-emerald-700">Factura emitida{sale.liorenInvoice.folio ? ` · folio ${sale.liorenInvoice.folio}` : ""}</span>
@@ -231,6 +236,9 @@ export function SaleDetail({ initialSale, collection, openPaymentOnLoad, openCol
             : <p className="mt-2 text-sm text-muted">Sin fecha de cobro</p>}
         </section>
       )}
+
+      {showPaymentRequests && <SalePaymentRequests saleId={sale.id} balance={sale.balanceDue} suggestedAmount={nextCollectionDue?.remaining ?? sale.balanceDue}
+        open={paymentRequestOpen} onClose={() => setPaymentRequestOpen(false)} />}
 
       <section className={panelClass} aria-labelledby="payments-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

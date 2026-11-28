@@ -785,6 +785,7 @@ model Sale {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   payments         SalePayment[]
+  paymentRequests  SalePaymentRequest[]
   collectionDues   SaleCollectionDue[]
   internalComments SaleInternalComment[]
 
@@ -807,6 +808,32 @@ enum SalePaymentSource {
   ORDER_PAID
   MANUAL
   EXTERNAL_API
+}
+
+enum SalePaymentRequestStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model SalePaymentRequest {
+  id              String                   @id @db.VarChar(64)
+  requestKey      String                   @unique @db.Char(36)
+  saleId          String
+  sale            Sale                     @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  amount          Decimal                  @db.Decimal(12, 2)
+  status          SalePaymentRequestStatus @default(PENDING)
+  recipient       String?                  @db.VarChar(254)
+  emailAcceptedAt DateTime?
+  createdByEmail  String
+  createdAt       DateTime                 @default(now())
+  webpayToken     String?                  @unique
+  webpayOrder     String?                  @unique @db.VarChar(26)
+  webpayUrl       String?                  @db.Text
+  paymentId       String?                  @unique
+  payment         SalePayment?             @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([saleId, status])
 }
 
 model SaleCollectionDue {
@@ -832,6 +859,7 @@ model SalePayment {
   receiptFileName String            @default("")
   orderId         String?           @unique
   order           Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  paymentRequest  SalePaymentRequest?
   source          SalePaymentSource @default(MANUAL)
   createdByEmail  String
   observation     String            @default("") @db.Text

@@ -51,6 +51,7 @@ const steps = [
   ["20261127140000_client_attachments", "ClientAttachment", "id"],
   ["20261127150000_crm_archived", "Business", "crmArchiveState", "ARCHIVED"],
   ["20261127150000_crm_archived", "Client", "crmArchiveState", "ARCHIVED"],
+  ["20261128110000_sale_payment_requests", "SalePaymentRequest", "id"],
 ];
 
 const protectedTables = ["Business", "Client", "ClientNote", "Contact", "ClientContact", "ClientCrmHistory", "Quote", "QuoteItem", "Sale", "SalePayment", "SaleInternalComment"];

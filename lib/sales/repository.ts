@@ -13,7 +13,7 @@ import { notifyPaymentReceived, notifySaleRegistered } from "../notifications/ev
 import { getQuoteById, listQuotes } from "../quotes/repository";
 import { assertQuoteConvertible, getQuoteSaleConversionCheck } from "./conversion";
 import { nextSaleNumber } from "./numbering";
-import { parseSalePaymentAmount } from "./balances";
+import { getBalanceDue, parseSalePaymentAmount, sumPaidAmount } from "./balances";
 import { parseSaleClpInput } from "./amounts";
 import { ensureSaleReceiptStorage, removeSaleReceiptUpload, saveSaleReceiptUpload, validateSaleReceiptUpload } from "./receipt";
 import { ensureSalePaymentTable, withSalePaymentTable } from "./schema";
@@ -237,47 +237,35 @@ async function persistSalePayment(saleId: string, input: SalePaymentInput): Prom
   return withSalePaymentTable(() => persistSalePaymentOnce(saleId, input));
 }
 
+async function validatePaymentChange(tx: Prisma.TransactionClient, saleId: string, amount: number, paymentId?: string) {
+  await tx.$queryRaw`SELECT id FROM Sale WHERE id = ${saleId} FOR UPDATE`;
+  const current = await tx.sale.findUnique({ where: { id: saleId }, select: {
+    total: true, archivedAt: true, status: true,
+    payments: { select: { id: true, amount: true } },
+    paymentRequests: { where: { OR: [{ status: "PENDING", webpayToken: { not: null } }, ...(paymentId ? [{ paymentId }] : [])] }, select: { paymentId: true } },
+  } });
+  if (!current || current.archivedAt || current.status === "CANCELLED") throw new Error("La venta no está disponible para modificar abonos.");
+  if (current.paymentRequests.some((request) => request.paymentId === null)) throw new Error("Hay un pago en curso por Webpay. Espera su confirmación antes de modificar abonos.");
+  if (current.paymentRequests.length) throw new Error("El abono confirmado por Webpay está asociado a su transacción y no se puede editar.");
+  const paid = sumPaidAmount(current.payments.filter((payment) => payment.id !== paymentId).map((payment) => ({ amount: Number(payment.amount) })));
+  parseSalePaymentAmount(amount, getBalanceDue(Number(current.total), paid));
+}
+
 async function persistSalePaymentOnce(saleId: string, input: SalePaymentInput): Promise<SaleRecord> {
   const db = getPrisma();
-  const created = await db.salePayment.create({
-    data: {
-      saleId,
-      amount: input.amount,
-      method: input.method,
-      source: input.source,
-      createdByEmail: input.createdByEmail,
-      observation: parseSaleObservation(input.observation),
-      orderId: input.orderId ?? null,
-      paidAt: input.paidAt ?? new Date(),
-    },
-  });
-
-  let receiptPath = "";
-  let receiptFileName = "";
-  if (input.receipt && input.receipt.size > 0) {
-    try {
-      const saved = await saveSaleReceiptUpload(input.receipt);
-      receiptPath = saved.path;
-      receiptFileName = saved.fileName;
-      await db.salePayment.update({
-        where: { id: created.id },
-        data: { receiptPath, receiptFileName },
-      });
-    } catch (error) {
-      if (receiptPath) await removeSaleReceiptUpload(receiptPath).catch(() => undefined);
-      await db.salePayment.delete({ where: { id: created.id } }).catch(() => undefined);
-      throw error;
-    }
-  }
-
-  await db.sale.update({
-    where: { id: saleId },
-    data: {
-      paymentMethod: input.method,
-      ...(receiptPath
-        ? { receiptPath, receiptFileName }
-        : {}),
-    },
+  const saved = input.receipt && input.receipt.size > 0 ? await saveSaleReceiptUpload(input.receipt) : null;
+  const receipt = saved ? { receiptPath: saved.path, receiptFileName: saved.fileName } : {};
+  const created = await db.$transaction(async (tx) => {
+    if (input.source === "MANUAL") await validatePaymentChange(tx, saleId, input.amount);
+    const payment = await tx.salePayment.create({ data: {
+      saleId, amount: input.amount, method: input.method, source: input.source, createdByEmail: input.createdByEmail,
+      observation: parseSaleObservation(input.observation), orderId: input.orderId ?? null, paidAt: input.paidAt ?? new Date(), ...receipt,
+    } });
+    await tx.sale.update({ where: { id: saleId }, data: { paymentMethod: input.method, ...receipt } });
+    return payment;
+  }).catch(async (error) => {
+    if (saved) await removeSaleReceiptUpload(saved.path).catch(() => undefined);
+    throw error;
   });
 
   const sale = await getSaleById(saleId);
@@ -382,6 +370,7 @@ export async function updateSalePayment(
 
   try {
     await getPrisma().$transaction(async (transaction) => {
+      await validatePaymentChange(transaction, saleId, amount, payment.id);
       await transaction.salePayment.update({
         where: { id: payment.id, saleId },
         data: {
@@ -541,6 +530,8 @@ export async function archiveTestSale(saleId: string, archivedByEmail: string): 
 
     const paymentCount = await transaction.salePayment.count({ where: { saleId: id } });
     if (paymentCount > 0) throw new Error("No se puede ocultar una venta con pagos registrados.");
+    const checkout = await transaction.salePaymentRequest.findFirst({ where: { saleId: id, status: "PENDING", webpayToken: { not: null } }, select: { id: true } });
+    if (checkout) throw new Error("No se puede ocultar la venta mientras hay un pago en curso.");
 
     await transaction.sale.update({
       where: { id },

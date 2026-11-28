@@ -1,0 +1,23 @@
+CREATE TABLE `SalePaymentRequest` (
+  `id` VARCHAR(64) NOT NULL,
+  `requestKey` CHAR(36) NOT NULL,
+  `saleId` VARCHAR(191) NOT NULL,
+  `amount` DECIMAL(12, 2) NOT NULL,
+  `status` ENUM('PENDING', 'PAID', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+  `recipient` VARCHAR(254) NULL,
+  `emailAcceptedAt` DATETIME(3) NULL,
+  `createdByEmail` VARCHAR(191) NOT NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `webpayToken` VARCHAR(191) NULL,
+  `webpayOrder` VARCHAR(26) NULL,
+  `webpayUrl` TEXT NULL,
+  `paymentId` VARCHAR(191) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `SalePaymentRequest_requestKey_key` (`requestKey`),
+  UNIQUE INDEX `SalePaymentRequest_webpayToken_key` (`webpayToken`),
+  UNIQUE INDEX `SalePaymentRequest_webpayOrder_key` (`webpayOrder`),
+  UNIQUE INDEX `SalePaymentRequest_paymentId_key` (`paymentId`),
+  INDEX `SalePaymentRequest_saleId_status_idx` (`saleId`, `status`),
+  CONSTRAINT `SalePaymentRequest_saleId_fkey` FOREIGN KEY (`saleId`) REFERENCES `Sale` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `SalePaymentRequest_paymentId_fkey` FOREIGN KEY (`paymentId`) REFERENCES `SalePayment` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

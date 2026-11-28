@@ -12,6 +12,7 @@ export type SendEmailInput = {
   html?: string;
   attachments?: EmailAttachment[];
   tags?: { name: string; value: string }[];
+  idempotencyKey?: string;
 };
 
 export type SendEmailResult =
@@ -83,6 +84,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       headers: {
         Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from,

@@ -136,8 +136,8 @@ function saleCollection(row: ScheduleSaleRow, today: string): SaleCollection {
   };
 }
 
-export async function getSaleCollection(saleId: string, session: CollectionSession): Promise<SaleCollection | null> {
-  const row = await db().sale.findFirst({ where: { id: saleId, ...activeSaleFilter(session) }, select: scheduleSelect });
+export async function getSaleCollection(saleId: string, session: CollectionSession, client: Prisma.TransactionClient = db()): Promise<SaleCollection | null> {
+  const row = await client.sale.findFirst({ where: { id: saleId, ...activeSaleFilter(session) }, select: scheduleSelect });
   return row && canViewSale(row, session) ? saleCollection(row, calendarToday()) : null;
 }
 
