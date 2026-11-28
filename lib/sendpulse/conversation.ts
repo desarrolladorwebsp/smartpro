@@ -18,6 +18,8 @@ const MAX_SNAPSHOTS = 100;
 const snapshots = new Map<string, SendpulseConversation>();
 const refreshes = new Map<string, Promise<SendpulseConversation>>();
 
+export class SendpulseContactOutsideBot extends Error {}
+
 function record(value: unknown): Record<string, unknown> | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
 }
@@ -52,51 +54,67 @@ function asMessage(value: unknown): SendpulseMessage | null {
   };
 }
 
-export function getCachedSendpulseConversation(externalId: string): SendpulseConversation | null {
-  const snapshot = snapshots.get(externalId);
+function conversationKey(externalId: string, botId: string) {
+  return JSON.stringify([botId, externalId]);
+}
+
+export function getCachedSendpulseConversation(externalId: string, botId: string): SendpulseConversation | null {
+  const snapshot = snapshots.get(conversationKey(externalId, botId));
   if (!snapshot || Date.now() - Date.parse(snapshot.refreshedAt) >= SNAPSHOT_TTL_MS) return null;
   return snapshot;
 }
 
-async function fetchConversation(externalId: string, apiKey: string): Promise<SendpulseConversation> {
-  const url = new URL("https://api.sendpulse.com/whatsapp/chats/messages");
-  url.searchParams.set("contact_id", externalId);
-  url.searchParams.set("size", String(MESSAGE_LIMIT));
-  url.searchParams.set("order", "desc");
+async function readSendpulse(url: URL, apiKey: string) {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
     cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8_000),
   });
   if (!response.ok) throw new Error("SendPulse no pudo consultar la conversación.");
+  return record(await response.json());
+}
 
-  const payload = record(await response.json());
+async function fetchConversation(externalId: string, apiKey: string, botId: string): Promise<SendpulseConversation> {
+  const contactUrl = new URL("https://api.sendpulse.com/whatsapp/contacts/get");
+  contactUrl.searchParams.set("id", externalId);
+  const contact = await readSendpulse(contactUrl, apiKey);
+  const data = record(contact?.data);
+  if (contact?.success !== true || data?.id !== externalId || data.bot_id !== botId) {
+    throw new SendpulseContactOutsideBot("El contacto no pertenece al bot de WhatsApp autorizado.");
+  }
+
+  const url = new URL("https://api.sendpulse.com/whatsapp/chats/messages");
+  url.searchParams.set("contact_id", externalId);
+  url.searchParams.set("size", String(MESSAGE_LIMIT));
+  url.searchParams.set("order", "desc");
+  const payload = await readSendpulse(url, apiKey);
   if (payload?.success !== true || !Array.isArray(payload.data)) throw new Error("SendPulse devolvió una conversación inválida.");
 
   const messages = payload.data.slice(0, MESSAGE_LIMIT).map(asMessage).filter((message) => message !== null);
   return { refreshedAt: new Date().toISOString(), messages: messages.reverse() };
 }
 
-export async function refreshSendpulseConversation(externalId: string, apiKey: string): Promise<SendpulseConversation> {
-  const current = getCachedSendpulseConversation(externalId);
+export async function refreshSendpulseConversation(externalId: string, apiKey: string, botId: string): Promise<SendpulseConversation> {
+  const key = conversationKey(externalId, botId);
+  const current = getCachedSendpulseConversation(externalId, botId);
   if (current && Date.now() - Date.parse(current.refreshedAt) < REFRESH_INTERVAL_MS) return current;
-  const inProgress = refreshes.get(externalId);
+  const inProgress = refreshes.get(key);
   if (inProgress) return inProgress;
 
-  const request = fetchConversation(externalId, apiKey);
-  refreshes.set(externalId, request);
+  const request = fetchConversation(externalId, apiKey, botId);
+  refreshes.set(key, request);
   try {
     const snapshot = await request;
-    snapshots.delete(externalId);
-    snapshots.set(externalId, snapshot);
+    snapshots.delete(key);
+    snapshots.set(key, snapshot);
     if (snapshots.size > MAX_SNAPSHOTS) {
       const oldest = snapshots.keys().next();
       if (!oldest.done) snapshots.delete(oldest.value);
     }
     setTimeout(() => {
-      if (snapshots.get(externalId) === snapshot) snapshots.delete(externalId);
+      if (snapshots.get(key) === snapshot) snapshots.delete(key);
     }, SNAPSHOT_TTL_MS).unref();
     return snapshot;
   } finally {
-    refreshes.delete(externalId);
+    refreshes.delete(key);
   }
 }
